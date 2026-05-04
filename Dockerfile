@@ -1,9 +1,14 @@
 # Multi-stage build for RavenRustRAG
 # Produces a small static binary (~15MB)
 
+# --- Build stage (musl for static linking) ---
 FROM rust:1.86-bookworm AS builder
 
 WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends musl-tools && \
+    rustup target add x86_64-unknown-linux-musl && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy manifests first for dependency caching
 COPY Cargo.toml Cargo.lock ./
@@ -29,7 +34,7 @@ RUN mkdir -p crates/raven-core/src && echo "pub fn dummy() {}" > crates/raven-co
     mkdir -p crates/raven-cli/src && echo "fn main() {}" > crates/raven-cli/src/main.rs
 
 # Build dependencies only (cached layer)
-RUN cargo build --release 2>/dev/null || true
+RUN cargo build --release --target x86_64-unknown-linux-musl 2>/dev/null || true
 
 # Copy real source code
 COPY crates/ crates/
@@ -37,34 +42,20 @@ COPY crates/ crates/
 # Touch source files to invalidate cache for actual code
 RUN find crates -name "*.rs" -exec touch {} +
 
-# Build the actual binary
-RUN cargo build --release
+# Build the actual binary (static musl)
+RUN cargo build --release --target x86_64-unknown-linux-musl
 
-# --- Runtime stage ---
-FROM debian:bookworm-slim
+# --- Runtime stage (scratch — no OS, just the binary) ---
+FROM scratch
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/raven /raven
 
-# Non-root user
-RUN groupadd -r raven && useradd -r -g raven -d /home/raven -m raven
-
-COPY --from=builder /app/target/release/raven /usr/local/bin/raven
-
-# Default data directory
-RUN mkdir -p /data && chown raven:raven /data
 VOLUME /data
-
-USER raven
-WORKDIR /data
 
 ENV RAVEN_DB=/data/raven.db
 
 EXPOSE 8484
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD raven doctor || exit 1
-
-ENTRYPOINT ["raven"]
-CMD ["serve"]
+ENTRYPOINT ["/raven"]
+CMD ["serve", "--host", "0.0.0.0"]
