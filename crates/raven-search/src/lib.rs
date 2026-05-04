@@ -23,6 +23,9 @@ pub use eval::{
 pub mod semantic_split;
 pub use semantic_split::SemanticSplitter;
 
+pub mod multi_query;
+pub use multi_query::expand_query;
+
 /// Main document index — the heart of RavenRustRAG
 pub struct DocumentIndex {
     store: Arc<dyn VectorStore>,
