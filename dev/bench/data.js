@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777932202347,
+  "lastUpdate": 1777932947304,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -359,6 +359,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 114105,
             "range": "± 703",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "53c83293d417dd62fc537a16f8c93ea18deae96b",
+          "message": "feat: SQLite schema versioning and automatic migrations closes #60\n\n- Added schema_version table to track database version\n- Migration system: checks current version on open, applies pending migrations\n- migrate_to_v1() creates all tables in a transaction\n- SqliteStore::schema_version() method for inspection\n- Doctor command reports schema version\n- Existing databases (pre-migration) auto-migrate on next open\n- Future migrations: add migrate_to_v2(), etc. in sequence",
+          "timestamp": "2026-05-05T00:11:46+02:00",
+          "tree_id": "dfd8af3bb2a40bd5b382ff49e1406bd62ceeb24d",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/53c83293d417dd62fc537a16f8c93ea18deae96b"
+        },
+        "date": 1777932946235,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 99,
+            "range": "± 9",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 547,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1086,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 54789,
+            "range": "± 440",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 573523,
+            "range": "± 13072",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 96145,
+            "range": "± 465",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39143,
+            "range": "± 151",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 112240,
+            "range": "± 459",
             "unit": "ns/iter"
           }
         ]
