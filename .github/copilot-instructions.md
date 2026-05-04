@@ -4,6 +4,12 @@
 
 All code, comments, documentation, commit messages, and plan files must be written in **English only**.
 
+## Ollama Policy
+
+- **No cloud models.** Ollama must run with `OLLAMA_NO_CLOUD=1` at all times.
+- Only use local models (pulled and stored on disk). Never configure or invoke remote/cloud inference through Ollama.
+- The embedding model used by default is `nomic-embed-text` (local).
+
 ## Project Overview
 
 RavenRustRAG is a local-first RAG (Retrieval-Augmented Generation) engine written in Rust.
