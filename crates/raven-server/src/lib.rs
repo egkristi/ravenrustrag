@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
+use subtle::ConstantTimeEq;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
@@ -232,15 +233,11 @@ async fn prompt_handler(
                     .replace("{query}", &req.query)
                     .replace("{sources}", &sources.join(", "))
             } else {
+                use std::fmt::Write;
                 let mut p = format!("Query: {}\n\nContext:\n", req.query);
                 for (i, r) in results.iter().enumerate() {
                     let src = r.chunk.metadata.get("source").unwrap_or(&r.chunk.doc_id);
-                    p.push_str(&format!(
-                        "\n[{}] Source: {}\n{}\n",
-                        i + 1,
-                        src,
-                        r.chunk.text
-                    ));
+                    let _ = write!(p, "\n[{}] Source: {}\n{}\n", i + 1, src, r.chunk.text);
                 }
                 p.push_str("\n---\nAnswer the query using the provided context.");
                 p
@@ -298,9 +295,9 @@ async fn index_handler(
     let count = docs.len();
 
     match state.index.add_documents(docs, &state.splitter).await {
-        Ok(_) => Json(IndexResponse {
+        Ok(()) => Json(IndexResponse {
             indexed: count,
-            message: format!("Indexed {} documents", count),
+            message: format!("Indexed {count} documents"),
         })
         .into_response(),
         Err(e) => (
@@ -379,12 +376,8 @@ fn check_auth(headers: &HeaderMap, config: &ServerConfig) -> bool {
     headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
-        .map(|v| {
-            v.strip_prefix("Bearer ")
-                .map(|token| token == expected_key)
-                .unwrap_or(false)
-        })
-        .unwrap_or(false)
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .is_some_and(|token| token.as_bytes().ct_eq(expected_key.as_bytes()).into())
 }
 
 // --- Server builder ---

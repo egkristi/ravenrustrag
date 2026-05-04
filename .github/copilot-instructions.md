@@ -52,7 +52,7 @@ raven-cli    (depends on all)
 
 ## Coding Standards
 
-- **Edition**: Rust 2021, MSRV 1.75
+- **Edition**: Rust 2021, MSRV 1.86
 - **Async runtime**: Tokio (full features)
 - **Error handling**: `thiserror` for library errors (`RavenError`), `anyhow` only in CLI
 - **Traits**: Use `async-trait` for async trait methods. All traits must be `Send + Sync`

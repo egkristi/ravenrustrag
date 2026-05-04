@@ -164,20 +164,23 @@ impl McpServer {
         let arguments = params
             .get("arguments")
             .cloned()
-            .unwrap_or(Value::Object(Default::default()));
+            .unwrap_or(Value::Object(serde_json::Map::default()));
 
         match tool_name {
             "search" => self.tool_search(id, arguments).await,
             "get_prompt" => self.tool_get_prompt(id, arguments).await,
             "collection_info" => self.tool_collection_info(id).await,
             "index_documents" => self.tool_index_documents(id, arguments).await,
-            _ => JsonRpcResponse::error(id, -32602, format!("Unknown tool: {}", tool_name)),
+            _ => JsonRpcResponse::error(id, -32602, format!("Unknown tool: {tool_name}")),
         }
     }
 
     async fn tool_search(&self, id: Value, args: Value) -> JsonRpcResponse {
         let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
-        let top_k = args.get("top_k").and_then(|v| v.as_u64()).unwrap_or(5) as usize;
+        let top_k = args
+            .get("top_k")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(5) as usize;
 
         match self.index.query(query, top_k).await {
             Ok(results) => {
@@ -204,7 +207,10 @@ impl McpServer {
 
     async fn tool_get_prompt(&self, id: Value, args: Value) -> JsonRpcResponse {
         let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
-        let top_k = args.get("top_k").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
+        let top_k = args
+            .get("top_k")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(3) as usize;
 
         match self.index.query_for_prompt(query, top_k).await {
             Ok(prompt) => JsonRpcResponse::success(
@@ -254,7 +260,7 @@ impl McpServer {
 
         let count = docs.len();
         match self.index.add_documents(docs, &self.splitter).await {
-            Ok(_) => JsonRpcResponse::success(
+            Ok(()) => JsonRpcResponse::success(
                 id,
                 serde_json::json!({
                     "content": [{ "type": "text", "text": format!("Indexed {} documents", count) }]
@@ -282,7 +288,7 @@ impl McpServer {
                 Ok(r) => r,
                 Err(e) => {
                     let err_resp =
-                        JsonRpcResponse::error(Value::Null, -32700, format!("Parse error: {}", e));
+                        JsonRpcResponse::error(Value::Null, -32700, format!("Parse error: {e}"));
                     let out = serde_json::to_string(&err_resp).unwrap_or_default();
                     stdout.write_all(out.as_bytes()).await?;
                     stdout.write_all(b"\n").await?;

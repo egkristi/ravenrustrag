@@ -1,7 +1,7 @@
 # Multi-stage build for RavenRustRAG
 # Produces a small static binary (~15MB)
 
-FROM rust:1.75-bookworm AS builder
+FROM rust:1.86-bookworm AS builder
 
 WORKDIR /app
 

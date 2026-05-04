@@ -193,19 +193,21 @@ pub fn format_prompt(query: &str, results: &[SearchResult], template: Option<&st
             .replace("{query}", query)
             .replace("{sources}", &sources.join(", "))
     } else {
-        let mut prompt = format!("Query: {}\n\nContext:\n", query);
+        use std::fmt::Write;
+        let mut prompt = format!("Query: {query}\n\nContext:\n");
         for (i, result) in results.iter().enumerate() {
             let source = result
                 .chunk
                 .metadata
                 .get("source")
                 .unwrap_or(&result.chunk.doc_id);
-            prompt.push_str(&format!(
+            let _ = write!(
+                prompt,
                 "\n[{}] Source: {}\n{}\n",
                 i + 1,
                 source,
                 result.chunk.text
-            ));
+            );
         }
         prompt.push_str("\n---\nAnswer the query using the provided context.");
         prompt
@@ -318,7 +320,7 @@ pub async fn watch_directory(
                     _ => {}
                 }
             }
-            _ = tokio::time::sleep(Duration::from_millis(100)) => {
+            () = tokio::time::sleep(Duration::from_millis(100)) => {
                 if !pending.is_empty() && last_event.elapsed() >= debounce {
                     let files: Vec<_> = pending.drain().collect();
                     for file_path in files {

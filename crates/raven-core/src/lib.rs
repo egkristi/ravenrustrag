@@ -203,7 +203,7 @@ impl Config {
     /// Read config from a TOML file
     pub fn from_file(path: &Path) -> Result<Self> {
         let content = std::fs::read_to_string(path)?;
-        toml::from_str(&content).map_err(|e| RavenError::Config(format!("TOML parse error: {}", e)))
+        toml::from_str(&content).map_err(|e| RavenError::Config(format!("TOML parse error: {e}")))
     }
 
     /// Walk up from cwd looking for raven.toml

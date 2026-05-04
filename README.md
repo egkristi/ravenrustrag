@@ -6,7 +6,7 @@
 
 Index thousands of documents in milliseconds. Query with microsecond latency. Ship as a single static binary. No Python. No virtual environments. No GIL.
 
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.86%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSE)
 
 ## Why Rust instead of Python?

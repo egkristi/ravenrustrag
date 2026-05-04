@@ -272,21 +272,22 @@ async fn main() -> Result<()> {
         } => {
             info!("Indexing documents from {:?}", path);
 
-            let exts: Vec<&str> = extensions.split(',').map(|s| s.trim()).collect();
-            let ext_refs: Vec<&str> = exts.to_vec();
+            let exts: Vec<&str> = extensions.split(',').map(str::trim).collect();
+            let ext_refs: Vec<&str> = exts.clone();
 
             // Collect file paths for incremental indexing
             let entries: Vec<_> = walkdir::WalkDir::new(&path)
                 .follow_links(false)
                 .into_iter()
-                .filter_map(|e| e.ok())
+                .filter_map(std::result::Result::ok)
                 .filter(|e| e.file_type().is_file())
                 .filter(|e| {
                     e.path()
                         .extension()
                         .and_then(|ext| ext.to_str())
-                        .map(|ext| ext_refs.iter().any(|e2| e2.trim_start_matches('.') == ext))
-                        .unwrap_or(false)
+                        .is_some_and(|ext| {
+                            ext_refs.iter().any(|e2| e2.trim_start_matches('.') == ext)
+                        })
                 })
                 .collect();
 
@@ -357,8 +358,7 @@ async fn main() -> Result<()> {
 
             let total_chunks = index.count().await?;
             pb.finish_with_message(format!(
-                "Done! {} new, {} skipped, {} total chunks",
-                indexed, skipped, total_chunks
+                "Done! {indexed} new, {skipped} skipped, {total_chunks} total chunks"
             ));
         }
 
@@ -386,7 +386,7 @@ async fn main() -> Result<()> {
             };
 
             let mode = if hybrid { "hybrid" } else { "vector" };
-            println!("\n🐦‍⬛ Results for: \"{}\" ({})\n", query, mode);
+            println!("\n🐦‍⬛ Results for: \"{query}\" ({mode})\n");
 
             if results.is_empty() {
                 println!("No results found.");
@@ -399,9 +399,9 @@ async fn main() -> Result<()> {
                         .cloned()
                         .unwrap_or_else(|| "unknown".to_string());
                     println!("[{}] (score: {:.4})", i + 1, result.score);
-                    println!("    Source: {}", source);
+                    println!("    Source: {source}");
                     let preview: String = result.chunk.text.chars().take(200).collect();
-                    println!("    {}\n", preview);
+                    println!("    {preview}\n");
                 }
             }
         }
@@ -418,7 +418,7 @@ async fn main() -> Result<()> {
             let index = DocumentIndex::new(store, embedder);
 
             let prompt = index.query_for_prompt(&query, top_k).await?;
-            println!("{}", prompt);
+            println!("{prompt}");
         }
 
         Commands::Info { db } => {
@@ -427,7 +427,7 @@ async fn main() -> Result<()> {
 
             println!("🐦‍⬛ RavenRustRAG Index Info\n");
             println!("  Database: {}", db.display());
-            println!("  Chunks:   {}", count);
+            println!("  Chunks:   {count}");
         }
 
         Commands::Serve {
@@ -450,12 +450,9 @@ async fn main() -> Result<()> {
                 api_key,
             };
 
-            println!(
-                "🐦‍⬛ RavenRustRAG server starting on http://{}:{}",
-                host, port
-            );
+            println!("🐦‍⬛ RavenRustRAG server starting on http://{host}:{port}");
             println!("   Database: {}", db.display());
-            println!("   Model: {} ({})", model, url);
+            println!("   Model: {model} ({url})");
             println!("   Endpoints: /health /stats /metrics /query /prompt /index /openapi.json");
             println!("   Press Ctrl+C to stop.\n");
 
@@ -468,7 +465,7 @@ async fn main() -> Result<()> {
 
             raven_server::serve(state)
                 .await
-                .map_err(|e| anyhow::anyhow!("{}", e))?;
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
         }
 
         Commands::Clear { db } => {
@@ -532,7 +529,7 @@ async fn main() -> Result<()> {
             server
                 .run_stdio()
                 .await
-                .map_err(|e| anyhow::anyhow!("{}", e))?;
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
         }
 
         Commands::Doctor { url, db } => {
@@ -544,26 +541,26 @@ async fn main() -> Result<()> {
                 match SqliteStore::new(&db, 768).await {
                     Ok(store) => {
                         let count = store.count().await.unwrap_or(0);
-                        println!("✓ OK ({} chunks)", count);
+                        println!("✓ OK ({count} chunks)");
                     }
-                    Err(e) => println!("✗ Error: {}", e),
+                    Err(e) => println!("✗ Error: {e}"),
                 }
             } else {
                 println!("⚠ Not found (will be created on first index)");
             }
 
             // Check Ollama
-            print!("  Ollama ({})... ", url);
+            print!("  Ollama ({url})... ");
             let client = reqwest::Client::new();
             match client
-                .get(format!("{}/api/tags", url))
+                .get(format!("{url}/api/tags"))
                 .timeout(std::time::Duration::from_secs(3))
                 .send()
                 .await
             {
                 Ok(resp) if resp.status().is_success() => println!("✓ OK"),
                 Ok(resp) => println!("⚠ Status: {}", resp.status()),
-                Err(e) => println!("✗ Not reachable: {}", e),
+                Err(e) => println!("✗ Not reachable: {e}"),
             }
 
             println!("\n  Version: {}", env!("CARGO_PKG_VERSION"));
@@ -582,17 +579,16 @@ async fn main() -> Result<()> {
             let index = Arc::new(DocumentIndex::new(store.clone(), embedder));
             let splitter: Arc<dyn raven_split::Splitter> = Arc::new(TextSplitter::new(512, 50));
 
-            let exts: Vec<&str> = extensions.split(',').map(|s| s.trim()).collect();
+            let exts: Vec<&str> = extensions.split(',').map(str::trim).collect();
 
             println!(
-                "🐦‍⬛ Watching {:?} for changes (extensions: {}, debounce: {}ms)",
-                path, extensions, debounce
+                "🐦‍⬛ Watching {path:?} for changes (extensions: {extensions}, debounce: {debounce}ms)"
             );
             println!("   Press Ctrl+C to stop.\n");
 
             raven_search::watch_directory(index, store, splitter, &path, &exts, debounce)
                 .await
-                .map_err(|e| anyhow::anyhow!("{}", e))?;
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
         }
     }
 

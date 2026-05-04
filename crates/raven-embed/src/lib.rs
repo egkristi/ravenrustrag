@@ -76,7 +76,7 @@ impl Embedder for OllamaBackend {
             .timeout(std::time::Duration::from_secs(30))
             .send()
             .await
-            .map_err(|e| RavenError::Embed(format!("HTTP error: {}", e)))?;
+            .map_err(|e| RavenError::Embed(format!("HTTP error: {e}")))?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -85,15 +85,14 @@ impl Embedder for OllamaBackend {
                 .await
                 .unwrap_or_else(|_| "unknown error".to_string());
             return Err(RavenError::Embed(format!(
-                "Ollama returned {}: {}",
-                status, text
+                "Ollama returned {status}: {text}"
             )));
         }
 
         let body: OllamaEmbedResponse = response
             .json()
             .await
-            .map_err(|e| RavenError::Embed(format!("JSON parse error: {}", e)))?;
+            .map_err(|e| RavenError::Embed(format!("JSON parse error: {e}")))?;
 
         Ok(body.embeddings)
     }
@@ -183,7 +182,7 @@ impl Embedder for OpenAIBackend {
         let response = req_builder
             .send()
             .await
-            .map_err(|e| RavenError::Embed(format!("HTTP error: {}", e)))?;
+            .map_err(|e| RavenError::Embed(format!("HTTP error: {e}")))?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -192,15 +191,14 @@ impl Embedder for OpenAIBackend {
                 .await
                 .unwrap_or_else(|_| "unknown error".to_string());
             return Err(RavenError::Embed(format!(
-                "OpenAI API returned {}: {}",
-                status, text
+                "OpenAI API returned {status}: {text}"
             )));
         }
 
         let body: OpenAIEmbedResponse = response
             .json()
             .await
-            .map_err(|e| RavenError::Embed(format!("JSON parse error: {}", e)))?;
+            .map_err(|e| RavenError::Embed(format!("JSON parse error: {e}")))?;
 
         let embeddings = body.data.into_iter().map(|d| d.embedding).collect();
         Ok(embeddings)
@@ -355,7 +353,7 @@ impl Embedder for DummyEmbedder {
                 let bytes = hash.as_bytes();
                 (0..self.dim)
                     .map(|i| {
-                        let b = bytes[i % bytes.len()] as f32;
+                        let b = f32::from(bytes[i % bytes.len()]);
                         (b - 96.0) / 26.0 // Normalize to roughly [-1, 1]
                     })
                     .collect()
@@ -367,7 +365,7 @@ impl Embedder for DummyEmbedder {
         self.dim
     }
 
-    fn model_name(&self) -> &str {
+    fn model_name(&self) -> &'static str {
         "dummy"
     }
 }

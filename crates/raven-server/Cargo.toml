@@ -1,7 +1,7 @@
 [package]
 name = "raven-server"
-version = "0.1.0-alpha.1"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
 raven-core = { path = "../raven-core" }
@@ -16,3 +16,7 @@ tower-http = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
+subtle = "2.6.1"
+
+[lints]
+workspace = true

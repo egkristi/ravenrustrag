@@ -43,9 +43,10 @@ pub struct SqliteStore {
 }
 
 impl SqliteStore {
+    #[allow(clippy::unused_async)]
     pub async fn new(path: impl AsRef<Path>, dimension: usize) -> Result<Self> {
         let conn = Connection::open(path)
-            .map_err(|e| RavenError::Store(format!("Failed to open SQLite: {}", e)))?;
+            .map_err(|e| RavenError::Store(format!("Failed to open SQLite: {e}")))?;
 
         // Create tables
         conn.execute(
@@ -58,13 +59,13 @@ impl SqliteStore {
             )",
             [],
         )
-        .map_err(|e| RavenError::Store(format!("Failed to create table: {}", e)))?;
+        .map_err(|e| RavenError::Store(format!("Failed to create table: {e}")))?;
 
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON chunks(doc_id)",
             [],
         )
-        .map_err(|e| RavenError::Store(format!("Failed to create index: {}", e)))?;
+        .map_err(|e| RavenError::Store(format!("Failed to create index: {e}")))?;
 
         // Fingerprint table for incremental indexing
         conn.execute(
@@ -75,7 +76,7 @@ impl SqliteStore {
             )",
             [],
         )
-        .map_err(|e| RavenError::Store(format!("Failed to create fingerprints table: {}", e)))?;
+        .map_err(|e| RavenError::Store(format!("Failed to create fingerprints table: {e}")))?;
 
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
@@ -102,7 +103,7 @@ impl VectorStore for SqliteStore {
         let conn = self.conn.lock().await;
         let tx = conn
             .unchecked_transaction()
-            .map_err(|e| RavenError::Store(format!("Transaction failed: {}", e)))?;
+            .map_err(|e| RavenError::Store(format!("Transaction failed: {e}")))?;
 
         for chunk in chunks {
             let embedding = chunk
@@ -128,11 +129,11 @@ impl VectorStore for SqliteStore {
                 "INSERT OR REPLACE INTO chunks (id, doc_id, text, metadata, embedding) VALUES (?1, ?2, ?3, ?4, ?5)",
                 params![&chunk.id, &chunk.doc_id, &chunk.text, metadata, embedding_bytes],
             )
-            .map_err(|e| RavenError::Store(format!("Insert failed: {}", e)))?;
+            .map_err(|e| RavenError::Store(format!("Insert failed: {e}")))?;
         }
 
         tx.commit()
-            .map_err(|e| RavenError::Store(format!("Commit failed: {}", e)))?;
+            .map_err(|e| RavenError::Store(format!("Commit failed: {e}")))?;
 
         Ok(())
     }
@@ -142,7 +143,7 @@ impl VectorStore for SqliteStore {
 
         let mut stmt = conn
             .prepare("SELECT id, doc_id, text, metadata, embedding FROM chunks")
-            .map_err(|e| RavenError::Store(format!("Query prepare failed: {}", e)))?;
+            .map_err(|e| RavenError::Store(format!("Query prepare failed: {e}")))?;
 
         let chunk_iter = stmt
             .query_map([], |row| {
@@ -167,19 +168,20 @@ impl VectorStore for SqliteStore {
                     embedding: Some(embedding),
                 })
             })
-            .map_err(|e| RavenError::Store(format!("Query failed: {}", e)))?;
+            .map_err(|e| RavenError::Store(format!("Query failed: {e}")))?;
 
         let mut scored: Vec<(f32, Chunk)> = Vec::new();
 
         for chunk_result in chunk_iter {
-            let chunk = chunk_result.map_err(|e| RavenError::Store(format!("Row error: {}", e)))?;
-            let embedding = chunk.embedding.as_ref().unwrap();
-            let score = Self::cosine_similarity(query, embedding);
-            scored.push((score, chunk));
+            let chunk = chunk_result.map_err(|e| RavenError::Store(format!("Row error: {e}")))?;
+            if let Some(embedding) = chunk.embedding.as_ref() {
+                let score = Self::cosine_similarity(query, embedding);
+                scored.push((score, chunk));
+            }
         }
 
         // Sort by score descending
-        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
         scored.truncate(top_k);
 
         let results = scored
@@ -197,7 +199,7 @@ impl VectorStore for SqliteStore {
     async fn delete(&self, doc_id: &str) -> Result<()> {
         let conn = self.conn.lock().await;
         conn.execute("DELETE FROM chunks WHERE doc_id = ?1", [doc_id])
-            .map_err(|e| RavenError::Store(format!("Delete failed: {}", e)))?;
+            .map_err(|e| RavenError::Store(format!("Delete failed: {e}")))?;
         Ok(())
     }
 
@@ -205,14 +207,14 @@ impl VectorStore for SqliteStore {
         let conn = self.conn.lock().await;
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM chunks", [], |row| row.get(0))
-            .map_err(|e| RavenError::Store(format!("Count failed: {}", e)))?;
+            .map_err(|e| RavenError::Store(format!("Count failed: {e}")))?;
         Ok(count as usize)
     }
 
     async fn clear(&self) -> Result<()> {
         let conn = self.conn.lock().await;
         conn.execute("DELETE FROM chunks", [])
-            .map_err(|e| RavenError::Store(format!("Clear failed: {}", e)))?;
+            .map_err(|e| RavenError::Store(format!("Clear failed: {e}")))?;
         Ok(())
     }
 
@@ -220,7 +222,7 @@ impl VectorStore for SqliteStore {
         let conn = self.conn.lock().await;
         let mut stmt = conn
             .prepare("SELECT id, doc_id, text, metadata, embedding FROM chunks")
-            .map_err(|e| RavenError::Store(format!("Query prepare failed: {}", e)))?;
+            .map_err(|e| RavenError::Store(format!("Query prepare failed: {e}")))?;
 
         let chunks = stmt
             .query_map([], |row| {
@@ -244,11 +246,11 @@ impl VectorStore for SqliteStore {
                     embedding: Some(embedding),
                 })
             })
-            .map_err(|e| RavenError::Store(format!("Query failed: {}", e)))?;
+            .map_err(|e| RavenError::Store(format!("Query failed: {e}")))?;
 
         let mut result = Vec::new();
         for chunk in chunks {
-            result.push(chunk.map_err(|e| RavenError::Store(format!("Row error: {}", e)))?);
+            result.push(chunk.map_err(|e| RavenError::Store(format!("Row error: {e}")))?);
         }
         Ok(result)
     }
@@ -263,10 +265,7 @@ impl VectorStore for SqliteStore {
         match result {
             Ok(hash) => Ok(Some(hash)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(RavenError::Store(format!(
-                "Fingerprint query failed: {}",
-                e
-            ))),
+            Err(e) => Err(RavenError::Store(format!("Fingerprint query failed: {e}"))),
         }
     }
 
@@ -276,14 +275,14 @@ impl VectorStore for SqliteStore {
             "INSERT OR REPLACE INTO fingerprints (path, content_hash, modified) VALUES (?1, ?2, ?3)",
             rusqlite::params![path, hash, chrono::Utc::now().timestamp()],
         )
-        .map_err(|e| RavenError::Store(format!("Fingerprint set failed: {}", e)))?;
+        .map_err(|e| RavenError::Store(format!("Fingerprint set failed: {e}")))?;
         Ok(())
     }
 
     async fn delete_fingerprint(&self, path: &str) -> Result<()> {
         let conn = self.conn.lock().await;
         conn.execute("DELETE FROM fingerprints WHERE path = ?1", [path])
-            .map_err(|e| RavenError::Store(format!("Fingerprint delete failed: {}", e)))?;
+            .map_err(|e| RavenError::Store(format!("Fingerprint delete failed: {e}")))?;
         Ok(())
     }
 }
@@ -326,7 +325,7 @@ impl VectorStore for MemoryStore {
             }
         }
 
-        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
         scored.truncate(top_k);
 
         Ok(scored

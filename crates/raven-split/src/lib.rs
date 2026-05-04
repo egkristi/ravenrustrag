@@ -48,7 +48,7 @@ impl Splitter for TextSplitter {
             let text = &doc.text;
             if text.len() <= self.chunk_size {
                 let mut chunk = Chunk::new(&doc.id, &doc.text);
-                chunk.metadata = doc.metadata.clone();
+                doc.metadata.clone_into(&mut chunk.metadata);
                 chunks.push(chunk);
                 continue;
             }
@@ -61,7 +61,7 @@ impl Splitter for TextSplitter {
                 let chunk_text = &text[start..end];
 
                 let mut chunk = Chunk::new(&doc.id, chunk_text);
-                chunk.metadata = doc.metadata.clone();
+                doc.metadata.clone_into(&mut chunk.metadata);
                 chunks.push(chunk);
 
                 if end == text.len() {
@@ -183,7 +183,7 @@ impl Splitter for TokenSplitter {
         for doc in documents {
             if self.estimate_tokens(&doc.text) <= self.max_tokens {
                 let mut chunk = Chunk::new(&doc.id, &doc.text);
-                chunk.metadata = doc.metadata.clone();
+                doc.metadata.clone_into(&mut chunk.metadata);
                 chunk
                     .metadata
                     .insert("chunk_index".to_string(), "0".to_string());
@@ -194,7 +194,7 @@ impl Splitter for TokenSplitter {
             let text_chunks = self.split_text(&doc.text);
             for (i, text) in text_chunks.into_iter().enumerate() {
                 let mut chunk = Chunk::new(&doc.id, text);
-                chunk.metadata = doc.metadata.clone();
+                doc.metadata.clone_into(&mut chunk.metadata);
                 chunk
                     .metadata
                     .insert("chunk_index".to_string(), i.to_string());
@@ -264,7 +264,7 @@ impl Splitter for SentenceSplitter {
         for doc in documents {
             if doc.text.len() <= self.max_chars {
                 let mut chunk = Chunk::new(&doc.id, &doc.text);
-                chunk.metadata = doc.metadata.clone();
+                doc.metadata.clone_into(&mut chunk.metadata);
                 chunks.push(chunk);
                 continue;
             }
@@ -278,7 +278,7 @@ impl Splitter for SentenceSplitter {
                 if current_len + sentence.len() > self.max_chars && !current_group.is_empty() {
                     let text = current_group.join(" ");
                     let mut chunk = Chunk::new(&doc.id, text);
-                    chunk.metadata = doc.metadata.clone();
+                    doc.metadata.clone_into(&mut chunk.metadata);
                     chunk
                         .metadata
                         .insert("chunk_index".to_string(), chunk_index.to_string());
@@ -288,7 +288,7 @@ impl Splitter for SentenceSplitter {
                     // Keep overlap_sentences from end
                     let keep = self.overlap_sentences.min(current_group.len());
                     let overlap: Vec<String> = current_group[current_group.len() - keep..].to_vec();
-                    current_len = overlap.iter().map(|s| s.len()).sum();
+                    current_len = overlap.iter().map(std::string::String::len).sum();
                     current_group = overlap;
                 }
 
@@ -299,7 +299,7 @@ impl Splitter for SentenceSplitter {
             if !current_group.is_empty() {
                 let text = current_group.join(" ");
                 let mut chunk = Chunk::new(&doc.id, text);
-                chunk.metadata = doc.metadata.clone();
+                doc.metadata.clone_into(&mut chunk.metadata);
                 chunk
                     .metadata
                     .insert("chunk_index".to_string(), chunk_index.to_string());

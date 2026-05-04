@@ -19,14 +19,18 @@ pub fn register_loader(
     loader: impl Fn(&Path) -> Result<Document> + Send + Sync + 'static,
 ) {
     let ext = normalize_ext(extension);
-    let mut guard = CUSTOM_LOADERS.lock().unwrap();
+    let mut guard = CUSTOM_LOADERS
+        .lock()
+        .expect("CUSTOM_LOADERS mutex poisoned");
     let map = guard.get_or_insert_with(HashMap::new);
     map.insert(ext, Box::new(loader));
 }
 
 /// Get registered custom extensions
 pub fn get_registered_extensions() -> Vec<String> {
-    let guard = CUSTOM_LOADERS.lock().unwrap();
+    let guard = CUSTOM_LOADERS
+        .lock()
+        .expect("CUSTOM_LOADERS mutex poisoned");
     guard
         .as_ref()
         .map(|m| m.keys().cloned().collect())
@@ -38,7 +42,7 @@ fn normalize_ext(ext: &str) -> String {
     if e.starts_with('.') {
         e
     } else {
-        format!(".{}", e)
+        format!(".{e}")
     }
 }
 
@@ -60,7 +64,9 @@ impl Loader {
 
         // Check custom loaders first
         {
-            let guard = CUSTOM_LOADERS.lock().unwrap();
+            let guard = CUSTOM_LOADERS
+                .lock()
+                .expect("CUSTOM_LOADERS mutex poisoned");
             if let Some(map) = guard.as_ref() {
                 if let Some(loader) = map.get(&ext) {
                     return loader(path);
@@ -80,6 +86,7 @@ impl Loader {
     }
 
     /// Load all files from a directory
+    #[allow(clippy::unnecessary_wraps)]
     pub fn from_directory(
         path: impl AsRef<Path>,
         extensions: Option<&[&str]>,
@@ -209,14 +216,14 @@ impl Loader {
         // Convert CSV rows to readable text
         let lines: Vec<&str> = raw.lines().collect();
         let text = if lines.len() > 1 {
-            let headers: Vec<&str> = lines[0].split(',').map(|h| h.trim()).collect();
+            let headers: Vec<&str> = lines[0].split(',').map(str::trim).collect();
             let mut parts = Vec::new();
             for line in &lines[1..] {
-                let values: Vec<&str> = line.split(',').map(|v| v.trim()).collect();
+                let values: Vec<&str> = line.split(',').map(str::trim).collect();
                 let pairs: Vec<String> = headers
                     .iter()
                     .zip(values.iter())
-                    .map(|(h, v)| format!("{}: {}", h, v))
+                    .map(|(h, v)| format!("{h}: {v}"))
                     .collect();
                 parts.push(pairs.join(", "));
             }
@@ -354,7 +361,7 @@ pub fn export_jsonl(documents: &[Document], path: impl AsRef<Path>) -> Result<us
 
     for doc in documents {
         let line = serde_json::to_string(doc).map_err(raven_core::RavenError::Serde)?;
-        writeln!(writer, "{}", line)?;
+        writeln!(writer, "{line}")?;
         count += 1;
     }
 
