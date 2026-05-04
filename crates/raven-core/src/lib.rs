@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use thiserror::Error;
+use tracing::info;
 use uuid::Uuid;
 
 /// A raw document before splitting
@@ -182,6 +184,80 @@ impl Default for ServerConfig {
     }
 }
 
+impl Config {
+    /// Load config: try explicit path, then auto-discover raven.toml, then defaults.
+    /// Always applies env var overrides on top.
+    pub fn load(path: Option<&Path>) -> Result<Self> {
+        let mut config = if let Some(p) = path {
+            Self::from_file(p)?
+        } else if let Some(found) = Self::discover() {
+            info!("Using config: {}", found.display());
+            Self::from_file(&found)?
+        } else {
+            Self::default()
+        };
+        config.apply_env_overrides();
+        Ok(config)
+    }
+
+    /// Read config from a TOML file
+    pub fn from_file(path: &Path) -> Result<Self> {
+        let content = std::fs::read_to_string(path)?;
+        toml::from_str(&content).map_err(|e| RavenError::Config(format!("TOML parse error: {}", e)))
+    }
+
+    /// Walk up from cwd looking for raven.toml
+    pub fn discover() -> Option<PathBuf> {
+        let mut dir = std::env::current_dir().ok()?;
+        loop {
+            let candidate = dir.join("raven.toml");
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+            if !dir.pop() {
+                return None;
+            }
+        }
+    }
+
+    /// Override config fields from environment variables
+    pub fn apply_env_overrides(&mut self) {
+        if let Ok(val) = std::env::var("RAVEN_DB") {
+            self.store.path = val;
+        }
+        if let Ok(val) = std::env::var("RAVEN_MODEL") {
+            self.embedder.model = val;
+        }
+        if let Ok(val) = std::env::var("RAVEN_API_KEY") {
+            self.server.api_key = Some(val);
+        }
+        if let Ok(val) = std::env::var("RAVEN_EMBED_URL") {
+            self.embedder.url = Some(val);
+        }
+        if let Ok(val) = std::env::var("RAVEN_EMBED_BACKEND") {
+            self.embedder.backend = val;
+        }
+        if let Ok(val) = std::env::var("RAVEN_HOST") {
+            self.server.host = val;
+        }
+        if let Ok(val) = std::env::var("RAVEN_PORT") {
+            if let Ok(port) = val.parse() {
+                self.server.port = port;
+            }
+        }
+        if let Ok(val) = std::env::var("RAVEN_CHUNK_SIZE") {
+            if let Ok(size) = val.parse() {
+                self.splitter.chunk_size = size;
+            }
+        }
+        if let Ok(val) = std::env::var("RAVEN_CHUNK_OVERLAP") {
+            if let Ok(overlap) = val.parse() {
+                self.splitter.chunk_overlap = overlap;
+            }
+        }
+    }
+}
+
 /// Compute content fingerprint
 pub fn fingerprint(text: &str) -> String {
     use sha2::{Digest, Sha256};
@@ -212,5 +288,42 @@ mod tests {
         assert_eq!(fp1, fp2);
         assert_ne!(fp1, fp3);
         assert_eq!(fp1.len(), 64); // SHA-256 hex
+    }
+
+    #[test]
+    fn test_config_defaults() {
+        let config = Config::default();
+        assert_eq!(config.embedder.backend, "ollama");
+        assert_eq!(config.store.path, "./raven.db");
+        assert_eq!(config.server.port, 8484);
+        assert_eq!(config.splitter.chunk_size, 512);
+    }
+
+    #[test]
+    fn test_config_from_toml() {
+        let toml_str = r#"
+[embedder]
+backend = "openai"
+model = "text-embedding-3-small"
+url = "https://api.openai.com"
+
+[store]
+backend = "sqlite"
+path = "/tmp/test.db"
+
+[splitter]
+kind = "text"
+chunk_size = 256
+chunk_overlap = 25
+
+[server]
+host = "0.0.0.0"
+port = 9090
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.embedder.backend, "openai");
+        assert_eq!(config.store.path, "/tmp/test.db");
+        assert_eq!(config.server.port, 9090);
+        assert_eq!(config.splitter.chunk_size, 256);
     }
 }
