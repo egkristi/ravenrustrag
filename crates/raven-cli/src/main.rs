@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use raven_core::ServerConfig;
-use raven_embed::{CachedEmbedder, OllamaBackend};
+use raven_embed::Embedder;
 use raven_load::Loader;
 use raven_mcp::McpServer;
 use raven_search::DocumentIndex;
@@ -40,6 +40,10 @@ enum Commands {
         #[arg(short, long, default_value = "./raven.db")]
         db: PathBuf,
 
+        /// Embedding backend (ollama or openai)
+        #[arg(short, long, default_value = "ollama")]
+        backend: String,
+
         /// Ollama URL
         #[arg(short, long, default_value = "http://localhost:11434")]
         url: String,
@@ -70,6 +74,10 @@ enum Commands {
         #[arg(short, long, default_value = "./raven.db")]
         db: PathBuf,
 
+        /// Embedding backend (ollama or openai)
+        #[arg(short, long, default_value = "ollama")]
+        backend: String,
+
         /// Ollama URL
         #[arg(short, long, default_value = "http://localhost:11434")]
         url: String,
@@ -99,6 +107,10 @@ enum Commands {
         /// Database path
         #[arg(short, long, default_value = "./raven.db")]
         db: PathBuf,
+
+        /// Embedding backend (ollama or openai)
+        #[arg(short, long, default_value = "ollama")]
+        backend: String,
 
         /// Ollama URL
         #[arg(short, long, default_value = "http://localhost:11434")]
@@ -133,6 +145,10 @@ enum Commands {
         /// Database path
         #[arg(short, long, default_value = "./raven.db")]
         db: PathBuf,
+
+        /// Embedding backend (ollama or openai)
+        #[arg(short, long, default_value = "ollama")]
+        backend: String,
 
         /// Ollama URL
         #[arg(short, long, default_value = "http://localhost:11434")]
@@ -174,6 +190,10 @@ enum Commands {
         #[arg(short, long, default_value = "./raven.db")]
         db: PathBuf,
 
+        /// Embedding backend (ollama or openai)
+        #[arg(short, long, default_value = "ollama")]
+        backend: String,
+
         /// Ollama URL
         #[arg(short, long, default_value = "http://localhost:11434")]
         url: String,
@@ -188,6 +208,10 @@ enum Commands {
         /// Database path
         #[arg(short, long, default_value = "./raven.db")]
         db: PathBuf,
+
+        /// Embedding backend (ollama or openai)
+        #[arg(short, long, default_value = "ollama")]
+        backend: String,
 
         /// Ollama URL
         #[arg(short, long, default_value = "http://localhost:11434")]
@@ -218,6 +242,10 @@ enum Commands {
         #[arg(short, long, default_value = "./raven.db")]
         db: PathBuf,
 
+        /// Embedding backend (ollama or openai)
+        #[arg(short, long, default_value = "ollama")]
+        backend: String,
+
         /// Ollama URL
         #[arg(short, long, default_value = "http://localhost:11434")]
         url: String,
@@ -236,9 +264,8 @@ enum Commands {
     },
 }
 
-fn make_embedder(url: &str, model: &str) -> Arc<CachedEmbedder<OllamaBackend>> {
-    let backend = OllamaBackend::new(url, model).with_dimension(768);
-    Arc::new(CachedEmbedder::new(backend, 1000))
+fn make_embedder(backend: &str, url: &str, model: &str) -> Arc<dyn Embedder> {
+    raven_embed::create_cached_embedder(backend, model, Some(url), None, 1000)
 }
 
 async fn make_store(db: &PathBuf) -> Result<Arc<SqliteStore>> {
@@ -264,6 +291,7 @@ async fn main() -> Result<()> {
         Commands::Index {
             path,
             db,
+            backend,
             url,
             model,
             chunk_size,
@@ -298,7 +326,7 @@ async fn main() -> Result<()> {
                 return Ok(());
             }
 
-            let embedder = make_embedder(&url, &model);
+            let embedder = make_embedder(&backend, &url, &model);
             let store = make_store(&db).await?;
             let index = DocumentIndex::new(store.clone(), embedder);
             let splitter = TextSplitter::new(chunk_size, chunk_overlap);
@@ -365,13 +393,14 @@ async fn main() -> Result<()> {
         Commands::Query {
             query,
             db,
+            backend,
             url,
             model,
             top_k,
             hybrid,
             alpha,
         } => {
-            let embedder = make_embedder(&url, &model);
+            let embedder = make_embedder(&backend, &url, &model);
             let store = make_store(&db).await?;
             let index = DocumentIndex::new(store.clone(), embedder);
 
@@ -409,11 +438,12 @@ async fn main() -> Result<()> {
         Commands::Prompt {
             query,
             db,
+            backend,
             url,
             model,
             top_k,
         } => {
-            let embedder = make_embedder(&url, &model);
+            let embedder = make_embedder(&backend, &url, &model);
             let store = make_store(&db).await?;
             let index = DocumentIndex::new(store, embedder);
 
@@ -434,11 +464,12 @@ async fn main() -> Result<()> {
             host,
             port,
             db,
+            backend,
             url,
             model,
             api_key,
         } => {
-            let embedder = make_embedder(&url, &model);
+            let embedder = make_embedder(&backend, &url, &model);
             let store = make_store(&db).await?;
             let index = DocumentIndex::new(store, embedder);
 
@@ -500,6 +531,7 @@ async fn main() -> Result<()> {
         Commands::Import {
             file,
             db,
+            backend,
             url,
             model,
         } => {
@@ -511,7 +543,7 @@ async fn main() -> Result<()> {
                 return Ok(());
             }
 
-            let embedder = make_embedder(&url, &model);
+            let embedder = make_embedder(&backend, &url, &model);
             let store = make_store(&db).await?;
             let index = DocumentIndex::new(store, embedder);
             let splitter = TextSplitter::new(512, 50);
@@ -520,8 +552,8 @@ async fn main() -> Result<()> {
             println!("✓ Imported to {}", db.display());
         }
 
-        Commands::Mcp { db, url, model } => {
-            let embedder = make_embedder(&url, &model);
+        Commands::Mcp { db, backend, url, model } => {
+            let embedder = make_embedder(&backend, &url, &model);
             let store = make_store(&db).await?;
             let index = Arc::new(DocumentIndex::new(store, embedder));
             let splitter = TextSplitter::new(512, 50);
@@ -570,12 +602,13 @@ async fn main() -> Result<()> {
         Commands::Watch {
             path,
             db,
+            backend,
             url,
             model,
             extensions,
             debounce,
         } => {
-            let embedder = make_embedder(&url, &model);
+            let embedder = make_embedder(&backend, &url, &model);
             let store = make_store(&db).await?;
             let index = Arc::new(DocumentIndex::new(store.clone(), embedder));
             let splitter: Arc<dyn raven_split::Splitter> = Arc::new(TextSplitter::new(512, 50));

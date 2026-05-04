@@ -176,7 +176,7 @@ ravenrustrag/
 - [x] Bearer token auth (via header + config/env)
 - [x] CORS configuration (tower-http)
 - [x] Request size limit (10MB)
-- [ ] Request timeout (configurable) — [#5](https://github.com/egkristi/ravenrustrag/issues/5)
+- [x] Request timeout (configurable) — [#5](https://github.com/egkristi/ravenrustrag/issues/5)
 - [ ] Rate limiting (tower middleware) — [#2](https://github.com/egkristi/ravenrustrag/issues/2) — **better than Python**
 - [x] Graceful shutdown
 
@@ -191,13 +191,13 @@ ravenrustrag/
 ### 4.3 Additional Embedding Backends
 - [x] `OpenAIBackend` — OpenAI-compatible API (OpenAI, LM Studio, LocalAI, vLLM)
 - [ ] ONNX Runtime local embeddings — **better than Python** (native, no Python runtime)
-- [ ] Backend auto-detection based on URL scheme (`ollama://`, `openai://`, `onnx://`)
+- [x] Backend auto-detection via `create_embedder()` / `create_cached_embedder()` factory functions
 
 ### 4.4 Splitter Extensions
 - [x] `TokenSplitter` — tokenizer-aware splitting
 - [x] `SentenceSplitter` — sentence-boundary splitting
 - [ ] `SemanticSplitter` — sentence-boundary + embedding cosine similarity
-- [ ] Metadata preservation (chunk_index, source_id) through entire pipeline
+- [x] Metadata preservation (chunk_index, source_id) through entire pipeline
 
 ### 4.5 File Loaders
 - [x] Markdown with frontmatter parsing (YAML metadata → doc metadata)
@@ -236,7 +236,7 @@ ravenrustrag/
 ### 4.10 Context Formatting
 - [x] `ContextFormatter` with templates ({context}, {query}, {sources})
 - [x] Citation insertion in formatted output
-- [ ] Configurable templates via raven.toml
+- [x] Configurable templates via raven.toml (ContextConfig)
 
 ### 4.11 CLI Extensions
 - [x] `raven serve` — start HTTP server
@@ -251,8 +251,8 @@ ravenrustrag/
 ### 4.12 Configuration
 - [x] `raven.toml` auto-discovery (walk up from cwd)
 - [x] Env var overrides (RAVEN_DB, RAVEN_MODEL, RAVEN_API_KEY, etc.)
-- [ ] Unknown key warnings (typo protection)
-- [ ] Full config validation at startup
+- [x] Unknown key warnings (typo protection)
+- [x] Full config validation at startup
 
 ### 4.13 Docker & CI
 - [x] Multi-stage Dockerfile (builder → debian-slim)
@@ -265,16 +265,16 @@ ravenrustrag/
 
 Findings from the security audit ([#1](https://github.com/egkristi/ravenrustrag/issues/1)–[#10](https://github.com/egkristi/ravenrustrag/issues/10)):
 
-- [ ] Configurable CORS origins (default to localhost) — [#1](https://github.com/egkristi/ravenrustrag/issues/1)
+- [x] Configurable CORS origins (default to localhost) — [#1](https://github.com/egkristi/ravenrustrag/issues/1)
 - [ ] Rate limiting via tower middleware — [#2](https://github.com/egkristi/ravenrustrag/issues/2)
-- [ ] Query string length validation — [#3](https://github.com/egkristi/ravenrustrag/issues/3)
-- [ ] Generic error messages to clients (no internal leaks) — [#4](https://github.com/egkristi/ravenrustrag/issues/4)
-- [ ] Per-request timeout — [#5](https://github.com/egkristi/ravenrustrag/issues/5)
-- [ ] Option to put `/metrics` and `/stats` behind auth — [#6](https://github.com/egkristi/ravenrustrag/issues/6)
-- [ ] MCP write-operation access control — [#7](https://github.com/egkristi/ravenrustrag/issues/7)
-- [ ] Add SECURITY.md with vulnerability disclosure policy — [#8](https://github.com/egkristi/ravenrustrag/issues/8)
-- [ ] Expand `.dockerignore` — [#9](https://github.com/egkristi/ravenrustrag/issues/9)
-- [ ] Document TLS / reverse proxy requirement — [#10](https://github.com/egkristi/ravenrustrag/issues/10)
+- [x] Query string length validation — [#3](https://github.com/egkristi/ravenrustrag/issues/3)
+- [x] Generic error messages to clients (no internal leaks) — [#4](https://github.com/egkristi/ravenrustrag/issues/4)
+- [x] Per-request timeout — [#5](https://github.com/egkristi/ravenrustrag/issues/5)
+- [x] Option to put `/metrics` and `/stats` behind auth — [#6](https://github.com/egkristi/ravenrustrag/issues/6)
+- [x] MCP write-operation access control — [#7](https://github.com/egkristi/ravenrustrag/issues/7)
+- [x] Add SECURITY.md with vulnerability disclosure policy — [#8](https://github.com/egkristi/ravenrustrag/issues/8)
+- [x] Expand `.dockerignore` — [#9](https://github.com/egkristi/ravenrustrag/issues/9)
+- [x] Document TLS / reverse proxy requirement — [#10](https://github.com/egkristi/ravenrustrag/issues/10)
 
 Already mitigated:
 - [x] Constant-time auth comparison (`subtle::ConstantTimeEq`)
