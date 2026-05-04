@@ -1,6 +1,6 @@
 # RavenRustRAG — Implementation Plan
 
-> **Status:** v0.1.0-alpha — Fase 1 komplett, Fase 2 i gang  
+> **Status:** v0.1.0-alpha — Fase 1 komplett, Fase 2 nesten komplett, Fase 3 i gang  
 > **Motto:** *Make it work, make it right, make it fast — in that order.*  
 > **Mål:** Funksjonelt overlegen Python-versjonen (RavenRAG v0.7.0) med ordenstall bedre ytelse.
 
@@ -15,26 +15,26 @@ Komplett featureliste i Python-versjonen per 2026-05-04 (~4 200 linjer, 24 modul
 | **Core** | Document, QueryResult (citation), DocumentIndex, async (aadd/aquery) | ✅ Fase 1 |
 | **Embedding** | sentence-transformers, Ollama, OpenAI, vLLM, custom protocol | 🟡 Kun Ollama |
 | **Storage** | ChromaDB, FAISS, SQLite-vec, VectorStoreBackend protocol | ✅ SQLite + Memory |
-| **Splitting** | TextSplitter, TokenSplitter, SemanticSplitter | 🟡 Kun Text |
-| **Loaders** | .txt .md .pdf .docx .pptx .xlsx .csv .rtf .html + plugin system | 🟡 Kun .txt/.md |
-| **Search** | Vector, BM25 hybrid (RRF), cross-encoder reranking, streaming | 🟡 Kun vector |
-| **Graph** | KnowledgeGraph, GraphRetriever, entity extraction, RRF fusion | ❌ |
-| **Server** | HTTP (stdlib), auth, CORS, /metrics, /openapi.json, 7 endpoints | ❌ Stub |
-| **MCP** | stdio JSON-RPC, 3 tools (search, get_prompt, collection_info) | ❌ Stub |
-| **CLI** | 11 commands (index, query, prompt, serve, watch, info, export, import, doctor, mcp, benchmark) | 🟡 5 commands |
-| **Pipeline** | Pipeline class, run/query/stream, error strategies | ❌ |
+| **Splitting** | TextSplitter, TokenSplitter, SemanticSplitter | ✅ Text + Token + Sentence |
+| **Loaders** | .txt .md .pdf .docx .pptx .xlsx .csv .rtf .html + plugin system | ✅ txt,md,csv,json,jsonl,html |
+| **Search** | Vector, BM25 hybrid (RRF), cross-encoder reranking, streaming | ✅ Vector + BM25 hybrid (RRF) |
+| **Graph** | KnowledgeGraph, GraphRetriever, entity extraction, RRF fusion | ❌ Fase 3 |
+| **Server** | HTTP (stdlib), auth, CORS, /metrics, /openapi.json, 7 endpoints | ✅ Axum, auth, CORS, /metrics |
+| **MCP** | stdio JSON-RPC, 3 tools (search, get_prompt, collection_info) | ✅ 4 tools |
+| **CLI** | 11 commands (index, query, prompt, serve, watch, info, export, import, doctor, mcp, benchmark) | ✅ 11 commands |
+| **Pipeline** | Pipeline class, run/query/stream, error strategies | ✅ DocumentIndex pipeline |
 | **Config** | TOML + pyproject.toml + env vars, auto-discovery | ✅ Basis |
 | **Cache** | Thread-safe LRU embedding cache | ✅ |
-| **Eval** | MRR, NDCG, Recall@k | ❌ |
-| **Watch** | File watcher with debounce + delete tracking | ❌ |
-| **Export** | JSONL backup/restore | ❌ |
+| **Eval** | MRR, NDCG, Recall@k | ✅ MRR, NDCG, Recall@k, Precision@k |
+| **Watch** | File watcher with debounce + delete tracking | ✅ notify crate |
+| **Export** | JSONL backup/restore | ✅ export/import |
 | **Fingerprint** | SHA-256 incremental indexing | ✅ |
-| **Observability** | @timed decorator, /metrics, raven benchmark | ❌ |
-| **Multi-collection** | MultiCollectionRouter, cross-index query | ❌ |
-| **Parent-child** | query_parent() — search chunks, return parents | ❌ |
+| **Observability** | @timed decorator, /metrics, raven benchmark | ✅ tracing spans, /metrics |
+| **Multi-collection** | MultiCollectionRouter, cross-index query | ❌ Fase 3 |
+| **Parent-child** | query_parent() — search chunks, return parents | ❌ Fase 3 |
 | **Context** | ContextFormatter, templates, citations in prompts | ✅ Basis |
-| **Docker** | Multi-stage, model pre-download, non-root, healthcheck | ❌ |
-| **CI** | GitHub Actions, lint, test (75% coverage), container build | ❌ |
+| **Docker** | Multi-stage, model pre-download, non-root, healthcheck | ✅ Dockerfile |
+| **CI** | GitHub Actions, lint, test (75% coverage), container build | ✅ GitHub Actions |
 
 ### Kjente svakheter i Python-versjonen
 
@@ -135,6 +135,8 @@ ravenrustrag/
 ### 3.4 raven-split ✅
 - [x] `Splitter` trait
 - [x] `TextSplitter` — character-basert med configurable overlap
+- [x] `TokenSplitter` — word-boundary-aware splitting
+- [x] `SentenceSplitter` — sentence-boundary splitting
 
 ### 3.5 raven-load ✅
 - [x] `Loader` — from_file, from_directory
@@ -162,54 +164,55 @@ ravenrustrag/
 **Mål:** Match alle features i RavenRAG v0.7.0, men med bedre design.
 
 ### 4.1 HTTP API Server (raven-server)
-- [ ] Axum-basert server med Tokio
-- [ ] `GET /health` — helsesjekk
-- [ ] `GET /stats` — indeksstatistikk
+- [x] Axum-basert server med Tokio
+- [x] `GET /health` — helsesjekk
+- [x] `GET /stats` — indeksstatistikk
 - [ ] `GET /collections` — liste collections
-- [ ] `GET /metrics` — timing og cache stats
-- [ ] `GET /openapi.json` — OpenAPI 3.0 schema
-- [ ] `POST /query` — søk (top_k, where, rerank, hybrid, alpha)
-- [ ] `POST /prompt` — LLM-ferdig prompt
-- [ ] `POST /index` — legg til dokumenter
-- [ ] Bearer token auth (via header + config/env)
-- [ ] CORS-konfigurasjon (tower-http)
-- [ ] Request size limit (10MB)
+- [x] `GET /metrics` — timing og cache stats
+- [x] `GET /openapi.json` — OpenAPI 3.0 schema
+- [x] `POST /query` — søk (top_k, where, rerank, hybrid, alpha)
+- [x] `POST /prompt` — LLM-ferdig prompt
+- [x] `POST /index` — legg til dokumenter
+- [x] Bearer token auth (via header + config/env)
+- [x] CORS-konfigurasjon (tower-http)
+- [x] Request size limit (10MB)
 - [ ] Request timeout (configurable)
 - [ ] Rate limiting (tower middleware) — **bedre enn Python**
-- [ ] Graceful shutdown
+- [x] Graceful shutdown
 
 ### 4.2 MCP Server (raven-mcp)
-- [ ] JSON-RPC over stdio (MCP 2024-11-05)
-- [ ] Tool: `search` — query med top_k
-- [ ] Tool: `get_prompt` — søk + formater LLM prompt
-- [ ] Tool: `collection_info` — indeksstatistikk
-- [ ] Tool: `index_documents` — legg til dokumenter **ny vs Python**
+- [x] JSON-RPC over stdio (MCP 2024-11-05)
+- [x] Tool: `search` — query med top_k
+- [x] Tool: `get_prompt` — søk + formater LLM prompt
+- [x] Tool: `collection_info` — indeksstatistikk
+- [x] Tool: `index_documents` — legg til dokumenter **ny vs Python**
 - [ ] Proper error codes og schema validation
 
 ### 4.3 Flere embedding-backends
-- [ ] `OpenAIBackend` — OpenAI-kompatibel API (OpenAI, LM Studio, LocalAI, vLLM)
+- [x] `OpenAIBackend` — OpenAI-kompatibel API (OpenAI, LM Studio, LocalAI, vLLM)
 - [ ] ONNX Runtime local embeddings — **bedre enn Python** (native, ingen Python-runtime)
 - [ ] Backend auto-detection basert på URL-scheme (`ollama://`, `openai://`, `onnx://`)
 
 ### 4.4 Splitter-utvidelser
-- [ ] `TokenSplitter` — tokenizer-bevisst splitting (tiktoken-rs)
+- [x] `TokenSplitter` — tokenizer-bevisst splitting
+- [x] `SentenceSplitter` — sentence-boundary splitting
 - [ ] `SemanticSplitter` — sentence-boundary + embedding cosine similarity
 - [ ] Metadata preservation (chunk_index, source_id) gjennom hele pipeline
 
 ### 4.5 Fil-loadere
-- [ ] Markdown med frontmatter-parsing (YAML metadata → doc metadata)
+- [x] Markdown med frontmatter-parsing (YAML metadata → doc metadata)
 - [ ] PDF loader (pdf-extract eller lopdf)
-- [ ] HTML loader (scraper crate — strip tags, beholde struktur)
-- [ ] CSV loader (csv crate)
-- [ ] JSON/JSONL loader
+- [x] HTML loader (strip tags, remove scripts/styles)
+- [x] CSV loader (csv crate)
+- [x] JSON/JSONL loader
 - [ ] DOCX loader (docx-rs)
-- [ ] Plugin-system: `register_loader` for egne filtyper
-- [ ] Auto-detect filtype og velg loader
+- [x] Plugin-system: `register_loader` for egne filtyper
+- [x] Auto-detect filtype og velg loader
 
 ### 4.6 Hybrid Search
-- [ ] BM25-indeks (tantivy eller egenbygd) — **bedre enn Python** (persistert, ikke in-memory)
-- [ ] `HybridSearcher` — vector + BM25 med Reciprocal Rank Fusion
-- [ ] Configurable alpha (0.0 = ren BM25, 1.0 = ren vektor)
+- [x] BM25-indeks (egenbygd Okapi BM25)
+- [x] `HybridSearcher` — vector + BM25 med Reciprocal Rank Fusion
+- [x] Configurable alpha (0.0 = ren BM25, 1.0 = ren vektor)
 - [ ] Metadata-filtering på begge signaler
 
 ### 4.7 Cross-encoder Reranking
@@ -218,43 +221,43 @@ ravenrustrag/
 - [ ] Fetch 4x → rerank → return top_k
 
 ### 4.8 Watch Mode
-- [ ] `notify` crate for filsystem-events
-- [ ] Debounce med konfigurerbar ventetid
-- [ ] Sletting-støtte (fjern dokumenter når filer slettes)
-- [ ] Extension-filtering
-- [ ] CLI: `raven watch ./docs --extensions ".md,.txt"`
+- [x] `notify` crate for filsystem-events
+- [x] Debounce med konfigurerbar ventetid
+- [x] Sletting-støtte (fjern dokumenter når filer slettes)
+- [x] Extension-filtering
+- [x] CLI: `raven watch ./docs --extensions "md,txt"`
 
 ### 4.9 Export/Import
-- [ ] JSONL eksport (`raven export -o backup.jsonl`)
-- [ ] JSONL import (`raven import backup.jsonl`)
-- [ ] Skip invalid/empty rows ved import
+- [x] JSONL eksport (`raven export -o backup.jsonl`)
+- [x] JSONL import (`raven import backup.jsonl`)
+- [x] Skip invalid/empty rows ved import
 - [ ] Streaming I/O for store filer — **bedre enn Python** (ikke last alt i minne)
 
 ### 4.10 Context Formatting
-- [ ] `ContextFormatter` med templates ({context}, {query}, {sources})
-- [ ] Citation-insetting i formattert output
+- [x] `ContextFormatter` med templates ({context}, {query}, {sources})
+- [x] Citation-insetting i formattert output
 - [ ] Konfiguerbare templates via raven.toml
 
 ### 4.11 CLI-utvidelser
-- [ ] `raven serve` — start HTTP server
-- [ ] `raven prompt "tekst"` — formattert LLM-prompt
-- [ ] `raven watch <path>` — auto-reindex
-- [ ] `raven export` / `raven import` — JSONL backup/restore
-- [ ] `raven doctor` — diagnostikk (sjekk Ollama, db, config)
-- [ ] `raven mcp` — start MCP server
+- [x] `raven serve` — start HTTP server
+- [x] `raven prompt "tekst"` — formattert LLM-prompt
+- [x] `raven watch <path>` — auto-reindex
+- [x] `raven export` / `raven import` — JSONL backup/restore
+- [x] `raven doctor` — diagnostikk (sjekk Ollama, db, config)
+- [x] `raven mcp` — start MCP server
 - [ ] `raven benchmark` — ytelsesmåling (Criterion-basert) — **bedre enn Python**
-- [ ] `--hybrid`, `--rerank`, `--verbose` flagg på query
+- [x] `--hybrid`, `--verbose` flagg på query
 
 ### 4.12 Konfigurasjon
-- [ ] `raven.toml` auto-discovery (gå opp fra cwd)
-- [ ] Env var overrides (RAVEN_DB, RAVEN_MODEL, RAVEN_API_KEY, etc.)
+- [x] `raven.toml` auto-discovery (gå opp fra cwd)
+- [x] Env var overrides (RAVEN_DB, RAVEN_MODEL, RAVEN_API_KEY, etc.)
 - [ ] Ukjent-nøkkel varsling (typo-beskyttelse)
 - [ ] Full config validering ved oppstart
 
 ### 4.13 Docker & CI
-- [ ] Multi-stage Dockerfile (builder → scratch/alpine)
+- [x] Multi-stage Dockerfile (builder → debian-slim)
 - [ ] Statisk binær (`musl` target) — **bedre enn Python** (~15MB vs ~1.5GB image)
-- [ ] GitHub Actions: test, lint (clippy), format (rustfmt), release
+- [x] GitHub Actions: test, lint (clippy), format (rustfmt), release
 - [ ] Container build og push til GHCR
 - [ ] Cross-compile for linux/amd64 og linux/arm64
 
@@ -278,15 +281,15 @@ Features som gjør Rust-versjonen **strengt bedre** enn Python:
 - [ ] `raven graph build` / `raven graph query` CLI-kommandoer
 
 ### 5.3 Eval & Benchmarking
-- [ ] `evaluate()` — MRR, NDCG, Recall@k mot ground truth
+- [x] `evaluate()` — MRR, NDCG, Recall@k, Precision@k mot ground truth
 - [ ] Criterion-baserte micro-benchmarks
 - [ ] `raven benchmark` med detaljert rapport (index speed, query latens, minne)
 - [ ] CI-drevet ytelsesregresjon
 
 ### 5.4 Observability
-- [ ] Tracing med `tracing` crate (strukturert logging)
-- [ ] Timing-spans for alle pipeline-steg
-- [ ] `/metrics` endpoint (Prometheus-kompatibel) — **bedre enn Python**
+- [x] Tracing med `tracing` crate (strukturert logging)
+- [x] Timing-spans for alle pipeline-steg
+- [x] `/metrics` endpoint med request counters
 - [ ] OpenTelemetry-eksport (valgfri feature)
 
 ### 5.5 HNSW Vector Search
@@ -330,10 +333,10 @@ Features som gjør Rust-versjonen **strengt bedre** enn Python:
 
 ## 7. Kjente begrensninger (nåværende)
 
-1. **Mangler C-linker på host** — `cargo build` krever `build-essential` / Xcode CLI tools (pga rusqlite bundled)
-2. **Flat vektor-søk** — O(n) brute-force. Tilstrekkelig for <10k dokumenter. HNSW i Fase 3.
-3. **Kun Ollama-embedder** — OpenAI/ONNX kommer i Fase 2.
-4. **Server/MCP er stubs** — Implementeres i Fase 2.
+1. **Flat vektor-søk** — O(n) brute-force. Tilstrekkelig for <10k dokumenter. HNSW i Fase 3.
+2. **Kun Ollama + OpenAI embedder** — ONNX lokal inferens kommer i Fase 3.
+3. **BM25 ikke persistert** — gjenoppbygges i minne fra VectorStore ved hybrid søk.
+4. **Ingen cross-encoder reranking** — Krever ONNX runtime, planlagt Fase 3.
 
 ## 8. Bygginstruksjoner
 
