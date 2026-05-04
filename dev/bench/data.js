@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777930348718,
+  "lastUpdate": 1777930943953,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -71,6 +71,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 101804,
             "range": "± 370",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "6dbab25d26b4d88b98f0ee7984ea71b0a0e79b7c",
+          "message": "docs: add mkdocs + mdbook documentation site with GitHub Pages deployment\n\n- Add docs/ with 17 pages: architecture, CLI reference, API, MCP,\n  configuration, troubleshooting, migration guide, performance tuning,\n  hybrid search, knowledge graph, Docker, testing, contributing, etc.\n- Add mkdocs.yml (Material theme) for primary docs site\n- Add book.toml at root for mdbook compatibility (same source)\n- Add .github/workflows/docs.yml to publish to GitHub Pages via mkdocs\n- Add site/ and book/ to .gitignore\n\nCloses #49, closes #50",
+          "timestamp": "2026-05-04T23:38:46+02:00",
+          "tree_id": "bb0a8b921b56179f9c1771baec51a17fcb6f96d4",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/6dbab25d26b4d88b98f0ee7984ea71b0a0e79b7c"
+        },
+        "date": 1777930943088,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 100,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 547,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1086,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 55423,
+            "range": "± 490",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 572445,
+            "range": "± 2149",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 95640,
+            "range": "± 450",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39395,
+            "range": "± 119",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 111400,
+            "range": "± 653",
             "unit": "ns/iter"
           }
         ]
