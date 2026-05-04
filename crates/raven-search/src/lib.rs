@@ -26,6 +26,11 @@ pub use semantic_split::SemanticSplitter;
 pub mod multi_query;
 pub use multi_query::expand_query;
 
+pub mod graph;
+pub use graph::{
+    extract_entities, graph_vector_fusion, Entity, GraphRetriever, KnowledgeGraph, Relation,
+};
+
 /// Main document index — the heart of RavenRustRAG
 pub struct DocumentIndex {
     store: Arc<dyn VectorStore>,

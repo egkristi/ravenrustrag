@@ -5,6 +5,7 @@ use raven_embed::Embedder;
 use raven_load::Loader;
 use raven_mcp::McpServer;
 use raven_search::DocumentIndex;
+use raven_search::{GraphRetriever, KnowledgeGraph};
 use raven_server::AppState;
 use raven_split::TextSplitter;
 use raven_store::{SqliteStore, VectorStore};
@@ -276,6 +277,44 @@ enum Commands {
         /// Number of query iterations
         #[arg(short, long, default_value_t = 50)]
         iterations: usize,
+    },
+
+    /// Build or query the knowledge graph
+    Graph {
+        #[command(subcommand)]
+        action: GraphAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum GraphAction {
+    /// Build knowledge graph from indexed documents
+    Build {
+        /// Database path
+        #[arg(short, long, default_value = "./raven.db")]
+        db: PathBuf,
+
+        /// Graph output file
+        #[arg(short, long, default_value = "./raven-graph.json")]
+        output: PathBuf,
+    },
+
+    /// Query the knowledge graph
+    Query {
+        /// Search query
+        query: String,
+
+        /// Graph file
+        #[arg(short, long, default_value = "./raven-graph.json")]
+        graph: PathBuf,
+
+        /// Max hops for graph traversal
+        #[arg(long, default_value_t = 2)]
+        max_hops: usize,
+
+        /// Number of results
+        #[arg(short = 'k', long, default_value_t = 5)]
+        top_k: usize,
     },
 }
 
@@ -810,6 +849,88 @@ async fn main() -> Result<()> {
                 println!("\nBenchmark complete.");
             }
         }
+
+        Commands::Graph { action } => match action {
+            GraphAction::Build { db, output } => {
+                let store = make_store(&db).await?;
+                let chunks = store.all().await?;
+
+                if chunks.is_empty() {
+                    println!("No documents indexed. Run 'raven index' first.");
+                    return Ok(());
+                }
+
+                let mut retriever = GraphRetriever::new(KnowledgeGraph::new());
+                retriever.build_from_chunks(&chunks);
+
+                let graph = retriever.graph();
+                graph.save(&output)?;
+
+                if cli.json {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&serde_json::json!({
+                            "entities": graph.entity_count(),
+                            "edges": graph.edge_count(),
+                            "output": output.display().to_string(),
+                        }))?
+                    );
+                } else {
+                    println!(
+                        "Knowledge graph built: {} entities, {} edges",
+                        graph.entity_count(),
+                        graph.edge_count()
+                    );
+                    println!("Saved to: {}", output.display());
+                }
+            }
+            GraphAction::Query {
+                query,
+                graph: graph_path,
+                max_hops,
+                top_k,
+            } => {
+                if !graph_path.exists() {
+                    println!(
+                        "Graph file not found: {}. Run 'raven graph build' first.",
+                        graph_path.display()
+                    );
+                    return Ok(());
+                }
+
+                let kg = KnowledgeGraph::load(&graph_path)?;
+                let retriever = GraphRetriever::new(kg).with_max_hops(max_hops);
+                let results = retriever.retrieve(&query, top_k);
+
+                if cli.json {
+                    let items: Vec<serde_json::Value> = results
+                        .iter()
+                        .map(|(chunk_id, score)| {
+                            serde_json::json!({
+                                "chunk_id": chunk_id,
+                                "score": score,
+                            })
+                        })
+                        .collect();
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&serde_json::json!({
+                            "query": query,
+                            "results": items,
+                        }))?
+                    );
+                } else {
+                    println!("\nGraph query: \"{query}\" (max_hops={max_hops})\n");
+                    if results.is_empty() {
+                        println!("No graph results found.");
+                    } else {
+                        for (i, (chunk_id, score)) in results.iter().enumerate() {
+                            println!("[{}] chunk={} score={:.4}", i + 1, chunk_id, score);
+                        }
+                    }
+                }
+            }
+        },
     }
 
     Ok(())
