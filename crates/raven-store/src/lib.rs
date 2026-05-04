@@ -747,3 +747,190 @@ mod tests {
         assert_eq!(results[0].chunk.text, "hello");
     }
 }
+
+// =============================================================================
+// HNSW-accelerated search (optional feature)
+// =============================================================================
+
+#[cfg(feature = "hnsw")]
+pub mod hnsw {
+    //! HNSW (Hierarchical Navigable Small World) acceleration for vector search.
+    //!
+    //! Provides O(log n) approximate nearest neighbor search instead of O(n) brute-force.
+    //! Use `HnswIndex` as an acceleration layer on top of any `VectorStore`.
+
+    use super::*;
+    use instant_distance::{Builder, HnswMap, Search};
+
+    /// A point in the HNSW index referencing a stored chunk.
+    #[derive(Clone)]
+    struct HnswPoint {
+        embedding: Vec<f32>,
+    }
+
+    impl instant_distance::Point for HnswPoint {
+        fn distance(&self, other: &Self) -> f32 {
+            // instant-distance expects distance (lower = closer), not similarity
+            // Use 1.0 - cosine_similarity as distance
+            let dot: f32 = self
+                .embedding
+                .iter()
+                .zip(other.embedding.iter())
+                .map(|(a, b)| a * b)
+                .sum();
+            let norm_a: f32 = self.embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+            let norm_b: f32 = other.embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+
+            if norm_a == 0.0 || norm_b == 0.0 {
+                return 1.0;
+            }
+            1.0 - dot / (norm_a * norm_b)
+        }
+    }
+
+    /// HNSW index for O(log n) approximate nearest neighbor search.
+    ///
+    /// Build from chunks, then search. Rebuilding is required after adding new chunks.
+    pub struct HnswIndex {
+        map: Option<HnswMap<HnswPoint, String>>,
+        chunks: Vec<Chunk>,
+    }
+
+    impl HnswIndex {
+        pub fn new() -> Self {
+            Self {
+                map: None,
+                chunks: Vec::new(),
+            }
+        }
+
+        /// Build the HNSW index from chunks that have embeddings.
+        pub fn build(&mut self, chunks: Vec<Chunk>) {
+            let points: Vec<HnswPoint> = chunks
+                .iter()
+                .filter_map(|c| {
+                    c.embedding.as_ref().map(|e| HnswPoint {
+                        embedding: e.clone(),
+                    })
+                })
+                .collect();
+
+            let values: Vec<String> = chunks
+                .iter()
+                .filter(|c| c.embedding.is_some())
+                .map(|c| c.id.clone())
+                .collect();
+
+            if points.is_empty() {
+                self.map = None;
+                self.chunks = Vec::new();
+                return;
+            }
+
+            let map = Builder::default().build(points, values);
+            self.map = Some(map);
+            self.chunks = chunks;
+        }
+
+        /// Search for approximate nearest neighbors.
+        pub fn search(&self, query: &[f32], top_k: usize) -> Vec<SearchResult> {
+            let Some(ref map) = self.map else {
+                return Vec::new();
+            };
+
+            let query_point = HnswPoint {
+                embedding: query.to_vec(),
+            };
+            let mut search = Search::default();
+            let results = map.search(&query_point, &mut search);
+
+            let chunk_map: HashMap<&str, &Chunk> =
+                self.chunks.iter().map(|c| (c.id.as_str(), c)).collect();
+
+            results
+                .take(top_k)
+                .filter_map(|item| {
+                    let chunk_id = item.value;
+                    let distance = item.distance;
+                    chunk_map.get(chunk_id.as_str()).map(|chunk| SearchResult {
+                        chunk: (*chunk).clone(),
+                        score: 1.0 - distance,
+                        distance,
+                    })
+                })
+                .collect()
+        }
+
+        /// Number of indexed points.
+        pub fn len(&self) -> usize {
+            self.chunks.iter().filter(|c| c.embedding.is_some()).count()
+        }
+
+        pub fn is_empty(&self) -> bool {
+            self.len() == 0
+        }
+    }
+
+    impl Default for HnswIndex {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn test_hnsw_index_basic() {
+            let mut index = HnswIndex::new();
+
+            let chunks = vec![
+                Chunk::new("doc1", "hello").with_embedding(vec![1.0, 0.0, 0.0]),
+                Chunk::new("doc2", "world").with_embedding(vec![0.0, 1.0, 0.0]),
+                Chunk::new("doc3", "test").with_embedding(vec![0.0, 0.0, 1.0]),
+            ];
+
+            index.build(chunks);
+            assert_eq!(index.len(), 3);
+
+            let results = index.search(&[1.0, 0.0, 0.0], 1);
+            assert_eq!(results.len(), 1);
+            assert_eq!(results[0].chunk.text, "hello");
+            assert!(results[0].score > 0.99);
+        }
+
+        #[test]
+        fn test_hnsw_index_empty() {
+            let index = HnswIndex::new();
+            let results = index.search(&[1.0, 0.0, 0.0], 5);
+            assert!(results.is_empty());
+        }
+
+        #[test]
+        fn test_hnsw_top_k() {
+            let mut index = HnswIndex::new();
+
+            let chunks: Vec<Chunk> = (0..100)
+                .map(|i| {
+                    let angle = i as f32 * 0.01;
+                    Chunk::new(format!("doc{i}"), format!("text {i}"))
+                        .with_embedding(vec![angle.cos(), angle.sin(), 0.0])
+                })
+                .collect();
+
+            index.build(chunks);
+            assert_eq!(index.len(), 100);
+
+            let results = index.search(&[1.0, 0.0, 0.0], 5);
+            assert_eq!(results.len(), 5);
+            // Results should be sorted by score (descending)
+            for i in 0..results.len() - 1 {
+                assert!(results[i].score >= results[i + 1].score);
+            }
+        }
+    }
+}
+
+#[cfg(feature = "hnsw")]
+pub use hnsw::HnswIndex;
