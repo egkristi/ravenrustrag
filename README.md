@@ -1,6 +1,6 @@
-# RavenRustRAG 🐦‍⬛⚡
+# RavenRustRAG
 
-> "Fearlessly fast retrieval. Zero-cost intelligence."
+> Fearlessly fast retrieval. Zero-cost intelligence.
 
 **A local-first, embeddable RAG engine in Rust** — the successor to [RavenRAG](https://github.com/egkristi/ravenrag), reimagined for speed, safety, and deployability.
 
@@ -31,35 +31,35 @@ RavenRAG (Python) proved the concept. RavenRustRAG delivers on the promise.
 
 | Feature | Description | vs Python |
 |---------|-------------|-----------|
-| 🔥 **Blazing fast** | SIMD vector ops, zero-copy where possible | 10–100x faster |
-| 🏠 **Local-first** | No cloud APIs required. Works fully offline | Parity |
-| 📦 **Single binary** | `cargo install` or download. That's it | No virtualenv |
-| 🧵 **True async** | Built on Tokio. Thousands of concurrent queries | Not `asyncio.to_thread` wrappers |
-| 💾 **Pluggable storage** | SQLite (default), in-memory, or custom backend | Parity (no ChromaDB dep) |
-| 🔍 **Hybrid search** | Dense vectors + BM25 keyword matching with RRF fusion | Persistable BM25 index |
-| 🎯 **Reranking** *(planned)* | ONNX-based cross-encoder (no Python runtime needed) | Native, not sentence-transformers |
-| 🧠 **Semantic chunking** *(planned)* | Sentence-boundary + embedding similarity splitting | Parity |
-| ✂️ **Flexible splitting** | Character, token-aware, and semantic strategies | Parity |
-| 📂 **File loaders** | txt, md, html, csv, json, jsonl + plugin system | pdf, docx planned |
-| 🏷️ **Metadata filtering** | Filter search results by arbitrary metadata | Parity |
-| 🪆 **Parent-child** *(planned)* | Search chunks, return full parent documents | Clean trait-based (no abstraction leak) |
-| 💬 **Context formatting** | LLM-ready prompt generation with citations | Parity |
-| 📌 **Citations** | Full provenance: source file + chunk reference | Parity |
-| 📊 **Retrieval eval** | Built-in MRR, NDCG, Recall@k, Precision@k metrics | Parity+ |
-| 🖥️ **CLI** | `raven index`, `query`, `serve`, `watch`, `mcp`, `doctor` | 11 commands |
-| 🌐 **HTTP API** | Axum server with auth, CORS, OpenAPI | Body limit, graceful shutdown |
-| 📡 **MCP server** | Model Context Protocol for Claude, Copilot, Cursor | Parity |
-| 🔌 **Embedding backends** | Ollama, OpenAI-compatible | ONNX planned |
-| 👁️ **Watch mode** | Auto-reindex on file changes (debounce + delete) | Parity |
-| ⚙️ **Config file** | `raven.toml` + env vars, auto-discovery | Parity |
-| 🔄 **Incremental indexing** | SHA-256 fingerprinting, skip unchanged files | Parity |
-| 💾 **Export/import** | JSONL backup and restore (streaming I/O) | Streaming, not load-all |
-| 🗂️ **Multi-collection** *(planned)* | Route queries across multiple indices | Phase 3 |
-| 🕸️ **Knowledge graph** *(planned)* | Entity extraction + graph traversal retrieval | Phase 3 |
-| ⏱️ **Observability** | Tracing spans, `/metrics` endpoint | Structured logging |
-| 🌊 **Streaming** *(planned)* | `query_stream()` yields results via async Stream | Phase 3 |
-| 🔒 **Thread-safe** | All types are `Send + Sync` by default | Python has none |
-| 🚀 **HNSW search** *(planned)* | O(log n) approximate nearest neighbor | Phase 3 |
+| **Blazing fast** | SIMD vector ops, zero-copy where possible | 10–100x faster |
+| **Local-first** | No cloud APIs required. Works fully offline | Parity |
+| **Single binary** | `cargo install` or download. That's it | No virtualenv |
+| **True async** | Built on Tokio. Thousands of concurrent queries | Not `asyncio.to_thread` wrappers |
+| **Pluggable storage** | SQLite (default), in-memory, or custom backend | Parity (no ChromaDB dep) |
+| **Hybrid search** | Dense vectors + BM25 keyword matching with RRF fusion | Persistable BM25 index |
+| **Reranking** *(planned)* | ONNX-based cross-encoder (no Python runtime needed) | Native, not sentence-transformers |
+| **Semantic chunking** *(planned)* | Sentence-boundary + embedding similarity splitting | Parity |
+| **Flexible splitting** | Character, token-aware, and semantic strategies | Parity |
+| **File loaders** | txt, md, html, csv, json, jsonl + plugin system | pdf, docx planned |
+| **Metadata filtering** | Filter search results by arbitrary metadata | Parity |
+| **Parent-child** *(planned)* | Search chunks, return full parent documents | Clean trait-based (no abstraction leak) |
+| **Context formatting** | LLM-ready prompt generation with citations | Parity |
+| **Citations** | Full provenance: source file + chunk reference | Parity |
+| **Retrieval eval** | Built-in MRR, NDCG, Recall@k, Precision@k metrics | Parity+ |
+| **CLI** | `raven index`, `query`, `serve`, `watch`, `mcp`, `doctor` | 11 commands |
+| **HTTP API** | Axum server with auth, CORS, OpenAPI | Body limit, graceful shutdown |
+| **MCP server** | Model Context Protocol for Claude, Copilot, Cursor | Parity |
+| **Embedding backends** | Ollama, OpenAI-compatible | ONNX planned |
+| **Watch mode** | Auto-reindex on file changes (debounce + delete) | Parity |
+| **Config file** | `raven.toml` + env vars, auto-discovery | Parity |
+| **Incremental indexing** | SHA-256 fingerprinting, skip unchanged files | Parity |
+| **Export/import** | JSONL backup and restore (streaming I/O) | Streaming, not load-all |
+| **Multi-collection** *(planned)* | Route queries across multiple indices | Phase 3 |
+| **Knowledge graph** *(planned)* | Entity extraction + graph traversal retrieval | Phase 3 |
+| **Observability** | Tracing spans, `/metrics` endpoint | Structured logging |
+| **Streaming** *(planned)* | `query_stream()` yields results via async Stream | Phase 3 |
+| **Thread-safe** | All types are `Send + Sync` by default | Python has none |
+| **HNSW search** *(planned)* | O(log n) approximate nearest neighbor | Phase 3 |
 
 ## Quick Start
 

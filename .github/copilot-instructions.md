@@ -4,6 +4,11 @@
 
 All code, comments, documentation, commit messages, and plan files must be written in **English only**.
 
+## Writing Style
+
+- Be conservative with emoji/emoticon use in documentation and README files. Avoid emoji-per-line patterns (e.g. feature tables with an emoji on every row). A project icon in the title is fine; emoji walls are not.
+- Write in a clear, professional tone. Let the content speak for itself.
+
 ## Ollama Policy
 
 - **No cloud models.** Ollama must run with `OLLAMA_NO_CLOUD=1` at all times.
