@@ -426,6 +426,151 @@ pub fn create_cached_embedder(
     }
 }
 
+// =============================================================================
+// ONNX Runtime local embedder (optional feature)
+// =============================================================================
+
+#[cfg(feature = "onnx")]
+pub mod onnx {
+    //! Local ONNX Runtime embedding backend.
+    //!
+    //! Runs embedding models locally via ONNX Runtime without requiring Ollama or external APIs.
+    //! Enable with `--features onnx`.
+    //!
+    //! Supports sentence-transformer models exported to ONNX format.
+
+    use super::*;
+    use ort::{session::Session, value::Value};
+    use std::path::PathBuf;
+
+    /// ONNX Runtime local embedder.
+    ///
+    /// Loads a sentence-transformer ONNX model and runs inference locally.
+    /// Expects a model with input: `input_ids` (i64 tensor), output: embeddings (f32 tensor).
+    pub struct OnnxEmbedder {
+        session: Session,
+        model_path: PathBuf,
+        dimension: usize,
+        model_name: String,
+    }
+
+    impl OnnxEmbedder {
+        /// Create a new ONNX embedder from a model file path.
+        pub fn new(model_path: impl Into<PathBuf>, dimension: usize) -> std::result::Result<Self, String> {
+            let model_path = model_path.into();
+
+            let session = Session::builder()
+                .and_then(|b| b.with_intra_threads(4))
+                .and_then(|b| b.commit_from_file(&model_path))
+                .map_err(|e| format!("Failed to load ONNX model: {e}"))?;
+
+            let model_name = model_path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("onnx-model")
+                .to_string();
+
+            Ok(Self {
+                session,
+                model_path,
+                dimension,
+                model_name,
+            })
+        }
+
+        pub fn model_path(&self) -> &std::path::Path {
+            &self.model_path
+        }
+
+        /// Simple whitespace tokenizer (for basic models).
+        /// Production use should employ a proper tokenizer (e.g., tokenizers crate).
+        fn simple_tokenize(text: &str, max_length: usize) -> Vec<i64> {
+            let mut ids: Vec<i64> = vec![101]; // [CLS]
+            for word in text.split_whitespace().take(max_length - 2) {
+                // Simple hash-based token ID (placeholder for real tokenization)
+                let hash = word
+                    .bytes()
+                    .fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(u64::from(b)));
+                ids.push((hash % 30000 + 1000) as i64);
+            }
+            ids.push(102); // [SEP]
+            // Pad to max_length
+            while ids.len() < max_length {
+                ids.push(0);
+            }
+            ids.truncate(max_length);
+            ids
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl Embedder for OnnxEmbedder {
+        async fn embed(&self, texts: &[String]) -> raven_core::Result<Vec<Vec<f32>>> {
+            let mut results = Vec::with_capacity(texts.len());
+
+            for text in texts {
+                let tokens = Self::simple_tokenize(text, 128);
+                let attention: Vec<i64> = tokens.iter().map(|&t| if t != 0 { 1 } else { 0 }).collect();
+
+                let input_ids = ndarray::Array2::from_shape_vec(
+                    (1, tokens.len()),
+                    tokens,
+                ).map_err(|e| raven_core::RavenError::Embed(format!("Shape error: {e}")))?;
+
+                let attention_mask = ndarray::Array2::from_shape_vec(
+                    (1, attention.len()),
+                    attention,
+                ).map_err(|e| raven_core::RavenError::Embed(format!("Shape error: {e}")))?;
+
+                let input_ids_value = Value::from_array(input_ids)
+                    .map_err(|e| raven_core::RavenError::Embed(format!("Value error: {e}")))?;
+                let attention_value = Value::from_array(attention_mask)
+                    .map_err(|e| raven_core::RavenError::Embed(format!("Value error: {e}")))?;
+
+                let outputs = self
+                    .session
+                    .run(ort::inputs![input_ids_value, attention_value].map_err(|e| {
+                        raven_core::RavenError::Embed(format!("Input error: {e}"))
+                    })?)
+                    .map_err(|e| raven_core::RavenError::Embed(format!("ONNX inference error: {e}")))?;
+
+                // Extract embedding from first output, first row
+                let output_tensor = outputs[0]
+                    .try_extract_tensor::<f32>()
+                    .map_err(|e| raven_core::RavenError::Embed(format!("Output extract error: {e}")))?;
+
+                let embedding: Vec<f32> = output_tensor
+                    .iter()
+                    .take(self.dimension)
+                    .copied()
+                    .collect();
+
+                if embedding.len() < self.dimension {
+                    // Pad with zeros if model output is smaller
+                    let mut padded = embedding;
+                    padded.resize(self.dimension, 0.0);
+                    results.push(padded);
+                } else {
+                    results.push(embedding);
+                }
+            }
+
+            Ok(results)
+        }
+
+        fn dimension(&self) -> usize {
+            self.dimension
+        }
+
+        fn model_name(&self) -> &str {
+            &self.model_name
+        }
+    }
+}
+
+#[cfg(feature = "onnx")]
+pub use onnx::OnnxEmbedder;
+
 #[cfg(test)]
 mod tests {
     use super::*;
