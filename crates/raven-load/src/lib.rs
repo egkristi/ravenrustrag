@@ -87,6 +87,8 @@ impl Loader {
             ".html" | ".htm" => Self::load_html(path),
             #[cfg(feature = "pdf")]
             ".pdf" => Self::load_pdf(path),
+            #[cfg(feature = "docx")]
+            ".docx" => Self::load_docx(path),
             _ => Self::load_text(path), // Fallback: plain text
         }
     }
@@ -337,6 +339,41 @@ impl Loader {
             .with_metadata("filename", file_name)
             .with_metadata("format", "pdf"))
     }
+
+    #[cfg(feature = "docx")]
+    fn load_docx(path: &Path) -> Result<Document> {
+        let file = std::fs::File::open(path)?;
+        let file_name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        let mut archive = zip::ZipArchive::new(file)
+            .map_err(|e| raven_core::RavenError::Load(format!("DOCX ZIP error: {e}")))?;
+
+        let xml = {
+            let mut entry = archive.by_name("word/document.xml").map_err(|e| {
+                raven_core::RavenError::Load(format!("DOCX missing document.xml: {e}"))
+            })?;
+            let mut buf = String::new();
+            std::io::Read::read_to_string(&mut entry, &mut buf)?;
+            buf
+        };
+
+        let text = extract_docx_text(&xml);
+
+        if text.is_empty() {
+            return Err(raven_core::RavenError::Load(
+                "DOCX contains no extractable text".to_string(),
+            ));
+        }
+
+        Ok(Document::new(text)
+            .with_metadata("source", path.to_string_lossy())
+            .with_metadata("filename", file_name)
+            .with_metadata("format", "docx"))
+    }
 }
 
 /// Simple HTML tag stripper
@@ -378,6 +415,62 @@ fn strip_html_tags(html: &str) -> String {
     // Collapse whitespace
     let collapsed: String = result.split_whitespace().collect::<Vec<_>>().join(" ");
     collapsed.trim().to_string()
+}
+
+/// Extract text from DOCX document.xml
+/// Parses `<w:t>` text runs and `<w:p>` paragraph boundaries.
+#[cfg(feature = "docx")]
+fn extract_docx_text(xml: &str) -> String {
+    let mut result = String::with_capacity(xml.len() / 4);
+    let mut in_text_tag = false;
+    let mut paragraph_has_text = false;
+    let mut i = 0;
+    let bytes = xml.as_bytes();
+    let len = bytes.len();
+
+    while i < len {
+        if bytes[i] == b'<' {
+            // Check for <w:t> or <w:t ...>
+            if i + 4 < len && &bytes[i..i + 4] == b"<w:t" {
+                let tag_end = xml[i..].find('>');
+                if let Some(end) = tag_end {
+                    if bytes[i + end - 1] != b'/' {
+                        // Not self-closing
+                        in_text_tag = true;
+                    }
+                    i += end + 1;
+                    continue;
+                }
+            }
+            // Check for </w:t>
+            if i + 6 <= len && &bytes[i..i + 6] == b"</w:t>" {
+                in_text_tag = false;
+                i += 6;
+                continue;
+            }
+            // Check for <w:p> or <w:p ...> (paragraph start)
+            if i + 4 < len && &bytes[i..i + 4] == b"<w:p" {
+                if paragraph_has_text {
+                    result.push('\n');
+                    paragraph_has_text = false;
+                }
+            }
+            // Skip to end of tag
+            if let Some(end) = xml[i..].find('>') {
+                i += end + 1;
+            } else {
+                i += 1;
+            }
+        } else if in_text_tag {
+            result.push(bytes[i] as char);
+            paragraph_has_text = true;
+            i += 1;
+        } else {
+            i += 1;
+        }
+    }
+
+    result.trim().to_string()
 }
 
 // =============================================================================
