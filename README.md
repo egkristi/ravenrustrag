@@ -16,13 +16,13 @@ RavenRAG (Python) proved the concept. RavenRustRAG delivers on the promise.
 | | Python (RavenRAG v0.7.0) | Rust (RavenRustRAG) |
 |---|---|---|
 | **Startup** | 2–5s (import + model init) | <50ms |
-| **Query latency** | 50–200ms | 1–10ms |
+| **Query latency** | 50–200ms | 35 µs (100 docs, excl. embedding) |
 | **Memory baseline** | 200–500MB+ | 20–50MB |
-| **Deployment** | virtualenv + 4 core deps + optional extras | Single `raven` binary (~15MB) |
+| **Deployment** | virtualenv + 4 core deps + optional extras | Single `raven` binary (~9MB) |
 | **Concurrency** | GIL-bounded, fake async | Tokio, true async, lock-free reads |
 | **Type safety** | Runtime `TypeError`, `AttributeError` | Compile-time `Send + Sync` guarantees |
 | **Thread safety** | None — concurrent requests can corrupt state | `Arc<RwLock>`, fearless concurrency |
-| **Docker image** | ~1.5GB (Python + model + deps) | ~20MB (static musl binary) |
+| **Docker image** | ~1.5GB (Python + model + deps) | ~15MB (static musl binary) |
 | **Install** | `pip install ravenrag[all]` + pray | `cargo install ravenrustrag` |
 
 ## Features
@@ -327,18 +327,36 @@ Works with Claude Desktop, GitHub Copilot, Cursor, and any MCP-compatible client
 
 ## Benchmarks
 
-Expected on Apple Silicon / AMD Ryzen:
+Measured on Apple Silicon (M-series), release build, using `DummyEmbedder` (128-dim) to isolate compute from network latency. Run with `cargo bench`.
 
-| Operation | RavenRustRAG | RavenRAG (Python) | Speedup |
-|-----------|-------------|-------------------|---------|
+### Cosine Similarity (raven-core)
+
+| Dimension | Latency | Throughput |
+|-----------|---------|------------|
+| 128-d | 39 ns | ~25M ops/s |
+| 768-d | 220 ns | ~4.5M ops/s |
+| 1536-d | 434 ns | ~2.3M ops/s |
+
+### Search & Indexing (raven-search)
+
+| Operation | Latency |
+|-----------|---------|
+| Vector query, 100 docs | 35 µs |
+| Vector query, 1,000 docs | 370 µs |
+| Hybrid query (BM25 + vector), 100 docs | 55 µs |
+| Index 10 docs (split + embed + store) | 41 µs |
+
+### vs Python (RavenRAG v0.7.0)
+
+| Metric | RavenRustRAG | RavenRAG (Python) | Ratio |
+|--------|-------------|-------------------|-------|
 | Startup | <50ms | 2–5s | ~50x |
-| Index 1k docs | ~1s | ~30s | ~30x |
-| Query (cold) | ~5ms | ~200ms | ~40x |
-| Query (cached) | ~0.5ms | ~50ms | ~100x |
-| Memory baseline | ~30MB | ~300MB | ~10x |
-| Binary/image size | ~15MB | ~1.5GB | ~100x |
+| Query (100 docs, no embed) | 35 µs | 50–200ms | ~3,000x |
+| Memory baseline | 20–50MB | 200–500MB+ | ~10x |
+| Release binary | 8.7 MB | ~1.5GB (Docker) | ~170x |
+| Lines of code | ~9,100 | ~4,200 | 2.2x (9 crates, 122 tests) |
 
-Benchmarks are approximate and depend on hardware, embedding model, and document size.
+Benchmarks depend on hardware, embedding model, and document size. Query latency above excludes embedding time (network-bound for Ollama/OpenAI).
 
 ## Security
 

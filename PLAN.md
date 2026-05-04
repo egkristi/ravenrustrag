@@ -56,9 +56,9 @@ These must **not** be reproduced in Rust:
 | Dimension | Python | Rust |
 |---|---|---|
 | **Startup** | 2–5s | <50ms |
-| **Query latency** | 50–200ms | 1–10ms (without embedding) |
+| **Query latency** | 50–200ms | 35 µs (100 docs, measured) |
 | **Memory** | 200–500MB+ | 20–50MB |
-| **Deploy** | virtualenv + deps | Single static binary |
+| **Deploy** | virtualenv + deps | Single static binary (8.7 MB) |
 | **Concurrency** | GIL-bound | Lock-free reads, Tokio async |
 | **Safety** | Runtime exceptions | Compile-time guarantees |
 | **Thread safety** | None | Send + Sync, Arc<RwLock> |
@@ -338,6 +338,21 @@ Features that make the Rust version **strictly better** than Python:
 - [ ] Migration guide from Python RavenRAG
 - [ ] Performance comparisons vs Python version
 - [ ] Troubleshooting section
+
+#### Measured Performance (Apple Silicon, release build)
+
+| Benchmark | Result |
+|-----------|--------|
+| Cosine similarity 128-d | 39 ns |
+| Cosine similarity 768-d | 220 ns |
+| Cosine similarity 1536-d | 434 ns |
+| Vector query (100 docs) | 35 µs |
+| Vector query (1,000 docs) | 370 µs |
+| Hybrid query (100 docs) | 55 µs |
+| Index 10 docs | 41 µs |
+| Release binary size | 8.7 MB |
+| Lines of Rust | ~9,100 |
+| Tests | 122 |
 
 ### 6.2 Publishing
 - [ ] crates.io publish
