@@ -19,6 +19,7 @@ rust-version = "1.86"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/egkristi/ravenrustrag"
 authors = ["Erling Kristiansen"]
+description = "Local-first RAG engine — fast, safe, embeddable retrieval-augmented generation in Rust"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

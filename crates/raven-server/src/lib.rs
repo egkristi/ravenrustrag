@@ -606,15 +606,44 @@ async fn openapi() -> impl IntoResponse {
         "paths": {
             "/health": {
                 "get": {
-                    "summary": "Health check",
+                    "summary": "Liveness probe",
+                    "description": "Always returns 200. Use as Kubernetes liveness probe.",
                     "responses": {
                         "200": {
-                            "description": "Server is healthy",
+                            "description": "Server is alive",
                             "content": { "application/json": { "schema": {
                                 "type": "object",
                                 "properties": {
                                     "status": { "type": "string" },
                                     "version": { "type": "string" }
+                                }
+                            }}}
+                        }
+                    }
+                }
+            },
+            "/ready": {
+                "get": {
+                    "summary": "Readiness probe",
+                    "description": "Checks database connectivity. Use as Kubernetes readiness probe.",
+                    "responses": {
+                        "200": {
+                            "description": "Service is ready",
+                            "content": { "application/json": { "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "status": { "type": "string" },
+                                    "checks": { "type": "object", "properties": { "database": { "type": "boolean" } } }
+                                }
+                            }}}
+                        },
+                        "503": {
+                            "description": "Service not ready",
+                            "content": { "application/json": { "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "status": { "type": "string" },
+                                    "checks": { "type": "object", "properties": { "database": { "type": "boolean" } } }
                                 }
                             }}}
                         }
@@ -871,7 +900,7 @@ fn build_cors_layer(config: &ServerConfig) -> CorsLayer {
                     .parse::<HeaderValue>()
                     .expect("valid header"),
             ])
-            .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+            .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
             .allow_headers([
                 "content-type".parse().expect("valid header"),
                 "authorization".parse().expect("valid header"),
@@ -884,7 +913,7 @@ fn build_cors_layer(config: &ServerConfig) -> CorsLayer {
             .collect();
         CorsLayer::new()
             .allow_origin(origins)
-            .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+            .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
             .allow_headers([
                 "content-type".parse().expect("valid header"),
                 "authorization".parse().expect("valid header"),
@@ -1046,6 +1075,23 @@ mod tests {
         let json = response_json(resp).await;
         assert_eq!(json["status"], "ok");
         assert!(json["version"].is_string());
+    }
+
+    #[tokio::test]
+    async fn test_ready() {
+        let state = test_state(None);
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .uri("/ready")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert_eq!(json["status"], "ready");
+        assert_eq!(json["checks"]["database"], true);
     }
 
     #[tokio::test]

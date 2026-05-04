@@ -341,8 +341,7 @@ async fn main() -> Result<()> {
         tracing::Level::INFO
     };
 
-    let log_format = std::env::var("RAVEN_LOG_FORMAT")
-        .unwrap_or_else(|_| cli.log_format.clone());
+    let log_format = std::env::var("RAVEN_LOG_FORMAT").unwrap_or_else(|_| cli.log_format.clone());
 
     if log_format == "json" {
         tracing_subscriber::fmt()
@@ -598,7 +597,9 @@ async fn main() -> Result<()> {
             println!("🐦‍⬛ RavenRustRAG server starting on http://{host}:{port}");
             println!("   Database: {}", db.display());
             println!("   Model: {model} ({url})");
-            println!("   Endpoints: /health /stats /metrics /query /prompt /index /openapi.json");
+            println!(
+                "   Endpoints: /health /ready /stats /metrics /query /prompt /index /openapi.json"
+            );
             println!("   Press Ctrl+C to stop.\n");
 
             let state = Arc::new(AppState::new(index, config, TextSplitter::new(512, 50)));
