@@ -14,7 +14,10 @@ type LoaderFn = Box<dyn Fn(&Path) -> Result<Document> + Send + Sync>;
 static CUSTOM_LOADERS: Mutex<Option<HashMap<String, LoaderFn>>> = Mutex::new(None);
 
 /// Register a custom loader for a file extension
-pub fn register_loader(extension: &str, loader: impl Fn(&Path) -> Result<Document> + Send + Sync + 'static) {
+pub fn register_loader(
+    extension: &str,
+    loader: impl Fn(&Path) -> Result<Document> + Send + Sync + 'static,
+) {
     let ext = normalize_ext(extension);
     let mut guard = CUSTOM_LOADERS.lock().unwrap();
     let map = guard.get_or_insert_with(HashMap::new);
@@ -24,12 +27,19 @@ pub fn register_loader(extension: &str, loader: impl Fn(&Path) -> Result<Documen
 /// Get registered custom extensions
 pub fn get_registered_extensions() -> Vec<String> {
     let guard = CUSTOM_LOADERS.lock().unwrap();
-    guard.as_ref().map(|m| m.keys().cloned().collect()).unwrap_or_default()
+    guard
+        .as_ref()
+        .map(|m| m.keys().cloned().collect())
+        .unwrap_or_default()
 }
 
 fn normalize_ext(ext: &str) -> String {
     let e = ext.to_lowercase();
-    if e.starts_with('.') { e } else { format!(".{}", e) }
+    if e.starts_with('.') {
+        e
+    } else {
+        format!(".{}", e)
+    }
 }
 
 // =============================================================================
@@ -77,9 +87,8 @@ impl Loader {
         let path = path.as_ref();
         let canonical_root = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
 
-        let exts: Option<Vec<String>> = extensions.map(|e| {
-            e.iter().map(|ext| normalize_ext(ext)).collect()
-        });
+        let exts: Option<Vec<String>> =
+            extensions.map(|e| e.iter().map(|ext| normalize_ext(ext)).collect());
 
         let mut documents = Vec::new();
 
@@ -163,21 +172,25 @@ impl Loader {
             .with_metadata("format", "markdown");
 
         // Parse YAML frontmatter if present
-        if raw.starts_with("---") {
-            if let Some(end) = raw[3..].find("---") {
-                let frontmatter = &raw[3..3 + end].trim();
+        if let Some(stripped) = raw.strip_prefix("---") {
+            if let Some(end) = stripped.find("---") {
+                let frontmatter = stripped[..end].trim();
                 // Simple key: value parsing (no full YAML dependency)
                 for line in frontmatter.lines() {
                     if let Some((key, value)) = line.split_once(':') {
                         let k = key.trim().to_string();
-                        let v = value.trim().trim_matches('"').trim_matches('\'').to_string();
+                        let v = value
+                            .trim()
+                            .trim_matches('"')
+                            .trim_matches('\'')
+                            .to_string();
                         if !k.is_empty() && !v.is_empty() {
                             doc = doc.with_metadata(k, v);
                         }
                     }
                 }
                 // Strip frontmatter from text
-                let body = &raw[3 + end + 3..];
+                let body = &stripped[end + 3..];
                 doc.text = body.trim_start().to_string();
             }
         }
@@ -255,7 +268,9 @@ impl Loader {
                 continue;
             }
             if let Ok(value) = serde_json::from_str::<serde_json::Value>(line) {
-                lines_out.push(serde_json::to_string_pretty(&value).unwrap_or_else(|_| line.to_string()));
+                lines_out.push(
+                    serde_json::to_string_pretty(&value).unwrap_or_else(|_| line.to_string()),
+                );
             } else {
                 lines_out.push(line.to_string());
             }
@@ -323,10 +338,7 @@ fn strip_html_tags(html: &str) -> String {
     }
 
     // Collapse whitespace
-    let collapsed: String = result
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
+    let collapsed: String = result.split_whitespace().collect::<Vec<_>>().join(" ");
     collapsed.trim().to_string()
 }
 
@@ -409,7 +421,11 @@ mod tests {
     fn test_load_markdown_frontmatter() {
         let temp_dir = tempfile::tempdir().unwrap();
         let file = temp_dir.path().join("test.md");
-        std::fs::write(&file, "---\ntitle: My Doc\nauthor: Test\n---\n# Hello\n\nContent here.").unwrap();
+        std::fs::write(
+            &file,
+            "---\ntitle: My Doc\nauthor: Test\n---\n# Hello\n\nContent here.",
+        )
+        .unwrap();
 
         let doc = Loader::from_file(&file).unwrap();
         assert_eq!(doc.metadata.get("title"), Some(&"My Doc".to_string()));
@@ -431,7 +447,8 @@ mod tests {
 
     #[test]
     fn test_strip_html() {
-        let html = "<html><body><h1>Title</h1><p>Paragraph</p><script>var x=1;</script></body></html>";
+        let html =
+            "<html><body><h1>Title</h1><p>Paragraph</p><script>var x=1;</script></body></html>";
         let text = strip_html_tags(html);
         assert_eq!(text, "Title Paragraph");
     }

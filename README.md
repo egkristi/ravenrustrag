@@ -7,7 +7,7 @@
 Index thousands of documents in milliseconds. Query with microsecond latency. Ship as a single static binary. No Python. No virtual environments. No GIL.
 
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSE)
 
 ## Why Rust instead of Python?
 
@@ -388,7 +388,7 @@ cargo test
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Dual licensed: [AGPLv3](LICENSES/AGPLv3.txt) + [Commercial](LICENSES/COMMERCIAL.txt). See [LICENSING.md](LICENSING.md) for details.
 
 ---
 

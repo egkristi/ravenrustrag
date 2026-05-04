@@ -204,12 +204,13 @@ async fn prompt_handler(
             } else {
                 let mut p = format!("Query: {}\n\nContext:\n", req.query);
                 for (i, r) in results.iter().enumerate() {
-                    let src = r
-                        .chunk
-                        .metadata
-                        .get("source")
-                        .unwrap_or(&r.chunk.doc_id);
-                    p.push_str(&format!("\n[{}] Source: {}\n{}\n", i + 1, src, r.chunk.text));
+                    let src = r.chunk.metadata.get("source").unwrap_or(&r.chunk.doc_id);
+                    p.push_str(&format!(
+                        "\n[{}] Source: {}\n{}\n",
+                        i + 1,
+                        src,
+                        r.chunk.text
+                    ));
                 }
                 p.push_str("\n---\nAnswer the query using the provided context.");
                 p

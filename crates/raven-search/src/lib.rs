@@ -11,10 +11,7 @@ pub struct DocumentIndex {
 }
 
 impl DocumentIndex {
-    pub fn new(
-        store: Arc<dyn VectorStore>,
-        embedder: Arc<dyn Embedder>,
-    ) -> Self {
+    pub fn new(store: Arc<dyn VectorStore>, embedder: Arc<dyn Embedder>) -> Self {
         Self { store, embedder }
     }
 
@@ -69,11 +66,7 @@ impl DocumentIndex {
     }
 
     /// Query the index
-    pub async fn query(
-        &self,
-        query_text: &str,
-        top_k: usize,
-    ) -> Result<Vec<SearchResult>> {
+    pub async fn query(&self, query_text: &str, top_k: usize) -> Result<Vec<SearchResult>> {
         let query_embedding = self.embedder.embed(&[query_text.to_string()]).await?;
         let embedding = query_embedding
             .into_iter()
@@ -84,11 +77,7 @@ impl DocumentIndex {
     }
 
     /// Format results as LLM prompt with citations
-    pub async fn query_for_prompt(
-        &self,
-        query_text: &str,
-        top_k: usize,
-    ) -> Result<String> {
+    pub async fn query_for_prompt(&self, query_text: &str, top_k: usize) -> Result<String> {
         let results = self.query(query_text, top_k).await?;
         Ok(format_prompt(query_text, &results, None))
     }
@@ -236,9 +225,8 @@ mod tests {
         let index = DocumentIndex::new(store, embedder);
 
         let splitter = TextSplitter::new(200, 10);
-        let docs = vec![
-            Document::new("RAG is retrieval-augmented generation.").with_metadata("source", "rag.md"),
-        ];
+        let docs = vec![Document::new("RAG is retrieval-augmented generation.")
+            .with_metadata("source", "rag.md")];
 
         index.add_documents(docs, &splitter).await.unwrap();
 

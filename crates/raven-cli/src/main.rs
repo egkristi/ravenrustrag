@@ -268,10 +268,7 @@ async fn main() -> Result<()> {
                 pb.inc(batch_len as u64);
             }
 
-            pb.finish_with_message(format!(
-                "Done! {} chunks indexed",
-                index.count().await?
-            ));
+            pb.finish_with_message(format!("Done! {} chunks indexed", index.count().await?));
         }
 
         Commands::Query {
@@ -351,7 +348,10 @@ async fn main() -> Result<()> {
                 api_key,
             };
 
-            println!("🐦‍⬛ RavenRustRAG server starting on http://{}:{}", host, port);
+            println!(
+                "🐦‍⬛ RavenRustRAG server starting on http://{}:{}",
+                host, port
+            );
             println!("   Database: {}", db.display());
             println!("   Model: {} ({})", model, url);
             println!("   Endpoints: /health /stats /query /prompt /index /openapi.json");
@@ -363,7 +363,9 @@ async fn main() -> Result<()> {
                 splitter: TextSplitter::new(512, 50),
             });
 
-            raven_server::serve(state).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            raven_server::serve(state)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
         }
 
         Commands::Clear { db } => {
@@ -378,13 +380,19 @@ async fn main() -> Result<()> {
             println!("Exporting {} chunks from {}...", count, db.display());
             // For export we read all chunks as documents
             // This is a simplified export — exports a marker file
-            let marker = raven_core::Document::new(format!("RavenRustRAG export: {} chunks", count))
-                .with_metadata("db", db.to_string_lossy());
+            let marker =
+                raven_core::Document::new(format!("RavenRustRAG export: {} chunks", count))
+                    .with_metadata("db", db.to_string_lossy());
             raven_load::export_jsonl(&[marker], &output)?;
             println!("✓ Exported to {}", output.display());
         }
 
-        Commands::Import { file, db, url, model } => {
+        Commands::Import {
+            file,
+            db,
+            url,
+            model,
+        } => {
             let docs = raven_load::import_jsonl(&file)?;
             println!("Loaded {} documents from {}", docs.len(), file.display());
 
@@ -409,7 +417,10 @@ async fn main() -> Result<()> {
             let splitter = TextSplitter::new(512, 50);
 
             let server = McpServer::new(index, splitter);
-            server.run_stdio().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            server
+                .run_stdio()
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
         }
 
         Commands::Doctor { url, db } => {

@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -184,7 +184,7 @@ impl Default for ServerConfig {
 
 /// Compute content fingerprint
 pub fn fingerprint(text: &str) -> String {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(text.as_bytes());
     format!("{:x}", hasher.finalize())
@@ -196,9 +196,8 @@ mod tests {
 
     #[test]
     fn test_document_creation() {
-        let doc = Document::new("Hello world")
-            .with_metadata("source", "test.txt");
-        
+        let doc = Document::new("Hello world").with_metadata("source", "test.txt");
+
         assert_eq!(doc.text, "Hello world");
         assert_eq!(doc.metadata.get("source"), Some(&"test.txt".to_string()));
         assert!(!doc.id.is_empty());
@@ -209,7 +208,7 @@ mod tests {
         let fp1 = fingerprint("hello");
         let fp2 = fingerprint("hello");
         let fp3 = fingerprint("world");
-        
+
         assert_eq!(fp1, fp2);
         assert_ne!(fp1, fp3);
         assert_eq!(fp1.len(), 64); // SHA-256 hex

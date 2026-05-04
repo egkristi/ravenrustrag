@@ -135,21 +135,19 @@ impl McpServer {
         let id = req.id.clone().unwrap_or(Value::Null);
 
         match req.method.as_str() {
-            "initialize" => {
-                Some(JsonRpcResponse::success(
-                    id,
-                    serde_json::json!({
-                        "protocolVersion": MCP_PROTOCOL_VERSION,
-                        "capabilities": {
-                            "tools": {}
-                        },
-                        "serverInfo": {
-                            "name": "ravenrustrag",
-                            "version": env!("CARGO_PKG_VERSION")
-                        }
-                    }),
-                ))
-            }
+            "initialize" => Some(JsonRpcResponse::success(
+                id,
+                serde_json::json!({
+                    "protocolVersion": MCP_PROTOCOL_VERSION,
+                    "capabilities": {
+                        "tools": {}
+                    },
+                    "serverInfo": {
+                        "name": "ravenrustrag",
+                        "version": env!("CARGO_PKG_VERSION")
+                    }
+                }),
+            )),
             "notifications/initialized" => None, // No response for notifications
             "tools/list" => Some(JsonRpcResponse::success(id, tool_definitions())),
             "tools/call" => Some(self.handle_tool_call(id, req.params).await),
@@ -162,11 +160,11 @@ impl McpServer {
     }
 
     async fn handle_tool_call(&self, id: Value, params: Value) -> JsonRpcResponse {
-        let tool_name = params
-            .get("name")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let arguments = params.get("arguments").cloned().unwrap_or(Value::Object(Default::default()));
+        let tool_name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let arguments = params
+            .get("arguments")
+            .cloned()
+            .unwrap_or(Value::Object(Default::default()));
 
         match tool_name {
             "search" => self.tool_search(id, arguments).await,
@@ -232,7 +230,10 @@ impl McpServer {
     }
 
     async fn tool_index_documents(&self, id: Value, args: Value) -> JsonRpcResponse {
-        let docs_val = args.get("documents").cloned().unwrap_or(Value::Array(vec![]));
+        let docs_val = args
+            .get("documents")
+            .cloned()
+            .unwrap_or(Value::Array(vec![]));
         let doc_arr = docs_val.as_array().cloned().unwrap_or_default();
 
         let docs: Vec<Document> = doc_arr
@@ -280,11 +281,8 @@ impl McpServer {
             let req: JsonRpcRequest = match serde_json::from_str(&line) {
                 Ok(r) => r,
                 Err(e) => {
-                    let err_resp = JsonRpcResponse::error(
-                        Value::Null,
-                        -32700,
-                        format!("Parse error: {}", e),
-                    );
+                    let err_resp =
+                        JsonRpcResponse::error(Value::Null, -32700, format!("Parse error: {}", e));
                     let out = serde_json::to_string(&err_resp).unwrap_or_default();
                     stdout.write_all(out.as_bytes()).await?;
                     stdout.write_all(b"\n").await?;

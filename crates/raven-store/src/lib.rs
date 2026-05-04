@@ -32,9 +32,8 @@ pub struct SqliteStore {
 
 impl SqliteStore {
     pub async fn new(path: impl AsRef<Path>, dimension: usize) -> Result<Self> {
-        let conn = Connection::open(path).map_err(|e| RavenError::Store(format!(
-            "Failed to open SQLite: {}", e
-        )))?;
+        let conn = Connection::open(path)
+            .map_err(|e| RavenError::Store(format!("Failed to open SQLite: {}", e)))?;
 
         // Create tables
         conn.execute(
@@ -76,11 +75,11 @@ impl SqliteStore {
         let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
         let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
         let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-        
+
         if norm_a == 0.0 || norm_b == 0.0 {
             return 0.0;
         }
-        
+
         dot / (norm_a * norm_b)
     }
 }
@@ -107,7 +106,10 @@ impl VectorStore for SqliteStore {
                 )));
             }
 
-            let embedding_bytes = embedding.iter().flat_map(|f| f.to_le_bytes()).collect::<Vec<_>>();
+            let embedding_bytes = embedding
+                .iter()
+                .flat_map(|f| f.to_le_bytes())
+                .collect::<Vec<_>>();
             let metadata = serde_json::to_string(&chunk.metadata).map_err(RavenError::Serde)?;
 
             tx.execute(
@@ -232,7 +234,7 @@ impl VectorStore for MemoryStore {
 
     async fn search(&self, query: &[f32], top_k: usize) -> Result<Vec<SearchResult>> {
         let store = self.chunks.lock().await;
-        
+
         let mut scored: Vec<(f32, Chunk)> = Vec::new();
         for chunk in store.iter() {
             if let Some(embedding) = &chunk.embedding {
@@ -277,7 +279,7 @@ mod tests {
     #[tokio::test]
     async fn test_memory_store() {
         let store = MemoryStore::new();
-        
+
         let chunks = vec![
             Chunk::new("doc1", "hello world").with_embedding(vec![1.0, 0.0, 0.0]),
             Chunk::new("doc1", "goodbye world").with_embedding(vec![0.0, 1.0, 0.0]),
@@ -299,7 +301,7 @@ mod tests {
     async fn test_sqlite_store() {
         let temp_dir = tempfile::tempdir().unwrap();
         let db_path = temp_dir.path().join("test.db");
-        
+
         let store = SqliteStore::new(&db_path, 3).await.unwrap();
 
         let chunks = vec![

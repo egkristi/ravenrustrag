@@ -13,8 +13,14 @@ pub struct TextSplitter {
 
 impl TextSplitter {
     pub fn new(chunk_size: usize, chunk_overlap: usize) -> Self {
-        assert!(chunk_overlap < chunk_size, "overlap must be less than chunk_size");
-        Self { chunk_size, chunk_overlap }
+        assert!(
+            chunk_overlap < chunk_size,
+            "overlap must be less than chunk_size"
+        );
+        Self {
+            chunk_size,
+            chunk_overlap,
+        }
     }
 
     pub fn with_chunk_size(mut self, size: usize) -> Self {
@@ -53,7 +59,7 @@ impl Splitter for TextSplitter {
             while start < text.len() {
                 let end = (start + self.chunk_size).min(text.len());
                 let chunk_text = &text[start..end];
-                
+
                 let mut chunk = Chunk::new(&doc.id, chunk_text);
                 chunk.metadata = doc.metadata.clone();
                 chunks.push(chunk);
@@ -76,13 +82,13 @@ mod tests {
     #[test]
     fn test_text_splitter() {
         let splitter = TextSplitter::new(10, 2);
-        let docs = vec![
-            Document::new("This is a longer text that needs to be split into multiple chunks.")
-        ];
+        let docs = vec![Document::new(
+            "This is a longer text that needs to be split into multiple chunks.",
+        )];
 
         let chunks = splitter.split(docs);
         assert!(chunks.len() > 1);
-        
+
         for chunk in &chunks {
             assert!(chunk.text.len() <= 10);
         }
