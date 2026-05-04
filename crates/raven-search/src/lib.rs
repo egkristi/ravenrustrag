@@ -6,7 +6,7 @@
 use raven_core::{Chunk, Document, Result, SearchResult};
 use raven_embed::Embedder;
 use raven_split::Splitter;
-use raven_store::VectorStore;
+use raven_store::{MetadataFilter, VectorStore};
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -25,6 +25,8 @@ pub struct DocumentIndex {
     store: Arc<dyn VectorStore>,
     embedder: Arc<dyn Embedder>,
     bm25: RwLock<Bm25Index>,
+    embed_batch_size: usize,
+    store_batch_size: usize,
 }
 
 impl DocumentIndex {
@@ -33,6 +35,8 @@ impl DocumentIndex {
             store,
             embedder,
             bm25: RwLock::new(Bm25Index::new()),
+            embed_batch_size: 64,
+            store_batch_size: 100,
         }
     }
 
@@ -42,7 +46,18 @@ impl DocumentIndex {
 
     /// Add documents (chunks must already have embeddings)
     pub async fn add_chunks(&self, chunks: &[Chunk]) -> Result<()> {
+        let before = self.bm25.read().await.count();
         self.bm25.write().await.add(chunks);
+
+        // Persist BM25 terms for new chunks
+        let term_data = self.bm25.read().await.get_term_data(before);
+        for (chunk_id, terms, doc_length) in &term_data {
+            self.store
+                .save_bm25_terms(chunk_id, terms, *doc_length)
+                .await
+                .ok(); // Best-effort persistence
+        }
+
         self.store.add(chunks).await
     }
 
@@ -66,11 +81,10 @@ impl DocumentIndex {
         info!("Split into {} chunks", texts.len());
 
         // Embed in batches
-        let batch_size = 64;
         let mut all_embeddings = Vec::with_capacity(texts.len());
 
         info!(num_chunks = texts.len(), "Embedding chunks");
-        for batch in texts.chunks(batch_size) {
+        for batch in texts.chunks(self.embed_batch_size) {
             let embeddings = self.embedder.embed(batch).await?;
             all_embeddings.extend(embeddings);
         }
@@ -87,12 +101,21 @@ impl DocumentIndex {
 
         // Store in batches
         info!(num_chunks = embedded_chunks.len(), "Storing chunks");
-        for batch in embedded_chunks.chunks(100) {
+        for batch in embedded_chunks.chunks(self.store_batch_size) {
             self.store.add(batch).await?;
         }
 
-        // Also add to BM25 index
+        // Add to BM25 index and persist
+        let before = self.bm25.read().await.count();
         self.bm25.write().await.add(&embedded_chunks);
+
+        let term_data = self.bm25.read().await.get_term_data(before);
+        for (chunk_id, terms, doc_length) in &term_data {
+            self.store
+                .save_bm25_terms(chunk_id, terms, *doc_length)
+                .await
+                .ok();
+        }
 
         Ok(())
     }
@@ -107,6 +130,23 @@ impl DocumentIndex {
             .ok_or_else(|| raven_core::RavenError::NotFound("Empty embedding".to_string()))?;
 
         self.store.search(&embedding, top_k).await
+    }
+
+    /// Query with metadata filtering
+    #[tracing::instrument(skip(self), fields(top_k))]
+    pub async fn query_filtered(
+        &self,
+        query_text: &str,
+        top_k: usize,
+        filter: &MetadataFilter,
+    ) -> Result<Vec<SearchResult>> {
+        let query_embedding = self.embedder.embed(&[query_text.to_string()]).await?;
+        let embedding = query_embedding
+            .into_iter()
+            .next()
+            .ok_or_else(|| raven_core::RavenError::NotFound("Empty embedding".to_string()))?;
+
+        self.store.search_filtered(&embedding, top_k, filter).await
     }
 
     /// Hybrid query: combine vector search and BM25 with Reciprocal Rank Fusion.
@@ -234,11 +274,13 @@ impl DocumentIndex {
     }
 
     pub async fn delete(&self, doc_id: &str) -> Result<()> {
+        self.store.delete_bm25_terms(doc_id).await.ok();
         self.store.delete(doc_id).await
     }
 
     pub async fn clear(&self) -> Result<()> {
         self.bm25.write().await.clear();
+        self.store.clear_bm25().await.ok();
         self.store.clear().await
     }
 
@@ -248,6 +290,18 @@ impl DocumentIndex {
 
     pub fn store(&self) -> &Arc<dyn VectorStore> {
         &self.store
+    }
+
+    /// Load persisted BM25 data from the store.
+    /// Call this after creating a DocumentIndex to restore BM25 state.
+    pub async fn load_bm25_from_store(&self) -> Result<usize> {
+        let data = self.store.load_bm25_data().await?;
+        let count = data.len();
+        if count > 0 {
+            self.bm25.write().await.load_from_stored(&data);
+            info!(num_terms = count, "Loaded BM25 index from store");
+        }
+        Ok(count)
     }
 
     /// Stream query results one at a time via a channel.
@@ -397,6 +451,8 @@ impl Default for MultiCollectionRouter {
 pub struct DocumentIndexBuilder {
     store: Option<Arc<dyn VectorStore>>,
     embedder: Option<Arc<dyn Embedder>>,
+    embed_batch_size: Option<usize>,
+    store_batch_size: Option<usize>,
 }
 
 impl DocumentIndexBuilder {
@@ -410,6 +466,16 @@ impl DocumentIndexBuilder {
         self
     }
 
+    pub fn embed_batch_size(mut self, size: usize) -> Self {
+        self.embed_batch_size = Some(size);
+        self
+    }
+
+    pub fn store_batch_size(mut self, size: usize) -> Self {
+        self.store_batch_size = Some(size);
+        self
+    }
+
     pub fn build(self) -> Result<DocumentIndex> {
         let store = self
             .store
@@ -418,7 +484,14 @@ impl DocumentIndexBuilder {
             .embedder
             .ok_or_else(|| raven_core::RavenError::Config("Embedder not configured".to_string()))?;
 
-        Ok(DocumentIndex::new(store, embedder))
+        let mut index = DocumentIndex::new(store, embedder);
+        if let Some(size) = self.embed_batch_size {
+            index.embed_batch_size = size;
+        }
+        if let Some(size) = self.store_batch_size {
+            index.store_batch_size = size;
+        }
+        Ok(index)
     }
 }
 
@@ -704,5 +777,116 @@ mod tests {
             count += 1;
         }
         assert_eq!(count, 2);
+    }
+
+    #[tokio::test]
+    async fn test_query_no_results() {
+        let store = Arc::new(MemoryStore::new());
+        let embedder = Arc::new(DummyEmbedder::new(3));
+        let index = DocumentIndex::new(store, embedder);
+
+        // Empty index should return empty results
+        let results = index.query("anything", 5).await.unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_query_single_document() {
+        let store = Arc::new(MemoryStore::new());
+        let embedder = Arc::new(DummyEmbedder::new(3));
+        let index = DocumentIndex::new(store, embedder);
+
+        let splitter = TextSplitter::new(200, 10);
+        let docs = vec![Document::new("The only document")];
+        index.add_documents(docs, &splitter).await.unwrap();
+
+        let results = index.query("document", 10).await.unwrap();
+        assert_eq!(results.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_delete_then_query() {
+        let store = Arc::new(MemoryStore::new());
+        let embedder = Arc::new(DummyEmbedder::new(3));
+        let index = DocumentIndex::new(store, embedder);
+
+        let splitter = TextSplitter::new(200, 10);
+        let doc = Document::new("Test document").with_id("test-doc-1");
+        index.add_documents(vec![doc], &splitter).await.unwrap();
+        assert_eq!(index.count().await.unwrap(), 1);
+
+        index.delete("test-doc-1").await.unwrap();
+        assert_eq!(index.count().await.unwrap(), 0);
+
+        let results = index.query("test", 5).await.unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_clear_resets_everything() {
+        let store = Arc::new(MemoryStore::new());
+        let embedder = Arc::new(DummyEmbedder::new(3));
+        let index = DocumentIndex::new(store, embedder);
+
+        let splitter = TextSplitter::new(200, 10);
+        let docs = vec![Document::new("A"), Document::new("B"), Document::new("C")];
+        index.add_documents(docs, &splitter).await.unwrap();
+        assert_eq!(index.count().await.unwrap(), 3);
+
+        index.clear().await.unwrap();
+        assert_eq!(index.count().await.unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_query_filtered() {
+        let store = Arc::new(MemoryStore::new());
+        let embedder = Arc::new(DummyEmbedder::new(3));
+        let index = DocumentIndex::new(store, embedder);
+
+        let splitter = TextSplitter::new(200, 10);
+        let docs = vec![
+            Document::new("English greeting hello").with_metadata("lang", "en"),
+            Document::new("French greeting bonjour").with_metadata("lang", "fr"),
+            Document::new("English farewell goodbye").with_metadata("lang", "en"),
+        ];
+        index.add_documents(docs, &splitter).await.unwrap();
+
+        let filter = raven_store::MetadataFilter::new().with("lang", "en");
+        let results = index.query_filtered("greeting", 10, &filter).await.unwrap();
+        assert_eq!(results.len(), 2);
+        for r in &results {
+            assert_eq!(r.chunk.metadata.get("lang").unwrap(), "en");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_builder_with_batch_sizes() {
+        let store = Arc::new(MemoryStore::new());
+        let embedder = Arc::new(DummyEmbedder::new(3));
+
+        let index = DocumentIndex::builder()
+            .store(store)
+            .embedder(embedder)
+            .embed_batch_size(32)
+            .store_batch_size(50)
+            .build()
+            .unwrap();
+
+        assert_eq!(index.embed_batch_size, 32);
+        assert_eq!(index.store_batch_size, 50);
+    }
+
+    #[tokio::test]
+    async fn test_builder_missing_store() {
+        let embedder = Arc::new(DummyEmbedder::new(3));
+        let result = DocumentIndex::builder().embedder(embedder).build();
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_builder_missing_embedder() {
+        let store = Arc::new(MemoryStore::new());
+        let result = DocumentIndex::builder().store(store).build();
+        assert!(result.is_err());
     }
 }

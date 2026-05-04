@@ -13,6 +13,7 @@ use axum::{
 use raven_core::{Document, SearchResult, ServerConfig};
 use raven_search::DocumentIndex;
 use raven_split::TextSplitter;
+use raven_store::MetadataFilter;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -122,6 +123,13 @@ async fn rate_limit_middleware(
 
 // --- Request/Response types ---
 
+/// Strip control characters from input text (U+0000-U+001F except \n and \t)
+fn sanitize_input(s: &str) -> String {
+    s.chars()
+        .filter(|c| !c.is_control() || *c == '\n' || *c == '\t')
+        .collect()
+}
+
 #[derive(Deserialize)]
 pub struct QueryRequest {
     pub query: String,
@@ -131,6 +139,9 @@ pub struct QueryRequest {
     pub hybrid: bool,
     #[serde(default = "default_alpha")]
     pub alpha: f32,
+    /// Metadata filter: key-value pairs that must match (AND logic)
+    #[serde(default)]
+    pub filter: Option<std::collections::HashMap<String, String>>,
 }
 
 fn default_top_k() -> usize {
@@ -256,10 +267,13 @@ async fn stats(State(state): State<Arc<AppState>>, headers: HeaderMap) -> impl I
 async fn query_handler(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    Json(req): Json<QueryRequest>,
+    Json(mut req): Json<QueryRequest>,
 ) -> impl IntoResponse {
     state.metrics.requests_total.fetch_add(1, Ordering::Relaxed);
     state.metrics.queries_total.fetch_add(1, Ordering::Relaxed);
+
+    // Sanitize input
+    req.query = sanitize_input(&req.query);
 
     if !check_auth(&headers, &state.config) {
         return (
@@ -290,8 +304,17 @@ async fn query_handler(
 
     let top_k = req.top_k.clamp(1, 1000);
 
+    // Build metadata filter if provided
+    let has_filter = req.filter.as_ref().is_some_and(|f| !f.is_empty());
+
     let result = if req.hybrid {
         state.index.query_hybrid(&req.query, top_k, req.alpha).await
+    } else if has_filter {
+        let mut mf = MetadataFilter::new();
+        for (k, v) in req.filter.unwrap_or_default() {
+            mf = mf.with(k, v);
+        }
+        state.index.query_filtered(&req.query, top_k, &mf).await
     } else {
         state.index.query(&req.query, top_k).await
     };
@@ -321,10 +344,13 @@ async fn query_handler(
 async fn prompt_handler(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    Json(req): Json<PromptRequest>,
+    Json(mut req): Json<PromptRequest>,
 ) -> impl IntoResponse {
     state.metrics.requests_total.fetch_add(1, Ordering::Relaxed);
     state.metrics.queries_total.fetch_add(1, Ordering::Relaxed);
+
+    // Sanitize input
+    req.query = sanitize_input(&req.query);
 
     if !check_auth(&headers, &state.config) {
         return (

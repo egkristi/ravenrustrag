@@ -213,7 +213,8 @@ ravenrustrag/
 - [x] BM25 index (custom Okapi BM25)
 - [x] `HybridSearcher` — vector + BM25 with Reciprocal Rank Fusion
 - [x] Configurable alpha (0.0 = pure BM25, 1.0 = pure vector)
-- [ ] Metadata filtering on both signals
+- [x] Metadata filtering on search results -- [#35](https://github.com/egkristi/ravenrustrag/issues/35)
+- [x] BM25 persistence in SQLite -- [#37](https://github.com/egkristi/ravenrustrag/issues/37)
 
 ### 4.7 Cross-encoder Reranking
 - [ ] ONNX-based cross-encoder (local, no Python) — **better than Python**
@@ -259,7 +260,7 @@ ravenrustrag/
 - [ ] Static binary (`musl` target) — **better than Python** (~15MB vs ~1.5GB image)
 - [x] GitHub Actions: test, lint (clippy), format (rustfmt), release
 - [x] Container build and push to GHCR
-- [ ] Cross-compile for linux/amd64 and linux/arm64
+- [x] Cross-compile for linux/amd64, linux/amd64-musl, linux/arm64 -- [#40](https://github.com/egkristi/ravenrustrag/issues/40)
 
 ### 4.14 Security Hardening
 
@@ -358,8 +359,7 @@ Features that make the Rust version **strictly better** than Python:
 
 1. **Flat vector search** — O(n) brute-force. Sufficient for <10k documents. HNSW in Phase 3.
 2. **Ollama + OpenAI embedder only** — ONNX local inference coming in Phase 3.
-3. **BM25 not persisted** — rebuilt in memory from VectorStore during hybrid search.
-4. **No cross-encoder reranking** — Requires ONNX runtime, planned for Phase 3.
+3. **No cross-encoder reranking** — Requires ONNX runtime, planned for Phase 3.
 
 ## 7.1 Open Issues
 
@@ -371,6 +371,15 @@ Features that make the Rust version **strictly better** than Python:
 | [#14](https://github.com/egkristi/ravenrustrag/issues/14) | SQLite WAL mode optimization | Medium | Resolved |
 | [#15](https://github.com/egkristi/ravenrustrag/issues/15) | Complete OpenAPI 3.0 schema | Medium | Resolved |
 | [#16](https://github.com/egkristi/ravenrustrag/issues/16) | PDF file loader support | Low | Resolved |
+| [#32](https://github.com/egkristi/ravenrustrag/issues/32) | Remove unused ndarray dependency | Low | Resolved |
+| [#33](https://github.com/egkristi/ravenrustrag/issues/33) | Fix misleading SIMD claims in README | Medium | Resolved |
+| [#34](https://github.com/egkristi/ravenrustrag/issues/34) | Improve SentenceSplitter abbreviation handling | Medium | Resolved |
+| [#35](https://github.com/egkristi/ravenrustrag/issues/35) | Add metadata filtering on vector search | High | Resolved |
+| [#36](https://github.com/egkristi/ravenrustrag/issues/36) | Make batch sizes configurable | Medium | Resolved |
+| [#37](https://github.com/egkristi/ravenrustrag/issues/37) | Persist BM25 index in SQLite | High | Resolved |
+| [#38](https://github.com/egkristi/ravenrustrag/issues/38) | Add input sanitization for queries | Medium | Resolved |
+| [#39](https://github.com/egkristi/ravenrustrag/issues/39) | Expand test coverage across crates | Medium | Resolved |
+| [#40](https://github.com/egkristi/ravenrustrag/issues/40) | Musl static binary and arm64 CI | Low | Resolved |
 
 ## 8. Build Instructions
 

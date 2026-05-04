@@ -125,6 +125,8 @@ pub struct Config {
     pub server: ServerConfig,
     #[serde(default)]
     pub context: ContextConfig,
+    #[serde(default)]
+    pub pipeline: PipelineConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -172,6 +174,34 @@ impl Default for SplitterConfig {
             kind: "text".to_string(),
             chunk_size: 512,
             chunk_overlap: 50,
+        }
+    }
+}
+
+/// Pipeline tuning configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PipelineConfig {
+    /// Batch size for embedding operations
+    #[serde(default = "default_embed_batch_size")]
+    pub embed_batch_size: usize,
+    /// Batch size for store operations
+    #[serde(default = "default_store_batch_size")]
+    pub store_batch_size: usize,
+}
+
+fn default_embed_batch_size() -> usize {
+    64
+}
+
+fn default_store_batch_size() -> usize {
+    100
+}
+
+impl Default for PipelineConfig {
+    fn default() -> Self {
+        Self {
+            embed_batch_size: default_embed_batch_size(),
+            store_batch_size: default_store_batch_size(),
         }
     }
 }
@@ -250,7 +280,9 @@ impl Config {
 
         // Warn about unknown top-level keys
         if let Ok(raw) = content.parse::<toml::Table>() {
-            let known_keys = ["embedder", "store", "splitter", "server", "context"];
+            let known_keys = [
+                "embedder", "store", "splitter", "server", "context", "pipeline",
+            ];
             for key in raw.keys() {
                 if !known_keys.contains(&key.as_str()) {
                     tracing::warn!("Unknown config key: '{key}' (possible typo?)");
@@ -331,6 +363,16 @@ impl Config {
         if let Ok(val) = std::env::var("RAVEN_PUBLIC_STATS") {
             self.server.public_stats = val == "true" || val == "1";
         }
+        if let Ok(val) = std::env::var("RAVEN_EMBED_BATCH_SIZE") {
+            if let Ok(size) = val.parse() {
+                self.pipeline.embed_batch_size = size;
+            }
+        }
+        if let Ok(val) = std::env::var("RAVEN_STORE_BATCH_SIZE") {
+            if let Ok(size) = val.parse() {
+                self.pipeline.store_batch_size = size;
+            }
+        }
     }
 }
 
@@ -401,5 +443,74 @@ port = 9090
         assert_eq!(config.store.path, "/tmp/test.db");
         assert_eq!(config.server.port, 9090);
         assert_eq!(config.splitter.chunk_size, 256);
+    }
+
+    #[test]
+    fn test_config_pipeline_defaults() {
+        let config = Config::default();
+        assert_eq!(config.pipeline.embed_batch_size, 64);
+        assert_eq!(config.pipeline.store_batch_size, 100);
+    }
+
+    #[test]
+    fn test_config_pipeline_from_toml() {
+        let toml_str = r#"
+[embedder]
+backend = "ollama"
+model = "nomic-embed-text"
+
+[store]
+backend = "sqlite"
+path = "./test.db"
+
+[splitter]
+kind = "text"
+chunk_size = 512
+chunk_overlap = 50
+
+[server]
+host = "127.0.0.1"
+port = 8484
+
+[pipeline]
+embed_batch_size = 32
+store_batch_size = 50
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.pipeline.embed_batch_size, 32);
+        assert_eq!(config.pipeline.store_batch_size, 50);
+    }
+
+    #[test]
+    fn test_config_bad_toml() {
+        let result: std::result::Result<Config, _> = toml::from_str("invalid [[ toml");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_raven_error_display() {
+        let err = RavenError::Store("test error".to_string());
+        assert_eq!(format!("{err}"), "store error: test error");
+
+        let err = RavenError::NotFound("missing".to_string());
+        assert_eq!(format!("{err}"), "not found: missing");
+    }
+
+    #[test]
+    fn test_chunk_creation() {
+        let chunk = Chunk::new("doc-1", "hello world");
+        assert_eq!(chunk.doc_id, "doc-1");
+        assert_eq!(chunk.text, "hello world");
+        assert!(chunk.embedding.is_none());
+        assert!(!chunk.id.is_empty());
+
+        let chunk = chunk.with_embedding(vec![1.0, 2.0, 3.0]);
+        assert_eq!(chunk.embedding.as_ref().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn test_document_with_id() {
+        let doc = Document::new("text").with_id("custom-id");
+        assert_eq!(doc.id, "custom-id");
     }
 }

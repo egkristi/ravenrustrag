@@ -68,7 +68,15 @@ impl Splitter for TextSplitter {
             let mut chunk_index = 0usize;
 
             while start < text.len() {
-                let end = (start + self.chunk_size).min(text.len());
+                let mut end = (start + self.chunk_size).min(text.len());
+                // Ensure we don't split in the middle of a multi-byte character
+                while end < text.len() && !text.is_char_boundary(end) {
+                    end += 1;
+                }
+                // Also ensure start is on a char boundary (for overlap)
+                while start > 0 && !text.is_char_boundary(start) {
+                    start += 1;
+                }
                 let chunk_text = &text[start..end];
 
                 let mut chunk = Chunk::new(&doc.id, chunk_text);
@@ -249,21 +257,94 @@ impl SentenceSplitter {
         }
     }
 
-    /// Simple sentence boundary detection
+    /// Sentence boundary detection with abbreviation awareness.
+    /// Avoids splitting on common abbreviations like "Dr.", "e.g.", "U.S.", etc.
     fn split_sentences(text: &str) -> Vec<String> {
+        // Common abbreviations that should NOT trigger sentence breaks
+        const ABBREVIATIONS: &[&str] = &[
+            "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st", "ave", "blvd", "vs", "etc", "inc",
+            "ltd", "co", "corp", "dept", "univ", "gen", "gov", "sgt", "cpl", "pvt", "capt", "col",
+            "maj", "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+            "fig", "eq", "vol", "no", "approx", "est", "ref",
+        ];
+        // Multi-char abbreviations with dots (e.g., i.e., etc.)
+        const DOT_ABBREVIATIONS: &[&str] = &["e.g", "i.e", "a.m", "p.m", "u.s", "u.k"];
+
         let mut sentences = Vec::new();
         let mut current = String::new();
+        let chars: Vec<char> = text.chars().collect();
+        let len = chars.len();
+        let mut i = 0;
 
-        for ch in text.chars() {
+        while i < len {
+            let ch = chars[i];
             current.push(ch);
+
             if (ch == '.' || ch == '!' || ch == '?') && current.len() > 1 {
-                // Check if next char is whitespace or end (avoid splitting "Dr." etc.)
-                let trimmed = current.trim().to_string();
-                if !trimmed.is_empty() {
-                    sentences.push(trimmed);
-                    current = String::new();
+                // Check if the next char suggests a sentence boundary
+                // (whitespace followed by uppercase, or end of text)
+                let next_is_boundary = if i + 1 >= len {
+                    true // end of text
+                } else if chars[i + 1].is_whitespace() {
+                    // Look ahead past whitespace for uppercase letter or end
+                    let mut j = i + 1;
+                    while j < len && chars[j].is_whitespace() {
+                        j += 1;
+                    }
+                    j >= len || chars[j].is_uppercase() || chars[j] == '"' || chars[j] == '\''
+                } else {
+                    false // no whitespace after punctuation = not a sentence break
+                };
+
+                if next_is_boundary && ch == '.' {
+                    // Check if this is an abbreviation
+                    let trimmed = current.trim();
+                    let last_word = trimmed
+                        .rsplit(|c: char| c.is_whitespace())
+                        .next()
+                        .unwrap_or("");
+                    let word_before_dot = last_word
+                        .strip_suffix('.')
+                        .unwrap_or(last_word)
+                        .to_lowercase();
+
+                    // Check single-word abbreviations
+                    if ABBREVIATIONS.contains(&word_before_dot.as_str()) {
+                        i += 1;
+                        continue;
+                    }
+
+                    // Check dotted abbreviations (e.g., i.e., u.s.)
+                    if DOT_ABBREVIATIONS
+                        .iter()
+                        .any(|abbr| word_before_dot.ends_with(abbr))
+                    {
+                        i += 1;
+                        continue;
+                    }
+
+                    // Single uppercase letter + dot (initials like "J.")
+                    if word_before_dot.len() == 1
+                        && word_before_dot
+                            .chars()
+                            .next()
+                            .is_some_and(|c| c.is_alphabetic())
+                    {
+                        i += 1;
+                        continue;
+                    }
+                }
+
+                if next_is_boundary {
+                    let trimmed = current.trim().to_string();
+                    if !trimmed.is_empty() {
+                        sentences.push(trimmed);
+                        current = String::new();
+                    }
                 }
             }
+
+            i += 1;
         }
 
         let trimmed = current.trim().to_string();
@@ -428,5 +509,57 @@ mod tests {
 
         let chunks = splitter.split(docs);
         assert_eq!(chunks.len(), 1);
+    }
+
+    #[test]
+    fn test_sentence_splitter_abbreviations() {
+        // These should NOT cause sentence splits
+        let text = "Dr. Smith went to Washington. He met with Prof. Jones and discussed e.g. various topics.";
+        let sentences = SentenceSplitter::split_sentences(text);
+        // Should be 2 sentences: "Dr. Smith went to Washington." and the rest
+        assert_eq!(sentences.len(), 2);
+        assert!(sentences[0].starts_with("Dr."));
+        assert!(sentences[1].contains("Prof."));
+    }
+
+    #[test]
+    fn test_sentence_splitter_exclamation_question() {
+        let text = "What is this? It is a test! And here is more.";
+        let sentences = SentenceSplitter::split_sentences(text);
+        assert_eq!(sentences.len(), 3);
+        assert!(sentences[0].ends_with('?'));
+        assert!(sentences[1].ends_with('!'));
+        assert!(sentences[2].ends_with('.'));
+    }
+
+    #[test]
+    fn test_sentence_splitter_initials() {
+        let text = "J. K. Rowling wrote Harry Potter. The books are popular.";
+        let sentences = SentenceSplitter::split_sentences(text);
+        assert_eq!(sentences.len(), 2);
+        assert!(sentences[0].contains("J. K. Rowling"));
+    }
+
+    #[test]
+    fn test_sentence_splitter_empty() {
+        let splitter = SentenceSplitter::new(1000, 1);
+        let docs = vec![Document::new("")];
+        let chunks = splitter.split(docs);
+        assert_eq!(chunks.len(), 1);
+        assert!(chunks[0].text.is_empty());
+    }
+
+    #[test]
+    fn test_text_splitter_unicode() {
+        let splitter = TextSplitter::new(20, 5);
+        let docs = vec![Document::new(
+            "Hello 🦀 world! Rust is great 🚀 for building fast programs.",
+        )];
+        let chunks = splitter.split(docs);
+        assert!(chunks.len() > 1);
+        // Verify no panics and text is not corrupted
+        for chunk in &chunks {
+            assert!(!chunk.text.is_empty());
+        }
     }
 }

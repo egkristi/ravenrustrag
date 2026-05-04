@@ -31,12 +31,12 @@ RavenRAG (Python) proved the concept. RavenRustRAG delivers on the promise.
 
 | Feature | Description | vs Python |
 |---------|-------------|-----------|
-| **Blazing fast** | SIMD vector ops, zero-copy where possible | 10–100x faster |
+| **Blazing fast** | Compiled native code, zero-copy where possible | 10–100x faster |
 | **Local-first** | No cloud APIs required. Works fully offline | Parity |
 | **Single binary** | `cargo install` or download. That's it | No virtualenv |
 | **True async** | Built on Tokio. Thousands of concurrent queries | Not `asyncio.to_thread` wrappers |
 | **Pluggable storage** | SQLite (default), in-memory, or custom backend | Parity (no ChromaDB dep) |
-| **Hybrid search** | Dense vectors + BM25 keyword matching with RRF fusion | Persistable BM25 index |
+| **Hybrid search** | Dense vectors + BM25 keyword matching with RRF fusion | Parity |
 | **Reranking** *(planned)* | ONNX-based cross-encoder (no Python runtime needed) | Native, not sentence-transformers |
 | **Semantic chunking** *(planned)* | Sentence-boundary + embedding similarity splitting | Parity |
 | **Flexible splitting** | Character, token-aware, and semantic strategies | Parity |
@@ -118,7 +118,7 @@ raven info
 │  .txt    │  Text    │  Ollama   │  SQLite  │  Vector (HNSW)      │
 │  .md     │  Token   │  OpenAI   │  Memory  │  BM25 keyword       │
 │  .pdf    │ Semantic │  ONNX     │  Custom  │  Hybrid (RRF)       │
-│  .docx   │          │  Custom   │          │  Cross-encoder      │
+│  .docx*  │          │  Custom   │          │  Cross-encoder*     │
 │  .html   │          │           │          │  Graph traversal    │
 │  .csv    │          │           │          │  Parent-child       │
 │  plugin  │          │           │          │  Multi-collection   │
@@ -138,7 +138,7 @@ ravenrustrag/
 │   ├── raven-load/      # Loader trait + file loaders + plugin registry
 │   ├── raven-search/    # DocumentIndex, HybridSearcher, Reranker, Graph
 │   ├── raven-server/    # Axum HTTP API (auth, CORS, /metrics, /openapi.json)
-│   ├── raven-cli/       # CLI binary (11 commands)
+│   ├── raven-cli/       # CLI binary (12 commands)
 │   └── raven-mcp/       # MCP server (stdio JSON-RPC)
 ```
 
@@ -352,32 +352,20 @@ Benchmarks are approximate and depend on hardware, embedding model, and document
 - **Dependency auditing** — `cargo-audit` runs in CI on every push.
 - **TLS** — Server does not terminate TLS. Use a reverse proxy (nginx, Caddy) for HTTPS ([#10](https://github.com/egkristi/ravenrustrag/issues/10)).
 
-### Known Security Issues
+#### Resolved Security Issues
 
-The following have been identified and tracked. Contributions welcome:
-
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| [#1](https://github.com/egkristi/ravenrustrag/issues/1) | Medium | CORS is overly permissive (`allow_origin(Any)`) |
-| [#2](https://github.com/egkristi/ravenrustrag/issues/2) | Medium | No rate limiting on API endpoints |
-| [#3](https://github.com/egkristi/ravenrustrag/issues/3) | Medium | No input validation on query string length |
-| [#4](https://github.com/egkristi/ravenrustrag/issues/4) | Low-Medium | Error responses may leak internal details |
-| [#5](https://github.com/egkristi/ravenrustrag/issues/5) | Medium | No request timeout on server handlers |
-| [#6](https://github.com/egkristi/ravenrustrag/issues/6) | Low | `/metrics` and `/stats` unauthenticated |
-| [#7](https://github.com/egkristi/ravenrustrag/issues/7) | Low-Medium | MCP `index_documents` allows unauthenticated writes |
-| [#8](https://github.com/egkristi/ravenrustrag/issues/8) | Low | No SECURITY.md with disclosure policy |
-| [#9](https://github.com/egkristi/ravenrustrag/issues/9) | Low | `.dockerignore` should exclude more files |
-| [#10](https://github.com/egkristi/ravenrustrag/issues/10) | Low–High | No TLS — needs reverse proxy documentation |
+All initial security findings ([#1](https://github.com/egkristi/ravenrustrag/issues/1)–[#10](https://github.com/egkristi/ravenrustrag/issues/10)) have been addressed:
+Configurable CORS, rate limiting, query length validation, generic error messages, request timeouts, authenticated metrics, MCP access control, SECURITY.md, .dockerignore, and TLS/reverse proxy documentation.
 
 ## Roadmap
 
 See [PLAN.md](PLAN.md) for the detailed implementation plan.
 
 - [x] **v0.1.0-alpha** — Core engine (Document, Chunk, SQLite store, Ollama embeddings, CLI)
-- [ ] **v0.2.0** — HTTP API, MCP server, hybrid search, file loaders, watch mode, export/import, security hardening ([#1](https://github.com/egkristi/ravenrustrag/issues/1)–[#10](https://github.com/egkristi/ravenrustrag/issues/10))
-- [ ] **v0.3.0** — Cross-encoder reranking, semantic splitting, PDF/DOCX loaders, ONNX embeddings
-- [ ] **v0.4.0** — Knowledge graph, parent-child, multi-collection routing, streaming
-- [ ] **v0.5.0** — HNSW search, benchmarks, eval metrics, observability
+- [x] **v0.2.0** — HTTP API, MCP server, hybrid search, file loaders, watch mode, export/import, security hardening
+- [ ] **v0.3.0** — BM25 persistence, metadata filtering, input sanitization, configurable batch sizes, expanded tests
+- [ ] **v0.4.0** — Cross-encoder reranking, semantic splitting, ONNX embeddings, knowledge graph
+- [ ] **v0.5.0** — HNSW search, SIMD vector ops, multi-query expansion
 - [ ] **v1.0.0** — Stable API, crates.io, pre-built binaries, docs, Homebrew
 
 ## Building from Source

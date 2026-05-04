@@ -22,6 +22,13 @@ const JSONRPC_INTERNAL_ERROR: i32 = -32603;
 // MCP-specific error codes
 const MCP_TOOL_NOT_FOUND: i32 = -32002;
 
+/// Strip control characters from input text (U+0000-U+001F except \n and \t)
+fn sanitize_input(s: &str) -> String {
+    s.chars()
+        .filter(|c| !c.is_control() || *c == '\n' || *c == '\t')
+        .collect()
+}
+
 // --- JSON-RPC types ---
 
 #[derive(Deserialize)]
@@ -192,7 +199,9 @@ impl McpServer {
     }
 
     async fn tool_search(&self, id: Value, args: Value) -> JsonRpcResponse {
-        let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+        let raw_query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+        let query = sanitize_input(raw_query);
+        let query = query.as_str();
         let top_k = args
             .get("top_k")
             .and_then(serde_json::Value::as_u64)
@@ -245,7 +254,9 @@ impl McpServer {
     }
 
     async fn tool_get_prompt(&self, id: Value, args: Value) -> JsonRpcResponse {
-        let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+        let raw_query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+        let query = sanitize_input(raw_query);
+        let query = query.as_str();
         let top_k = args
             .get("top_k")
             .and_then(serde_json::Value::as_u64)

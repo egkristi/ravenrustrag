@@ -52,7 +52,6 @@ axum = "0.7"
 tower = { version = "0.4", features = ["timeout", "limit"] }
 tower-http = { version = "0.5", features = ["cors"] }
 rusqlite = { version = "0.30", features = ["bundled"] }
-ndarray = "0.15"
 sha2 = "0.10"
 walkdir = "2.4"
 indicatif = "0.17"

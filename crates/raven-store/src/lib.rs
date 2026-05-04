@@ -5,9 +5,39 @@
 use async_trait::async_trait;
 use raven_core::{Chunk, RavenError, Result, SearchResult};
 use rusqlite::{params, Connection};
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+
+/// Metadata filter for search queries
+#[derive(Debug, Clone, Default)]
+pub struct MetadataFilter {
+    /// Key-value pairs that must all match (AND logic)
+    pub conditions: HashMap<String, String>,
+}
+
+impl MetadataFilter {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.conditions.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.conditions.is_empty()
+    }
+
+    /// Check if a chunk's metadata matches all filter conditions
+    pub fn matches(&self, metadata: &HashMap<String, String>) -> bool {
+        self.conditions
+            .iter()
+            .all(|(k, v)| metadata.get(k).is_some_and(|mv| mv == v))
+    }
+}
 
 /// Vector storage backend trait
 #[async_trait]
@@ -17,6 +47,23 @@ pub trait VectorStore: Send + Sync {
 
     /// Search for similar chunks
     async fn search(&self, query: &[f32], top_k: usize) -> Result<Vec<SearchResult>>;
+
+    /// Search with metadata filtering
+    async fn search_filtered(
+        &self,
+        query: &[f32],
+        top_k: usize,
+        filter: &MetadataFilter,
+    ) -> Result<Vec<SearchResult>> {
+        // Default: search then filter (backends can override for efficiency)
+        let results = self.search(query, top_k * 3).await?;
+        let filtered: Vec<SearchResult> = results
+            .into_iter()
+            .filter(|r| filter.matches(&r.chunk.metadata))
+            .take(top_k)
+            .collect();
+        Ok(filtered)
+    }
 
     /// Delete all chunks for a document
     async fn delete(&self, doc_id: &str) -> Result<()>;
@@ -38,6 +85,41 @@ pub trait VectorStore: Send + Sync {
 
     /// Delete fingerprint for a path
     async fn delete_fingerprint(&self, path: &str) -> Result<()>;
+
+    /// Save BM25 term data for a chunk (for persistent BM25 index)
+    async fn save_bm25_terms(
+        &self,
+        _chunk_id: &str,
+        _terms: &HashMap<String, f32>,
+        _doc_length: f32,
+    ) -> Result<()> {
+        Ok(()) // Default no-op for stores that don't support BM25 persistence
+    }
+
+    /// Load all BM25 term data (for rebuilding BM25 index on startup)
+    async fn load_bm25_data(&self) -> Result<Vec<Bm25TermData>> {
+        Ok(vec![]) // Default empty for stores that don't support BM25 persistence
+    }
+
+    /// Delete BM25 terms for a document
+    async fn delete_bm25_terms(&self, _doc_id: &str) -> Result<()> {
+        Ok(())
+    }
+
+    /// Clear all BM25 term data
+    async fn clear_bm25(&self) -> Result<()> {
+        Ok(())
+    }
+}
+
+/// Data structure for BM25 term storage
+#[derive(Debug, Clone)]
+pub struct Bm25TermData {
+    pub chunk_id: String,
+    pub doc_id: String,
+    pub text: String,
+    pub terms: HashMap<String, f32>,
+    pub doc_length: f32,
 }
 
 /// SQLite-backed vector store with flat (brute-force) search
@@ -90,6 +172,25 @@ impl SqliteStore {
             [],
         )
         .map_err(|e| RavenError::Store(format!("Failed to create fingerprints table: {e}")))?;
+
+        // BM25 term storage for persistent hybrid search
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS bm25_terms (
+                chunk_id TEXT PRIMARY KEY,
+                doc_id TEXT NOT NULL,
+                text TEXT NOT NULL,
+                terms TEXT NOT NULL,
+                doc_length REAL NOT NULL
+            )",
+            [],
+        )
+        .map_err(|e| RavenError::Store(format!("Failed to create bm25_terms table: {e}")))?;
+
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_bm25_doc_id ON bm25_terms(doc_id)",
+            [],
+        )
+        .map_err(|e| RavenError::Store(format!("Failed to create bm25 index: {e}")))?;
 
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
@@ -209,6 +310,77 @@ impl VectorStore for SqliteStore {
         Ok(results)
     }
 
+    async fn search_filtered(
+        &self,
+        query: &[f32],
+        top_k: usize,
+        filter: &MetadataFilter,
+    ) -> Result<Vec<SearchResult>> {
+        if filter.is_empty() {
+            return self.search(query, top_k).await;
+        }
+
+        let conn = self.conn.lock().await;
+
+        let mut stmt = conn
+            .prepare("SELECT id, doc_id, text, metadata, embedding FROM chunks")
+            .map_err(|e| RavenError::Store(format!("Query prepare failed: {e}")))?;
+
+        let chunk_iter = stmt
+            .query_map([], |row| {
+                let id: String = row.get(0)?;
+                let doc_id: String = row.get(1)?;
+                let text: String = row.get(2)?;
+                let metadata_str: String = row.get(3)?;
+                let embedding_bytes: Vec<u8> = row.get(4)?;
+
+                let metadata: HashMap<String, String> =
+                    serde_json::from_str(&metadata_str).unwrap_or_default();
+
+                let embedding = embedding_bytes
+                    .chunks_exact(4)
+                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+                    .collect::<Vec<f32>>();
+
+                Ok(Chunk {
+                    id,
+                    doc_id,
+                    text,
+                    metadata,
+                    embedding: Some(embedding),
+                })
+            })
+            .map_err(|e| RavenError::Store(format!("Query failed: {e}")))?;
+
+        let mut scored: Vec<(f32, Chunk)> = Vec::new();
+
+        for chunk_result in chunk_iter {
+            let chunk = chunk_result.map_err(|e| RavenError::Store(format!("Row error: {e}")))?;
+            // Apply metadata filter before scoring
+            if !filter.matches(&chunk.metadata) {
+                continue;
+            }
+            if let Some(embedding) = chunk.embedding.as_ref() {
+                let score = Self::cosine_similarity(query, embedding);
+                scored.push((score, chunk));
+            }
+        }
+
+        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        scored.truncate(top_k);
+
+        let results = scored
+            .into_iter()
+            .map(|(score, chunk)| SearchResult {
+                distance: 1.0 - score,
+                score,
+                chunk,
+            })
+            .collect();
+
+        Ok(results)
+    }
+
     async fn delete(&self, doc_id: &str) -> Result<()> {
         let conn = self.conn.lock().await;
         conn.execute("DELETE FROM chunks WHERE doc_id = ?1", [doc_id])
@@ -296,6 +468,80 @@ impl VectorStore for SqliteStore {
         let conn = self.conn.lock().await;
         conn.execute("DELETE FROM fingerprints WHERE path = ?1", [path])
             .map_err(|e| RavenError::Store(format!("Fingerprint delete failed: {e}")))?;
+        Ok(())
+    }
+
+    async fn save_bm25_terms(
+        &self,
+        chunk_id: &str,
+        terms: &HashMap<String, f32>,
+        doc_length: f32,
+    ) -> Result<()> {
+        let conn = self.conn.lock().await;
+        let terms_json = serde_json::to_string(terms).map_err(RavenError::Serde)?;
+
+        // We need the doc_id and text from the chunks table
+        let (doc_id, text): (String, String) = conn
+            .query_row(
+                "SELECT doc_id, text FROM chunks WHERE id = ?1",
+                [chunk_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|e| RavenError::Store(format!("BM25 chunk lookup failed: {e}")))?;
+
+        conn.execute(
+            "INSERT OR REPLACE INTO bm25_terms (chunk_id, doc_id, text, terms, doc_length) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![chunk_id, doc_id, text, terms_json, doc_length],
+        )
+        .map_err(|e| RavenError::Store(format!("BM25 save failed: {e}")))?;
+        Ok(())
+    }
+
+    async fn load_bm25_data(&self) -> Result<Vec<Bm25TermData>> {
+        let conn = self.conn.lock().await;
+        let mut stmt = conn
+            .prepare("SELECT chunk_id, doc_id, text, terms, doc_length FROM bm25_terms")
+            .map_err(|e| RavenError::Store(format!("BM25 load prepare failed: {e}")))?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                let chunk_id: String = row.get(0)?;
+                let doc_id: String = row.get(1)?;
+                let text: String = row.get(2)?;
+                let terms_json: String = row.get(3)?;
+                let doc_length: f32 = row.get(4)?;
+
+                let terms: HashMap<String, f32> =
+                    serde_json::from_str(&terms_json).unwrap_or_default();
+
+                Ok(Bm25TermData {
+                    chunk_id,
+                    doc_id,
+                    text,
+                    terms,
+                    doc_length,
+                })
+            })
+            .map_err(|e| RavenError::Store(format!("BM25 load failed: {e}")))?;
+
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row.map_err(|e| RavenError::Store(format!("BM25 row error: {e}")))?);
+        }
+        Ok(result)
+    }
+
+    async fn delete_bm25_terms(&self, doc_id: &str) -> Result<()> {
+        let conn = self.conn.lock().await;
+        conn.execute("DELETE FROM bm25_terms WHERE doc_id = ?1", [doc_id])
+            .map_err(|e| RavenError::Store(format!("BM25 delete failed: {e}")))?;
+        Ok(())
+    }
+
+    async fn clear_bm25(&self) -> Result<()> {
+        let conn = self.conn.lock().await;
+        conn.execute("DELETE FROM bm25_terms", [])
+            .map_err(|e| RavenError::Store(format!("BM25 clear failed: {e}")))?;
         Ok(())
     }
 }
@@ -429,5 +675,75 @@ mod tests {
 
         store.clear().await.unwrap();
         assert_eq!(store.count().await.unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_metadata_filter() {
+        let store = MemoryStore::new();
+
+        let mut c1 = Chunk::new("doc1", "hello").with_embedding(vec![1.0, 0.0, 0.0]);
+        c1.metadata.insert("lang".to_string(), "en".to_string());
+
+        let mut c2 = Chunk::new("doc2", "bonjour").with_embedding(vec![0.9, 0.1, 0.0]);
+        c2.metadata.insert("lang".to_string(), "fr".to_string());
+
+        let mut c3 = Chunk::new("doc3", "hola").with_embedding(vec![0.8, 0.2, 0.0]);
+        c3.metadata.insert("lang".to_string(), "en".to_string());
+
+        store.add(&[c1, c2, c3]).await.unwrap();
+
+        // Filter for English only
+        let filter = MetadataFilter::new().with("lang", "en");
+        let results = store
+            .search_filtered(&[1.0, 0.0, 0.0], 10, &filter)
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 2);
+        for r in &results {
+            assert_eq!(r.chunk.metadata.get("lang").unwrap(), "en");
+        }
+
+        // Filter for French only
+        let filter = MetadataFilter::new().with("lang", "fr");
+        let results = store
+            .search_filtered(&[1.0, 0.0, 0.0], 10, &filter)
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].chunk.text, "bonjour");
+
+        // Empty filter returns all
+        let filter = MetadataFilter::new();
+        let results = store
+            .search_filtered(&[1.0, 0.0, 0.0], 10, &filter)
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_metadata_filter() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("filter_test.db");
+
+        let store = SqliteStore::new(&db_path, 3).await.unwrap();
+
+        let mut c1 = Chunk::new("doc1", "hello").with_embedding(vec![1.0, 0.0, 0.0]);
+        c1.metadata
+            .insert("type".to_string(), "greeting".to_string());
+
+        let mut c2 = Chunk::new("doc2", "goodbye").with_embedding(vec![0.0, 1.0, 0.0]);
+        c2.metadata
+            .insert("type".to_string(), "farewell".to_string());
+
+        store.add(&[c1, c2]).await.unwrap();
+
+        let filter = MetadataFilter::new().with("type", "greeting");
+        let results = store
+            .search_filtered(&[1.0, 0.0, 0.0], 10, &filter)
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].chunk.text, "hello");
     }
 }

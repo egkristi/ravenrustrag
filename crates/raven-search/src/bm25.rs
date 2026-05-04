@@ -1,4 +1,5 @@
 use raven_core::{Chunk, SearchResult};
+use raven_store::Bm25TermData;
 use std::collections::HashMap;
 
 /// BM25 index for keyword-based search.
@@ -132,6 +133,46 @@ impl Bm25Index {
 
     pub fn count(&self) -> usize {
         self.num_docs
+    }
+
+    /// Get term frequencies and doc length for the last N added chunks
+    /// (used for persistence — returns data for chunks at given indices)
+    pub fn get_term_data(&self, start_idx: usize) -> Vec<(String, HashMap<String, f32>, f32)> {
+        let mut result = Vec::new();
+        for i in start_idx..self.num_docs {
+            let chunk_id = self.chunks[i].id.clone();
+            let tf = self.term_freqs[i].clone();
+            let dl = self.doc_lengths[i];
+            result.push((chunk_id, tf, dl));
+        }
+        result
+    }
+
+    /// Rebuild BM25 index from stored term data (avoids re-tokenizing)
+    pub fn load_from_stored(&mut self, data: &[Bm25TermData]) {
+        self.clear();
+        for entry in data {
+            let chunk = Chunk::new(&entry.doc_id, &entry.text);
+
+            // Update document frequency from stored terms
+            let mut seen_terms: std::collections::HashSet<String> =
+                std::collections::HashSet::new();
+            for term in entry.terms.keys() {
+                seen_terms.insert(term.clone());
+            }
+            for term in &seen_terms {
+                *self.doc_freq.entry(term.clone()).or_insert(0) += 1;
+            }
+
+            self.term_freqs.push(entry.terms.clone());
+            self.doc_lengths.push(entry.doc_length);
+            self.chunks.push(chunk);
+            self.num_docs += 1;
+        }
+
+        if self.num_docs > 0 {
+            self.avg_dl = self.doc_lengths.iter().sum::<f32>() / self.num_docs as f32;
+        }
     }
 }
 
@@ -277,5 +318,69 @@ mod tests {
         assert_eq!(fused.len(), 3);
         // c2 appears in both, should rank highest
         assert_eq!(fused[0].chunk.doc_id, "d2");
+    }
+
+    #[test]
+    fn test_bm25_load_from_stored() {
+        let mut index = Bm25Index::new();
+
+        let chunks = vec![
+            Chunk::new("doc1", "Rust programming language is fast"),
+            Chunk::new("doc2", "Python is great for scripting"),
+        ];
+        index.add(&chunks);
+
+        // Get term data
+        let data = index.get_term_data(0);
+        assert_eq!(data.len(), 2);
+
+        // Rebuild from stored data
+        let stored: Vec<Bm25TermData> = data
+            .into_iter()
+            .enumerate()
+            .map(|(i, (id, terms, dl))| Bm25TermData {
+                chunk_id: id,
+                doc_id: chunks[i].doc_id.clone(),
+                text: chunks[i].text.clone(),
+                terms,
+                doc_length: dl,
+            })
+            .collect();
+
+        let mut rebuilt = Bm25Index::new();
+        rebuilt.load_from_stored(&stored);
+
+        assert_eq!(rebuilt.count(), 2);
+
+        // Search should give same top result
+        let results = rebuilt.search("Rust programming", 3);
+        assert!(!results.is_empty());
+        assert_eq!(results[0].chunk.doc_id, "doc1");
+    }
+
+    #[test]
+    fn test_rrf_pure_vector() {
+        let c1 = Chunk::new("d1", "doc 1");
+        let vector = vec![SearchResult {
+            chunk: c1,
+            score: 0.9,
+            distance: 0.1,
+        }];
+
+        let fused = reciprocal_rank_fusion(&vector, &[], 1.0, 5);
+        assert_eq!(fused.len(), 1);
+    }
+
+    #[test]
+    fn test_rrf_pure_bm25() {
+        let c1 = Chunk::new("d1", "doc 1");
+        let bm25 = vec![SearchResult {
+            chunk: c1,
+            score: 5.0,
+            distance: 0.0,
+        }];
+
+        let fused = reciprocal_rank_fusion(&[], &bm25, 0.0, 5);
+        assert_eq!(fused.len(), 1);
     }
 }
