@@ -1,6 +1,7 @@
 use axum::{
     extract::{Json, State},
     http::{HeaderMap, HeaderValue, Method, StatusCode},
+    middleware::{self, Next},
     response::IntoResponse,
     routing::{get, post},
     Router,
@@ -13,6 +14,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use subtle::ConstantTimeEq;
+use tokio::sync::Mutex;
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 use tracing::{error, info};
@@ -23,6 +25,20 @@ pub struct AppState {
     pub config: ServerConfig,
     pub splitter: TextSplitter,
     pub metrics: Metrics,
+    rate_limiter: Mutex<RateLimiter>,
+}
+
+impl AppState {
+    pub fn new(index: DocumentIndex, config: ServerConfig, splitter: TextSplitter) -> Self {
+        let rate = config.rate_limit_per_second;
+        Self {
+            index,
+            config,
+            splitter,
+            metrics: Metrics::default(),
+            rate_limiter: Mutex::new(RateLimiter::new(rate)),
+        }
+    }
 }
 
 /// Server metrics
@@ -43,6 +59,60 @@ impl Default for Metrics {
             errors_total: AtomicU64::new(0),
             started_at: Instant::now(),
         }
+    }
+}
+
+// --- Rate limiter (token bucket) ---
+
+struct RateLimiter {
+    tokens: f64,
+    max_tokens: f64,
+    refill_rate: f64, // tokens per second
+    last_refill: Instant,
+}
+
+impl RateLimiter {
+    fn new(rate_per_second: u32) -> Self {
+        let rate = f64::from(rate_per_second);
+        Self {
+            tokens: rate,
+            max_tokens: rate,
+            refill_rate: rate,
+            last_refill: Instant::now(),
+        }
+    }
+
+    fn try_acquire(&mut self) -> bool {
+        let now = Instant::now();
+        let elapsed = now.duration_since(self.last_refill).as_secs_f64();
+        self.tokens = (self.tokens + elapsed * self.refill_rate).min(self.max_tokens);
+        self.last_refill = now;
+
+        if self.tokens >= 1.0 {
+            self.tokens -= 1.0;
+            true
+        } else {
+            false
+        }
+    }
+}
+
+async fn rate_limit_middleware(
+    State(state): State<Arc<AppState>>,
+    req: axum::extract::Request,
+    next: Next,
+) -> impl IntoResponse {
+    let mut limiter = state.rate_limiter.lock().await;
+    if limiter.try_acquire() {
+        drop(limiter);
+        next.run(req).await.into_response()
+    } else {
+        drop(limiter);
+        (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({"error": "Rate limit exceeded"})),
+        )
+            .into_response()
     }
 }
 
@@ -494,6 +564,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/prompt", post(prompt_handler))
         .route("/index", post(index_handler))
         .route("/openapi.json", get(openapi))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            rate_limit_middleware,
+        ))
         .layer(cors)
         .layer(axum::extract::DefaultBodyLimit::max(10 * 1024 * 1024)) // 10MB
         .layer(

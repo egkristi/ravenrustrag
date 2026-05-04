@@ -488,12 +488,11 @@ async fn main() -> Result<()> {
             println!("   Endpoints: /health /stats /metrics /query /prompt /index /openapi.json");
             println!("   Press Ctrl+C to stop.\n");
 
-            let state = Arc::new(AppState {
+            let state = Arc::new(AppState::new(
                 index,
                 config,
-                splitter: TextSplitter::new(512, 50),
-                metrics: raven_server::Metrics::default(),
-            });
+                TextSplitter::new(512, 50),
+            ));
 
             raven_server::serve(state)
                 .await

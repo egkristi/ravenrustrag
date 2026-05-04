@@ -9,6 +9,15 @@ use tracing::info;
 
 const MCP_PROTOCOL_VERSION: &str = "2024-11-05";
 
+// JSON-RPC standard error codes
+const JSONRPC_PARSE_ERROR: i32 = -32700;
+const JSONRPC_INVALID_PARAMS: i32 = -32602;
+const JSONRPC_METHOD_NOT_FOUND: i32 = -32601;
+const JSONRPC_INTERNAL_ERROR: i32 = -32603;
+
+// MCP-specific error codes
+const MCP_TOOL_NOT_FOUND: i32 = -32002;
+
 // --- JSON-RPC types ---
 
 #[derive(Deserialize)]
@@ -153,7 +162,7 @@ impl McpServer {
             "tools/call" => Some(self.handle_tool_call(id, req.params).await),
             _ => Some(JsonRpcResponse::error(
                 id,
-                -32601,
+                JSONRPC_METHOD_NOT_FOUND,
                 format!("Method not found: {}", req.method),
             )),
         }
@@ -171,7 +180,7 @@ impl McpServer {
             "get_prompt" => self.tool_get_prompt(id, arguments).await,
             "collection_info" => self.tool_collection_info(id).await,
             "index_documents" => self.tool_index_documents(id, arguments).await,
-            _ => JsonRpcResponse::error(id, -32602, format!("Unknown tool: {tool_name}")),
+            _ => JsonRpcResponse::error(id, MCP_TOOL_NOT_FOUND, format!("Unknown tool: {tool_name}")),
         }
     }
 
@@ -182,15 +191,22 @@ impl McpServer {
             .and_then(serde_json::Value::as_u64)
             .unwrap_or(5) as usize;
 
-        // Validate query (#3)
+        // Validate query
         if query.is_empty() {
-            return JsonRpcResponse::error(id, -32602, "Query must not be empty".to_string());
+            return JsonRpcResponse::error(id, JSONRPC_INVALID_PARAMS, "Query must not be empty".to_string());
         }
         if query.len() > 10_000 {
             return JsonRpcResponse::error(
                 id,
-                -32602,
+                JSONRPC_INVALID_PARAMS,
                 "Query too long (max 10000 characters)".to_string(),
+            );
+        }
+        if top_k == 0 || top_k > 100 {
+            return JsonRpcResponse::error(
+                id,
+                JSONRPC_INVALID_PARAMS,
+                "top_k must be between 1 and 100".to_string(),
             );
         }
 
@@ -213,7 +229,7 @@ impl McpServer {
                     }),
                 )
             }
-            Err(e) => JsonRpcResponse::error(id, -32000, e.to_string()),
+            Err(e) => JsonRpcResponse::error(id, JSONRPC_INTERNAL_ERROR, e.to_string()),
         }
     }
 
@@ -224,15 +240,22 @@ impl McpServer {
             .and_then(serde_json::Value::as_u64)
             .unwrap_or(3) as usize;
 
-        // Validate query (#3)
+        // Validate query
         if query.is_empty() {
-            return JsonRpcResponse::error(id, -32602, "Query must not be empty".to_string());
+            return JsonRpcResponse::error(id, JSONRPC_INVALID_PARAMS, "Query must not be empty".to_string());
         }
         if query.len() > 10_000 {
             return JsonRpcResponse::error(
                 id,
-                -32602,
+                JSONRPC_INVALID_PARAMS,
                 "Query too long (max 10000 characters)".to_string(),
+            );
+        }
+        if top_k == 0 || top_k > 100 {
+            return JsonRpcResponse::error(
+                id,
+                JSONRPC_INVALID_PARAMS,
+                "top_k must be between 1 and 100".to_string(),
             );
         }
 
@@ -243,7 +266,7 @@ impl McpServer {
                     "content": [{ "type": "text", "text": prompt }]
                 }),
             ),
-            Err(e) => JsonRpcResponse::error(id, -32000, e.to_string()),
+            Err(e) => JsonRpcResponse::error(id, JSONRPC_INTERNAL_ERROR, e.to_string()),
         }
     }
 
@@ -255,7 +278,7 @@ impl McpServer {
                     "content": [{ "type": "text", "text": format!("Index contains {} chunks", count) }]
                 }),
             ),
-            Err(e) => JsonRpcResponse::error(id, -32000, e.to_string()),
+            Err(e) => JsonRpcResponse::error(id, JSONRPC_INTERNAL_ERROR, e.to_string()),
         }
     }
 
@@ -270,7 +293,7 @@ impl McpServer {
         if doc_arr.len() > 100 {
             return JsonRpcResponse::error(
                 id,
-                -32602,
+                JSONRPC_INVALID_PARAMS,
                 "Too many documents (max 100 per call)".to_string(),
             );
         }
@@ -299,7 +322,7 @@ impl McpServer {
                     "content": [{ "type": "text", "text": format!("Indexed {} documents", count) }]
                 }),
             ),
-            Err(e) => JsonRpcResponse::error(id, -32000, e.to_string()),
+            Err(e) => JsonRpcResponse::error(id, JSONRPC_INTERNAL_ERROR, e.to_string()),
         }
     }
 
@@ -321,7 +344,7 @@ impl McpServer {
                 Ok(r) => r,
                 Err(e) => {
                     let err_resp =
-                        JsonRpcResponse::error(Value::Null, -32700, format!("Parse error: {e}"));
+                        JsonRpcResponse::error(Value::Null, JSONRPC_PARSE_ERROR, format!("Parse error: {e}"));
                     let out = serde_json::to_string(&err_resp).unwrap_or_default();
                     stdout.write_all(out.as_bytes()).await?;
                     stdout.write_all(b"\n").await?;
