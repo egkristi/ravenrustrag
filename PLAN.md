@@ -1,6 +1,6 @@
 # RavenRustRAG — Implementation Plan
 
-> **Status:** v0.1.0-alpha — Phase 1 complete, Phase 2 nearly complete, Phase 3 in progress  
+> **Status:** v0.1.0-alpha — Phase 1 complete, Phase 2 in progress  
 > **Motto:** *Make it work, make it right, make it fast — in that order.*  
 > **Goal:** Functionally superior to the Python version (RavenRAG v0.7.0) with orders-of-magnitude better performance.
 
@@ -176,8 +176,8 @@ ravenrustrag/
 - [x] Bearer token auth (via header + config/env)
 - [x] CORS configuration (tower-http)
 - [x] Request size limit (10MB)
-- [ ] Request timeout (configurable)
-- [ ] Rate limiting (tower middleware) — **better than Python**
+- [ ] Request timeout (configurable) — [#5](https://github.com/egkristi/ravenrustrag/issues/5)
+- [ ] Rate limiting (tower middleware) — [#2](https://github.com/egkristi/ravenrustrag/issues/2) — **better than Python**
 - [x] Graceful shutdown
 
 ### 4.2 MCP Server (raven-mcp)
@@ -259,7 +259,30 @@ ravenrustrag/
 - [ ] Static binary (`musl` target) — **better than Python** (~15MB vs ~1.5GB image)
 - [x] GitHub Actions: test, lint (clippy), format (rustfmt), release
 - [ ] Container build and push to GHCR
-- [ ] Cross-compile for linux/amd64 og linux/arm64
+- [ ] Cross-compile for linux/amd64 and linux/arm64
+
+### 4.14 Security Hardening
+
+Findings from the security audit ([#1](https://github.com/egkristi/ravenrustrag/issues/1)–[#10](https://github.com/egkristi/ravenrustrag/issues/10)):
+
+- [ ] Configurable CORS origins (default to localhost) — [#1](https://github.com/egkristi/ravenrustrag/issues/1)
+- [ ] Rate limiting via tower middleware — [#2](https://github.com/egkristi/ravenrustrag/issues/2)
+- [ ] Query string length validation — [#3](https://github.com/egkristi/ravenrustrag/issues/3)
+- [ ] Generic error messages to clients (no internal leaks) — [#4](https://github.com/egkristi/ravenrustrag/issues/4)
+- [ ] Per-request timeout — [#5](https://github.com/egkristi/ravenrustrag/issues/5)
+- [ ] Option to put `/metrics` and `/stats` behind auth — [#6](https://github.com/egkristi/ravenrustrag/issues/6)
+- [ ] MCP write-operation access control — [#7](https://github.com/egkristi/ravenrustrag/issues/7)
+- [ ] Add SECURITY.md with vulnerability disclosure policy — [#8](https://github.com/egkristi/ravenrustrag/issues/8)
+- [ ] Expand `.dockerignore` — [#9](https://github.com/egkristi/ravenrustrag/issues/9)
+- [ ] Document TLS / reverse proxy requirement — [#10](https://github.com/egkristi/ravenrustrag/issues/10)
+
+Already mitigated:
+- [x] Constant-time auth comparison (`subtle::ConstantTimeEq`)
+- [x] `unsafe_code = "forbid"` workspace-wide
+- [x] Parameterized SQL (no injection)
+- [x] Symlink traversal protection in file loader
+- [x] `cargo-audit` in CI pipeline
+- [x] 10MB request body limit
 
 ---
 
@@ -337,6 +360,7 @@ Features that make the Rust version **strictly better** than Python:
 2. **Ollama + OpenAI embedder only** — ONNX local inference coming in Phase 3.
 3. **BM25 not persisted** — rebuilt in memory from VectorStore during hybrid search.
 4. **No cross-encoder reranking** — Requires ONNX runtime, planned for Phase 3.
+5. **Security hardening in progress** — See [issues #1–#10](https://github.com/egkristi/ravenrustrag/issues) for tracked findings.
 
 ## 8. Build Instructions
 

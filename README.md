@@ -37,29 +37,29 @@ RavenRAG (Python) proved the concept. RavenRustRAG delivers on the promise.
 | 🧵 **True async** | Built on Tokio. Thousands of concurrent queries | Not `asyncio.to_thread` wrappers |
 | 💾 **Pluggable storage** | SQLite (default), in-memory, or custom backend | Parity (no ChromaDB dep) |
 | 🔍 **Hybrid search** | Dense vectors + BM25 keyword matching with RRF fusion | Persistable BM25 index |
-| 🎯 **Reranking** | ONNX-based cross-encoder (no Python runtime needed) | Native, not sentence-transformers |
-| 🧠 **Semantic chunking** | Sentence-boundary + embedding similarity splitting | Parity |
+| 🎯 **Reranking** *(planned)* | ONNX-based cross-encoder (no Python runtime needed) | Native, not sentence-transformers |
+| 🧠 **Semantic chunking** *(planned)* | Sentence-boundary + embedding similarity splitting | Parity |
 | ✂️ **Flexible splitting** | Character, token-aware, and semantic strategies | Parity |
-| 📂 **File loaders** | txt, md, pdf, docx, html, csv, json + plugin system | Parity |
+| 📂 **File loaders** | txt, md, html, csv, json, jsonl + plugin system | pdf, docx planned |
 | 🏷️ **Metadata filtering** | Filter search results by arbitrary metadata | Parity |
-| 🪆 **Parent-child** | Search chunks, return full parent documents | Clean trait-based (no abstraction leak) |
+| 🪆 **Parent-child** *(planned)* | Search chunks, return full parent documents | Clean trait-based (no abstraction leak) |
 | 💬 **Context formatting** | LLM-ready prompt generation with citations | Parity |
 | 📌 **Citations** | Full provenance: source file + chunk reference | Parity |
-| 📊 **Retrieval eval** | Built-in MRR, NDCG, Recall@k metrics | Parity |
-| 🖥️ **CLI** | `raven index`, `query`, `serve`, `watch`, `mcp`, `doctor`, `benchmark` | +`benchmark` with Criterion |
-| 🌐 **HTTP API** | Axum server with auth, CORS, rate limiting, OpenAPI | Rate limiting, timeouts |
+| 📊 **Retrieval eval** | Built-in MRR, NDCG, Recall@k, Precision@k metrics | Parity+ |
+| 🖥️ **CLI** | `raven index`, `query`, `serve`, `watch`, `mcp`, `doctor` | 11 commands |
+| 🌐 **HTTP API** | Axum server with auth, CORS, OpenAPI | Body limit, graceful shutdown |
 | 📡 **MCP server** | Model Context Protocol for Claude, Copilot, Cursor | Parity |
-| 🔌 **Embedding backends** | Ollama, OpenAI-compatible, ONNX Runtime (native) | ONNX without Python |
+| 🔌 **Embedding backends** | Ollama, OpenAI-compatible | ONNX planned |
 | 👁️ **Watch mode** | Auto-reindex on file changes (debounce + delete) | Parity |
 | ⚙️ **Config file** | `raven.toml` + env vars, auto-discovery | Parity |
 | 🔄 **Incremental indexing** | SHA-256 fingerprinting, skip unchanged files | Parity |
 | 💾 **Export/import** | JSONL backup and restore (streaming I/O) | Streaming, not load-all |
-| 🗂️ **Multi-collection** | Route queries across multiple indices | Parity |
-| 🕸️ **Knowledge graph** | Entity extraction + graph traversal retrieval | Parity |
-| ⏱️ **Observability** | Tracing spans, `/metrics`, `raven benchmark` | Prometheus-compatible |
-| 🌊 **Streaming** | `query_stream()` yields results via async Stream | True async Stream |
+| 🗂️ **Multi-collection** *(planned)* | Route queries across multiple indices | Phase 3 |
+| 🕸️ **Knowledge graph** *(planned)* | Entity extraction + graph traversal retrieval | Phase 3 |
+| ⏱️ **Observability** | Tracing spans, `/metrics` endpoint | Structured logging |
+| 🌊 **Streaming** *(planned)* | `query_stream()` yields results via async Stream | Phase 3 |
 | 🔒 **Thread-safe** | All types are `Send + Sync` by default | Python has none |
-| 🚀 **HNSW search** | O(log n) approximate nearest neighbor | Python is O(n) flat |
+| 🚀 **HNSW search** *(planned)* | O(log n) approximate nearest neighbor | Phase 3 |
 
 ## Quick Start
 
@@ -78,8 +78,8 @@ raven index ./docs --db ./raven.db
 # Query
 raven query "What is retrieval-augmented generation?"
 
-# Hybrid search with reranking
-raven query "auth flow" --hybrid --rerank -k 10
+# Hybrid search
+raven query "auth flow" --hybrid -k 10
 
 # Get LLM-ready prompt
 raven prompt "Explain RAG" -k 3
@@ -93,9 +93,6 @@ raven watch ./docs --extensions ".md,.txt"
 # Export/import
 raven export -o backup.jsonl
 raven import backup.jsonl
-
-# Benchmark
-raven benchmark --num-docs 1000
 
 # Diagnostics
 raven doctor
@@ -264,7 +261,7 @@ CLI flags override env vars. Env vars override config file. Config file override
 |--------|------|-------------|
 | GET | `/health` | Health check |
 | GET | `/stats` | Index statistics |
-| GET | `/collections` | List collections |
+
 | GET | `/metrics` | Timing and cache statistics |
 | GET | `/openapi.json` | OpenAPI 3.0 schema |
 | POST | `/query` | Semantic/hybrid search |
@@ -307,13 +304,9 @@ url = "https://api.openai.com/v1"
 api_key = "sk-..."
 ```
 
-### ONNX Runtime (native, no Python)
+### ONNX Runtime (planned)
 
-```toml
-[embedder]
-backend = "onnx"
-model_path = "./models/all-MiniLM-L6-v2.onnx"
-```
+Native ONNX embedding support is planned for a future release — no Python runtime needed.
 
 ## MCP Server
 
@@ -344,33 +337,47 @@ Expected on Apple Silicon / AMD Ryzen:
 | Memory baseline | ~30MB | ~300MB | ~10x |
 | Binary/image size | ~15MB | ~1.5GB | ~100x |
 
-```bash
-# Run benchmarks
-raven benchmark --num-docs 1000
-```
+Benchmarks are approximate and depend on hardware, embedding model, and document size.
 
 ## Security
 
 - **Thread-safe by default** — All types are `Send + Sync`. No data races possible.
-- **TLS** — Use a reverse proxy (nginx, Caddy) for HTTPS. Server does not terminate TLS.
-- **Rate limiting** — Built-in tower middleware (configurable requests/sec).
-- **Request timeouts** — Configurable per-request timeout prevents resource exhaustion.
-- **Auth** — Bearer token authentication via `RAVEN_API_KEY`.
-- **Input validation** — Port numbers, batch sizes, chunk parameters validated at construction.
+- **Constant-time auth** — Bearer token comparison uses `subtle::ConstantTimeEq` to prevent timing attacks.
+- **Auth** — Bearer token authentication via `RAVEN_API_KEY` env var or config.
 - **Symlink protection** — `load_directory()` skips symlinks pointing outside target.
 - **Request size limit** — Server rejects payloads over 10MB.
+- **Parameterized SQL** — All SQLite queries use parameterized statements (no injection).
+- **No unsafe code** — `unsafe_code = "forbid"` enforced workspace-wide.
+- **Dependency auditing** — `cargo-audit` runs in CI on every push.
+- **TLS** — Server does not terminate TLS. Use a reverse proxy (nginx, Caddy) for HTTPS ([#10](https://github.com/egkristi/ravenrustrag/issues/10)).
+
+### Known Security Issues
+
+The following have been identified and tracked. Contributions welcome:
+
+| Issue | Severity | Description |
+|-------|----------|-------------|
+| [#1](https://github.com/egkristi/ravenrustrag/issues/1) | Medium | CORS is overly permissive (`allow_origin(Any)`) |
+| [#2](https://github.com/egkristi/ravenrustrag/issues/2) | Medium | No rate limiting on API endpoints |
+| [#3](https://github.com/egkristi/ravenrustrag/issues/3) | Medium | No input validation on query string length |
+| [#4](https://github.com/egkristi/ravenrustrag/issues/4) | Low-Medium | Error responses may leak internal details |
+| [#5](https://github.com/egkristi/ravenrustrag/issues/5) | Medium | No request timeout on server handlers |
+| [#6](https://github.com/egkristi/ravenrustrag/issues/6) | Low | `/metrics` and `/stats` unauthenticated |
+| [#7](https://github.com/egkristi/ravenrustrag/issues/7) | Low-Medium | MCP `index_documents` allows unauthenticated writes |
+| [#8](https://github.com/egkristi/ravenrustrag/issues/8) | Low | No SECURITY.md with disclosure policy |
+| [#9](https://github.com/egkristi/ravenrustrag/issues/9) | Low | `.dockerignore` should exclude more files |
+| [#10](https://github.com/egkristi/ravenrustrag/issues/10) | Low–High | No TLS — needs reverse proxy documentation |
 
 ## Roadmap
 
 See [PLAN.md](PLAN.md) for the detailed implementation plan.
 
 - [x] **v0.1.0-alpha** — Core engine (Document, Chunk, SQLite store, Ollama embeddings, CLI)
-- [ ] **v0.2.0** — HTTP API, MCP server, hybrid search, reranking
-- [ ] **v0.3.0** — File loaders (PDF, DOCX, HTML, CSV), semantic splitting
-- [ ] **v0.4.0** — Watch mode, export/import, multi-collection routing
-- [ ] **v0.5.0** — Knowledge graph, parent-child, eval metrics
-- [ ] **v0.6.0** — HNSW search, ONNX embeddings, observability
-- [ ] **v1.0.0** — Stable API, crates.io, benchmarks, docs, Homebrew
+- [ ] **v0.2.0** — HTTP API, MCP server, hybrid search, file loaders, watch mode, export/import, security hardening ([#1](https://github.com/egkristi/ravenrustrag/issues/1)–[#10](https://github.com/egkristi/ravenrustrag/issues/10))
+- [ ] **v0.3.0** — Cross-encoder reranking, semantic splitting, PDF/DOCX loaders, ONNX embeddings
+- [ ] **v0.4.0** — Knowledge graph, parent-child, multi-collection routing, streaming
+- [ ] **v0.5.0** — HNSW search, benchmarks, eval metrics, observability
+- [ ] **v1.0.0** — Stable API, crates.io, pre-built binaries, docs, Homebrew
 
 ## Building from Source
 
