@@ -589,3 +589,101 @@ store_batch_size = 50
         assert_eq!(cosine_similarity(&[], &[]), 0.0);
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Cosine similarity of any vector with itself is 1.0 (if non-zero)
+        #[test]
+        fn cosine_self_is_one(v in proptest::collection::vec(-10.0f32..10.0f32, 1..128)) {
+            let has_nonzero = v.iter().any(|x| *x != 0.0);
+            if has_nonzero {
+                let sim = cosine_similarity(&v, &v);
+                prop_assert!((sim - 1.0).abs() < 1e-5, "Expected ~1.0, got {sim}");
+            }
+        }
+
+        /// Cosine similarity is always in [-1.0, 1.0]
+        #[test]
+        fn cosine_in_range(
+            a in proptest::collection::vec(-100.0f32..100.0f32, 1..128usize),
+            b_raw in proptest::collection::vec(-100.0f32..100.0f32, 1..128usize),
+        ) {
+            // Ensure same length
+            let len = a.len().min(b_raw.len());
+            let a = &a[..len];
+            let b = &b_raw[..len];
+            let sim = cosine_similarity(a, b);
+            prop_assert!((-1.0 - 1e-5..=1.0 + 1e-5).contains(&sim),
+                "Cosine similarity {} out of range [-1, 1]", sim);
+        }
+
+        /// Cosine similarity is symmetric: cos(a, b) == cos(b, a)
+        #[test]
+        fn cosine_is_symmetric(
+            a in proptest::collection::vec(-10.0f32..10.0f32, 1..64usize),
+            b_raw in proptest::collection::vec(-10.0f32..10.0f32, 1..64usize),
+        ) {
+            let len = a.len().min(b_raw.len());
+            let a = &a[..len];
+            let b = &b_raw[..len];
+            let ab = cosine_similarity(a, b);
+            let ba = cosine_similarity(b, a);
+            prop_assert!((ab - ba).abs() < 1e-6, "cos(a,b)={ab} != cos(b,a)={ba}");
+        }
+
+        /// Fingerprint is deterministic
+        #[test]
+        fn fingerprint_deterministic(content in ".*") {
+            let h1 = fingerprint(&content);
+            let h2 = fingerprint(&content);
+            prop_assert_eq!(h1, h2);
+        }
+
+        /// Fingerprint is always 64 hex chars (SHA-256)
+        #[test]
+        fn fingerprint_length(content in ".*") {
+            let h = fingerprint(&content);
+            prop_assert_eq!(h.len(), 64);
+            prop_assert!(h.chars().all(|c| c.is_ascii_hexdigit()));
+        }
+
+        /// Different content produces different fingerprints (probabilistic)
+        #[test]
+        fn fingerprint_different(a in ".{1,100}", b in ".{1,100}") {
+            if a != b {
+                prop_assert_ne!(fingerprint(&a), fingerprint(&b));
+            }
+        }
+
+        /// Config serialize/deserialize roundtrip
+        #[test]
+        fn config_roundtrip(
+            port in 1u16..65535u16,
+            chunk_size in 10usize..10000usize,
+            chunk_overlap in 1usize..100usize,
+        ) {
+            prop_assume!(chunk_overlap < chunk_size);
+            let config = Config {
+                server: ServerConfig {
+                    port,
+                    ..ServerConfig::default()
+                },
+                splitter: SplitterConfig {
+                    chunk_size,
+                    chunk_overlap,
+                    ..SplitterConfig::default()
+                },
+                ..Config::default()
+            };
+            let toml_str = toml::to_string(&config).unwrap();
+            let decoded: Config = toml::from_str(&toml_str).unwrap();
+            prop_assert_eq!(config.server.port, decoded.server.port);
+            prop_assert_eq!(config.splitter.chunk_size, decoded.splitter.chunk_size);
+            prop_assert_eq!(config.splitter.chunk_overlap, decoded.splitter.chunk_overlap);
+        }
+    }
+}

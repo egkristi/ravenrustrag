@@ -23,6 +23,7 @@ workspace = true
 criterion = { workspace = true }
 tokio = { workspace = true }
 tempfile = "3.8"
+proptest = { workspace = true }
 
 [[bench]]
 name = "search_bench"

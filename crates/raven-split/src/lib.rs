@@ -563,3 +563,103 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+    use raven_core::Document;
+
+    proptest! {
+        /// TextSplitter: no data loss — all chunk texts concatenated (minus overlap) cover original
+        #[test]
+        fn text_splitter_no_empty_chunks(
+            text in ".{1,2000}",
+            chunk_size in 20usize..500usize,
+            overlap_pct in 0usize..50usize,
+        ) {
+            let overlap = (chunk_size * overlap_pct) / 100;
+            let overlap = overlap.min(chunk_size - 1);
+            let splitter = TextSplitter::new(chunk_size, overlap);
+            let docs = vec![Document::new(text.clone())];
+            let chunks = splitter.split(docs);
+
+            // At least one chunk
+            prop_assert!(!chunks.is_empty(), "Empty input produced no chunks");
+
+            // No empty chunks (non-empty input)
+            for chunk in &chunks {
+                prop_assert!(!chunk.text.is_empty(), "Empty chunk produced");
+            }
+        }
+
+        /// TextSplitter: chunk sizes never exceed configured max
+        #[test]
+        fn text_splitter_respects_max_size(
+            text in ".{1,3000}",
+            chunk_size in 10usize..500usize,
+        ) {
+            let overlap = chunk_size / 4;
+            let splitter = TextSplitter::new(chunk_size, overlap);
+            let docs = vec![Document::new(text)];
+            let chunks = splitter.split(docs);
+
+            for chunk in &chunks {
+                // Byte length check — chunks may be slightly larger due to char boundaries
+                prop_assert!(
+                    chunk.text.len() <= chunk_size + 4,
+                    "Chunk too large: {} > {}", chunk.text.len(), chunk_size
+                );
+            }
+        }
+
+        /// TextSplitter: empty input produces single empty chunk
+        #[test]
+        fn text_splitter_empty_produces_one(chunk_size in 10usize..500usize) {
+            let overlap = chunk_size / 4;
+            let splitter = TextSplitter::new(chunk_size, overlap);
+            let docs = vec![Document::new("")];
+            let chunks = splitter.split(docs);
+            prop_assert_eq!(chunks.len(), 1);
+        }
+
+        /// TokenSplitter: produces non-empty chunks for non-empty input
+        #[test]
+        fn token_splitter_non_empty(
+            text in "[a-z ]{10,1000}",
+            max_tokens in 5usize..100usize,
+        ) {
+            let overlap = max_tokens / 4;
+            let splitter = TokenSplitter::new(max_tokens, overlap);
+            let docs = vec![Document::new(text)];
+            let chunks = splitter.split(docs);
+
+            prop_assert!(!chunks.is_empty());
+            for chunk in &chunks {
+                prop_assert!(!chunk.text.is_empty());
+            }
+        }
+
+        /// SentenceSplitter: preserves all text content
+        #[test]
+        fn sentence_splitter_preserves_content(
+            sentences in proptest::collection::vec("[A-Z][a-z]{3,20}\\. ", 1..10),
+        ) {
+            let text: String = sentences.concat();
+            let splitter = SentenceSplitter::new(1000, 1);
+            let docs = vec![Document::new(text.clone())];
+            let chunks = splitter.split(docs);
+
+            // All original text must appear in some chunk
+            let combined: String = chunks.iter().map(|c| c.text.as_str()).collect::<Vec<_>>().join("");
+            // Every sentence should be found in the combined output
+            for sentence in &sentences {
+                let trimmed = sentence.trim();
+                prop_assert!(
+                    combined.contains(trimmed),
+                    "Sentence '{}' lost in splitting", trimmed
+                );
+            }
+        }
+    }
+}

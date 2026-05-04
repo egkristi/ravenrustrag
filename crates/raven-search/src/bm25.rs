@@ -384,3 +384,94 @@ mod tests {
         assert_eq!(fused.len(), 1);
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+    use raven_core::Chunk;
+
+    proptest! {
+        /// BM25 scores are always non-negative
+        #[test]
+        fn bm25_scores_non_negative(
+            docs in proptest::collection::vec("[a-z]{1,20}( [a-z]{1,20}){0,10}", 1..20),
+            query in "[a-z]{1,15}( [a-z]{1,15}){0,3}",
+        ) {
+            let mut idx = Bm25Index::new();
+            let chunks: Vec<Chunk> = docs.iter().enumerate()
+                .map(|(i, text)| Chunk::new(format!("doc_{i}"), text.clone()))
+                .collect();
+            idx.add(&chunks);
+
+            let results = idx.search(&query, 10);
+            for r in &results {
+                prop_assert!(r.score >= 0.0, "Negative BM25 score: {}", r.score);
+            }
+        }
+
+        /// BM25 search returns at most top_k results
+        #[test]
+        fn bm25_respects_top_k(
+            num_docs in 1usize..30,
+            top_k in 1usize..20,
+        ) {
+            let mut idx = Bm25Index::new();
+            let chunks: Vec<Chunk> = (0..num_docs)
+                .map(|i| Chunk::new(format!("doc_{i}"), format!("word{i} hello world test")))
+                .collect();
+            idx.add(&chunks);
+
+            let results = idx.search("hello world", top_k);
+            prop_assert!(results.len() <= top_k);
+        }
+
+        /// RRF fusion: result count is at most top_k
+        #[test]
+        fn rrf_respects_top_k(
+            n_vector in 0usize..10,
+            n_bm25 in 0usize..10,
+            top_k in 1usize..15,
+            alpha in 0.0f32..1.0f32,
+        ) {
+            let vector: Vec<SearchResult> = (0..n_vector)
+                .map(|i| SearchResult {
+                    chunk: Chunk::new(format!("v{i}"), format!("vector doc {i}")),
+                    score: 1.0 - (i as f32 * 0.1),
+                    distance: i as f32 * 0.1,
+                })
+                .collect();
+            let bm25: Vec<SearchResult> = (0..n_bm25)
+                .map(|i| SearchResult {
+                    chunk: Chunk::new(format!("b{i}"), format!("bm25 doc {i}")),
+                    score: 5.0 - (i as f32 * 0.5),
+                    distance: 0.0,
+                })
+                .collect();
+
+            let fused = reciprocal_rank_fusion(&vector, &bm25, alpha, top_k);
+            prop_assert!(fused.len() <= top_k,
+                "RRF returned {} results, expected <= {}", fused.len(), top_k);
+        }
+
+        /// RRF fusion: scores are monotonically non-increasing
+        #[test]
+        fn rrf_scores_monotonic(
+            n in 2usize..15,
+        ) {
+            let vector: Vec<SearchResult> = (0..n)
+                .map(|i| SearchResult {
+                    chunk: Chunk::new(format!("v{i}"), format!("doc {i}")),
+                    score: 1.0 - (i as f32 * 0.05),
+                    distance: i as f32 * 0.05,
+                })
+                .collect();
+
+            let fused = reciprocal_rank_fusion(&vector, &[], 1.0, n);
+            for window in fused.windows(2) {
+                prop_assert!(window[0].score >= window[1].score,
+                    "Scores not monotonic: {} < {}", window[0].score, window[1].score);
+            }
+        }
+    }
+}
