@@ -1,0 +1,26 @@
+# Rust
+target/
+Cargo.lock
+*.rs.bk
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+raven.toml
+.env
+
+# Test artifacts
+test_output/
+temp/
