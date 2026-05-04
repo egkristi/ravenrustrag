@@ -7,18 +7,29 @@ RavenRustRAG can be configured via a TOML config file, environment variables, or
 Create a `raven.toml` in the project root or pass `--config <path>`:
 
 ```toml
-[embedding]
+[embedder]
 backend = "ollama"
 model = "nomic-embed-text"
 url = "http://localhost:11434"
 
-[pipeline]
+[splitter]
+kind = "text"
 chunk_size = 512
 chunk_overlap = 50
+
+[pipeline]
+embed_batch_size = 64
+store_batch_size = 100
 
 [server]
 host = "127.0.0.1"
 port = 8484
+# api_key = "your-secret"
+# cors_origins = ["http://localhost:3000"]
+request_timeout_secs = 60
+rate_limit_per_second = 100
+max_query_length = 10000
+public_stats = false
 ```
 
 ## Environment Variables

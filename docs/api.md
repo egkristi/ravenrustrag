@@ -22,7 +22,11 @@ When `RAVEN_API_KEY` is set, protected endpoints require a Bearer token:
 Authorization: Bearer my-secret-key
 ```
 
-Endpoints without auth requirement: `/health`, `/ready`, `/stats`, `/openapi.json`, `/metrics`
+Endpoints that never require auth: `/health`, `/ready`, `/openapi.json`
+
+Endpoints that require auth by default (configurable via `public_stats = true` in config): `/stats`, `/metrics`, `/collections`
+
+Endpoints that always require auth: `/query`, `/prompt`, `/index`, `/documents`
 
 ## Endpoints
 
@@ -161,4 +165,4 @@ The server includes permissive CORS headers by default, allowing requests from a
 
 ## Rate Limiting
 
-The server applies basic rate limiting per IP address to prevent abuse. Default: 100 requests per minute.
+The server applies token-bucket rate limiting to prevent abuse. Default: 100 requests per second (configurable via `rate_limit_per_second` in config).

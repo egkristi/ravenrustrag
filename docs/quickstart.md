@@ -69,11 +69,11 @@ raven import backup.jsonl
 ## Start the HTTP Server
 
 ```bash
-# Start on default port 3000
+# Start on default port 8484
 raven serve
 
 # With API key authentication
-RAVEN_API_KEY=my-secret-key raven serve --port 8080
+RAVEN_API_KEY=my-secret-key raven serve --port 8484
 ```
 
 ## Run Diagnostics

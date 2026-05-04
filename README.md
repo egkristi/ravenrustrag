@@ -37,8 +37,8 @@ RavenRAG (Python) proved the concept. RavenRustRAG delivers on the promise.
 | **True async** | Built on Tokio. Thousands of concurrent queries | Not `asyncio.to_thread` wrappers |
 | **Pluggable storage** | SQLite (default), in-memory, or custom backend | Parity (no ChromaDB dep) |
 | **Hybrid search** | Dense vectors + BM25 keyword matching with RRF fusion | Parity |
-| **Reranking** *(planned)* | ONNX-based cross-encoder (no Python runtime needed) | Native, not sentence-transformers |
-| **Semantic chunking** *(planned)* | Sentence-boundary + embedding similarity splitting | Parity |
+| **Reranking** | Keyword reranker + trait for custom backends (ONNX planned) | Extensible |
+| **Semantic chunking** | Sentence-boundary + embedding cosine similarity splitting | Parity |
 | **Flexible splitting** | Character, token-aware, and semantic strategies | Parity |
 | **File loaders** | txt, md, html, csv, json, jsonl, pdf + plugin system | pdf via feature flag |
 | **Metadata filtering** | Filter search results by arbitrary metadata | Parity |
@@ -46,7 +46,7 @@ RavenRAG (Python) proved the concept. RavenRustRAG delivers on the promise.
 | **Context formatting** | LLM-ready prompt generation with citations | Parity |
 | **Citations** | Full provenance: source file + chunk reference | Parity |
 | **Retrieval eval** | Built-in MRR, NDCG, Recall@k, Precision@k metrics | Parity+ |
-| **CLI** | `raven index`, `query`, `serve`, `watch`, `mcp`, `doctor`, `benchmark` | 12 commands |
+| **CLI** | `raven index`, `query`, `serve`, `watch`, `mcp`, `doctor`, `benchmark`, `graph` | 13 commands |
 | **HTTP API** | Axum server with auth, CORS, rate limit, timeout, OpenAPI | Body limit, graceful shutdown |
 | **MCP server** | Model Context Protocol for Claude, Copilot, Cursor | Parity |
 | **Embedding backends** | Ollama, OpenAI-compatible, auto-detect | ONNX planned |
@@ -55,11 +55,13 @@ RavenRAG (Python) proved the concept. RavenRustRAG delivers on the promise.
 | **Incremental indexing** | SHA-256 fingerprinting, skip unchanged files | Parity |
 | **Export/import** | JSONL backup and restore (streaming I/O) | Streaming, not load-all |
 | **Multi-collection** | Route queries across multiple indices | Fused top-k |
-| **Knowledge graph** *(planned)* | Entity extraction + graph traversal retrieval | Phase 3 |
-| **Observability** | Tracing spans, `/metrics` endpoint | Structured logging |
-| **Streaming** | `query_stream()` yields results via channel | Phase 3: further streaming |
+| **Knowledge graph** | Entity extraction + graph traversal + graph-vector fusion | Beyond Python |
+| **Observability** | Tracing spans, `/metrics` endpoint, OpenTelemetry export | Structured logging |
+| **Streaming** | `query_stream()` yields results via channel | Beyond Python |
 | **Thread-safe** | All types are `Send + Sync` by default | Python has none |
-| **HNSW search** *(planned)* | O(log n) approximate nearest neighbor | Phase 3 |
+| **HNSW search** | O(log n) approximate nearest neighbor via `instant-distance` | Beyond Python |
+| **Lock-free cache** | DashMap + AtomicU64 embedding cache, zero contention | Beyond Python |
+| **Memory-mapped I/O** | 256 MB mmap for zero-copy SQLite reads | Beyond Python |
 
 ## Quick Start
 
@@ -88,7 +90,7 @@ raven prompt "Explain RAG" -k 3
 raven serve --port 8484
 
 # Watch and auto-reindex
-raven watch ./docs --extensions ".md,.txt"
+raven watch ./docs --extensions md,txt
 
 # Export/import
 raven export -o backup.jsonl
@@ -117,11 +119,12 @@ raven info
 │ Loaders  │ Splitters│ Embedders │  Stores  │ Search & Retrieval  │
 │  .txt    │  Text    │  Ollama   │  SQLite  │  Vector (HNSW)      │
 │  .md     │  Token   │  OpenAI   │  Memory  │  BM25 keyword       │
-│  .pdf    │ Semantic │  ONNX     │  Custom  │  Hybrid (RRF)       │
-│  .docx*  │          │  Custom   │          │  Cross-encoder*     │
-│  .html   │          │           │          │  Graph traversal    │
-│  .csv    │          │           │          │  Parent-child       │
-│  plugin  │          │           │          │  Multi-collection   │
+│  .pdf    │ Sentence │           │          │  Hybrid (RRF)       │
+│  .docx   │ Semantic │           │          │  Knowledge graph    │
+│  .html   │          │           │          │  Parent-child       │
+│  .csv    │          │           │          │  Multi-collection   │
+│  .json   │          │           │          │  Streaming          │
+│  plugin  │          │           │          │  Reranking          │
 └──────────┴──────────┴───────────┴──────────┴─────────────────────┘
 ```
 
@@ -130,16 +133,19 @@ raven info
 ```
 ravenrustrag/
 ├── Cargo.toml           # Workspace
+├── mkdocs.yml           # Documentation site config
+├── book.toml            # mdBook config (same source)
+├── docs/                # User guide (17 pages, published to GitHub Pages)
 ├── crates/
 │   ├── raven-core/      # Document, Chunk, SearchResult, Config, errors
-│   ├── raven-embed/     # Embedder trait + Ollama, OpenAI, ONNX backends
-│   ├── raven-store/     # VectorStore trait + SQLite, Memory backends
-│   ├── raven-split/     # Splitter trait + Text, Token, Semantic
+│   ├── raven-embed/     # Embedder trait + Ollama, OpenAI backends + DashMap cache
+│   ├── raven-store/     # VectorStore trait + SQLite (WAL, mmap), Memory backends
+│   ├── raven-split/     # Splitter trait + Text, Token, Sentence, Semantic
 │   ├── raven-load/      # Loader trait + file loaders + plugin registry
-│   ├── raven-search/    # DocumentIndex, HybridSearcher, Reranker, Graph
-│   ├── raven-server/    # Axum HTTP API (auth, CORS, /metrics, /openapi.json)
-│   ├── raven-cli/       # CLI binary (12 commands)
-│   └── raven-mcp/       # MCP server (stdio JSON-RPC)
+│   ├── raven-search/    # DocumentIndex, BM25, HNSW, KnowledgeGraph, Reranker
+│   ├── raven-server/    # Axum HTTP API (auth, CORS, rate limit, /metrics, /openapi)
+│   ├── raven-cli/       # CLI binary (13 commands)
+│   └── raven-mcp/       # MCP server (stdio JSON-RPC, 4 tools)
 ```
 
 ## Library Usage
@@ -205,7 +211,7 @@ docker run --rm \
   -v raven-data:/data \
   -v ./my-docs:/docs:ro \
   ghcr.io/egkristi/ravenrustrag:main \
-  index /docs --glob "**/*.md"
+  index /docs --extensions md,txt
 ```
 
 ## Configuration
@@ -214,7 +220,7 @@ Create `raven.toml` in your project root:
 
 ```toml
 [embedder]
-backend = "ollama"           # "ollama", "openai", "onnx"
+backend = "ollama"           # "ollama" or "openai"
 model = "nomic-embed-text"
 url = "http://localhost:11434"
 
@@ -227,19 +233,17 @@ kind = "text"                # "text", "token", "semantic"
 chunk_size = 512
 chunk_overlap = 50
 
-[search]
-top_k = 5
-rerank = false
-hybrid = false
-alpha = 0.5                  # 1.0 = pure vector, 0.0 = pure BM25
+[pipeline]
+embed_batch_size = 64
+store_batch_size = 100
 
 [server]
 host = "127.0.0.1"
 port = 8484
 # api_key = "your-secret-key"
-
-[watch]
-extensions = [".md", ".txt", ".pdf"]
+# cors_origins = ["http://localhost:3000"]
+request_timeout_secs = 60
+rate_limit_per_second = 100
 ```
 
 ### Environment Variables
@@ -260,6 +264,7 @@ CLI flags override env vars. Env vars override config file. Config file override
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/health` | Health check |
+| GET | `/ready` | Readiness check |
 | GET | `/stats` | Index statistics |
 | GET | `/collections` | List collections |
 | GET | `/metrics` | Timing and cache statistics |
@@ -354,7 +359,7 @@ Measured on Apple Silicon (M-series), release build, using `DummyEmbedder` (128-
 | Query (100 docs, no embed) | 35 µs | 50–200ms | ~3,000x |
 | Memory baseline | 20–50MB | 200–500MB+ | ~10x |
 | Release binary | 8.7 MB | ~1.5GB (Docker) | ~170x |
-| Lines of code | ~9,100 | ~4,200 | 2.2x (9 crates, 122 tests) |
+| Lines of code | ~9,100 | ~4,200 | 2.2x (9 crates, 123 tests) |
 
 Benchmarks depend on hardware, embedding model, and document size. Query latency above excludes embedding time (network-bound for Ollama/OpenAI).
 
@@ -375,16 +380,21 @@ Benchmarks depend on hardware, embedding model, and document size. Query latency
 All initial security findings ([#1](https://github.com/egkristi/ravenrustrag/issues/1)–[#10](https://github.com/egkristi/ravenrustrag/issues/10)) have been addressed:
 Configurable CORS, rate limiting, query length validation, generic error messages, request timeouts, authenticated metrics, MCP access control, SECURITY.md, .dockerignore, and TLS/reverse proxy documentation.
 
+## Documentation
+
+Full documentation is available at **[egkristi.github.io/ravenrustrag](https://egkristi.github.io/ravenrustrag/)**.
+
+Covers: installation, quick start, CLI reference, HTTP API, MCP server, configuration, hybrid search, knowledge graph, Docker deployment, performance tuning, troubleshooting, and migration from Python.
+
 ## Roadmap
 
 See [PLAN.md](PLAN.md) for the detailed implementation plan.
 
-- [x] **v0.1.0-alpha** — Core engine (Document, Chunk, SQLite store, Ollama embeddings, CLI)
-- [x] **v0.2.0** — HTTP API, MCP server, hybrid search, file loaders, watch mode, export/import, security hardening
-- [ ] **v0.3.0** — BM25 persistence, metadata filtering, input sanitization, configurable batch sizes, expanded tests
-- [ ] **v0.4.0** — Cross-encoder reranking, semantic splitting, ONNX embeddings, knowledge graph
-- [ ] **v0.5.0** — HNSW search, SIMD vector ops, multi-query expansion
-- [ ] **v1.0.0** — Stable API, crates.io, pre-built binaries, docs, Homebrew
+- [x] **Phase 1** — Core engine (Document, Chunk, SQLite store, Ollama embeddings, CLI)
+- [x] **Phase 2** — HTTP API, MCP server, hybrid search, file loaders, watch mode, export/import, security hardening, BM25 persistence, metadata filtering, input sanitization
+- [x] **Phase 3** — HNSW search, knowledge graph, multi-query expansion, lock-free cache, mmap SQLite, CI benchmarks, streaming, multi-collection, parent-child retrieval
+- [ ] **Phase 4** — crates.io publish, Homebrew, comprehensive testing (proptest, fuzz, coverage)
+- [ ] **Future** — ONNX embeddings, ONNX cross-encoder reranking (pending `ort` crate MSRV resolution)
 
 ## Building from Source
 
