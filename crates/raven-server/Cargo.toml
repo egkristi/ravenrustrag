@@ -5,6 +5,9 @@ edition = "2021"
 
 [dependencies]
 raven-core = { path = "../raven-core" }
+raven-embed = { path = "../raven-embed" }
+raven-store = { path = "../raven-store" }
+raven-split = { path = "../raven-split" }
 raven-search = { path = "../raven-search" }
 tokio = { workspace = true }
 axum = { workspace = true }

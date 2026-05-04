@@ -9,4 +9,3 @@ raven-embed = { path = "../raven-embed" }
 raven-store = { path = "../raven-store" }
 raven-split = { path = "../raven-split" }
 tokio = { workspace = true }
-async-trait = "0.1"

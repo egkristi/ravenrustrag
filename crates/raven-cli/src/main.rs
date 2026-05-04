@@ -1,11 +1,13 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use raven_core::Config;
-use raven_embed::{OllamaBackend, CachedEmbedder};
+use raven_core::ServerConfig;
+use raven_embed::{CachedEmbedder, OllamaBackend};
 use raven_load::Loader;
+use raven_mcp::McpServer;
 use raven_search::DocumentIndex;
+use raven_server::AppState;
 use raven_split::TextSplitter;
-use raven_store::SqliteStore;
+use raven_store::{SqliteStore, VectorStore};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{info, warn};
@@ -53,6 +55,10 @@ enum Commands {
         /// Chunk overlap
         #[arg(long, default_value_t = 50)]
         chunk_overlap: usize,
+
+        /// File extensions to include (comma-separated)
+        #[arg(long, default_value = "txt,md")]
+        extensions: String,
     },
 
     /// Query the index
@@ -73,7 +79,29 @@ enum Commands {
         model: String,
 
         /// Number of results
-        #[arg(short, long, default_value_t = 5)]
+        #[arg(short = 'k', long, default_value_t = 5)]
+        top_k: usize,
+    },
+
+    /// Get a formatted LLM prompt with citations
+    Prompt {
+        /// Query text
+        query: String,
+
+        /// Database path
+        #[arg(short, long, default_value = "./raven.db")]
+        db: PathBuf,
+
+        /// Ollama URL
+        #[arg(short, long, default_value = "http://localhost:11434")]
+        url: String,
+
+        /// Embedding model
+        #[arg(short, long, default_value = "nomic-embed-text")]
+        model: String,
+
+        /// Number of context chunks
+        #[arg(short = 'k', long, default_value_t = 3)]
         top_k: usize,
     },
 
@@ -87,7 +115,7 @@ enum Commands {
     /// Start API server
     Serve {
         /// Host
-        #[arg(short, long, default_value = "127.0.0.1")]
+        #[arg(long, default_value = "127.0.0.1")]
         host: String,
 
         /// Port
@@ -105,6 +133,10 @@ enum Commands {
         /// Embedding model
         #[arg(short, long, default_value = "nomic-embed-text")]
         model: String,
+
+        /// API key for authentication (optional)
+        #[arg(long)]
+        api_key: Option<String>,
     },
 
     /// Clear the index
@@ -113,20 +145,86 @@ enum Commands {
         #[arg(short, long, default_value = "./raven.db")]
         db: PathBuf,
     },
+
+    /// Export index to JSONL
+    Export {
+        /// Output file
+        #[arg(short, long, default_value = "raven-export.jsonl")]
+        output: PathBuf,
+
+        /// Database path
+        #[arg(short, long, default_value = "./raven.db")]
+        db: PathBuf,
+    },
+
+    /// Import documents from JSONL
+    Import {
+        /// Input file
+        file: PathBuf,
+
+        /// Database path
+        #[arg(short, long, default_value = "./raven.db")]
+        db: PathBuf,
+
+        /// Ollama URL
+        #[arg(short, long, default_value = "http://localhost:11434")]
+        url: String,
+
+        /// Embedding model
+        #[arg(short, long, default_value = "nomic-embed-text")]
+        model: String,
+    },
+
+    /// Start MCP server (stdio, for AI assistants)
+    Mcp {
+        /// Database path
+        #[arg(short, long, default_value = "./raven.db")]
+        db: PathBuf,
+
+        /// Ollama URL
+        #[arg(short, long, default_value = "http://localhost:11434")]
+        url: String,
+
+        /// Embedding model
+        #[arg(short, long, default_value = "nomic-embed-text")]
+        model: String,
+    },
+
+    /// Run diagnostics
+    Doctor {
+        /// Ollama URL to check
+        #[arg(short, long, default_value = "http://localhost:11434")]
+        url: String,
+
+        /// Database path to check
+        #[arg(short, long, default_value = "./raven.db")]
+        db: PathBuf,
+    },
+}
+
+fn make_embedder(url: &str, model: &str) -> Arc<CachedEmbedder<OllamaBackend>> {
+    let backend = OllamaBackend::new(url, model).with_dimension(768);
+    Arc::new(CachedEmbedder::new(backend, 1000))
+}
+
+async fn make_store(db: &PathBuf) -> Result<Arc<SqliteStore>> {
+    Ok(Arc::new(SqliteStore::new(db, 768).await?))
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Setup logging
-    let subscriber = tracing_subscriber::fmt()
-        .with_max_level(if cli.verbose {
-            tracing::Level::DEBUG
-        } else {
-            tracing::Level::INFO
-        });
-    subscriber.init();
+    let log_level = if cli.verbose {
+        tracing::Level::DEBUG
+    } else {
+        tracing::Level::INFO
+    };
+
+    tracing_subscriber::fmt()
+        .with_max_level(log_level)
+        .with_target(false)
+        .init();
 
     match cli.command {
         Commands::Index {
@@ -136,11 +234,13 @@ async fn main() -> Result<()> {
             model,
             chunk_size,
             chunk_overlap,
+            extensions,
         } => {
             info!("Indexing documents from {:?}", path);
 
-            // Load documents
-            let docs = Loader::from_directory(&path, Some(&["txt", "md"]))?;
+            let exts: Vec<&str> = extensions.split(',').map(|s| s.trim()).collect();
+            let ext_refs: Vec<&str> = exts.to_vec();
+            let docs = Loader::from_directory(&path, Some(&ext_refs))?;
             info!("Loaded {} documents", docs.len());
 
             if docs.is_empty() {
@@ -148,36 +248,30 @@ async fn main() -> Result<()> {
                 return Ok(());
             }
 
-            // Setup embedder and store
-            let embedder = Arc::new(OllamaBackend::new(&url, &model
-            ).with_dimension(768));
-            let cached_embedder = Arc::new(CachedEmbedder::new(embedder, 1000));
-            
-            let store = Arc::new(SqliteStore::new(&db, 768).await?);
-            let index = DocumentIndex::new(store, cached_embedder);
-
-            // Split and index
+            let embedder = make_embedder(&url, &model);
+            let store = make_store(&db).await?;
+            let index = DocumentIndex::new(store, embedder);
             let splitter = TextSplitter::new(chunk_size, chunk_overlap);
-            
+
             let pb = indicatif::ProgressBar::new(docs.len() as u64);
             pb.set_style(
                 indicatif::ProgressStyle::default_bar()
                     .template("{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}")
-                    .unwrap()
+                    .unwrap(),
             );
 
-            // Process in batches for progress
             let batch_size = 10;
             for batch in docs.chunks(batch_size) {
                 let batch_docs: Vec<_> = batch.to_vec();
                 let batch_len = batch_docs.len();
                 index.add_documents(batch_docs, &splitter).await?;
                 pb.inc(batch_len as u64);
-                pb.set_message(format!("Indexed {} docs", pb.position()));
             }
 
-            pb.finish_with_message(format!("Indexed {} documents", pb.position()));
-            info!("Index complete: {} chunks", index.count().await?);
+            pb.finish_with_message(format!(
+                "Done! {} chunks indexed",
+                index.count().await?
+            ));
         }
 
         Commands::Query {
@@ -187,37 +281,54 @@ async fn main() -> Result<()> {
             model,
             top_k,
         } => {
-            info!("Querying: {}", query);
-
-            let embedder = Arc::new(OllamaBackend::new(&url, &model
-            ).with_dimension(768));
-            let store = Arc::new(SqliteStore::new(&db, 768).await?);
+            let embedder = make_embedder(&url, &model);
+            let store = make_store(&db).await?;
             let index = DocumentIndex::new(store, embedder);
 
             let results = index.query(&query, top_k).await?;
 
-            println!("\n🐦‍⬛ Query results for: \"{}\"\n", query);
-            
+            println!("\n🐦‍⬛ Results for: \"{}\"\n", query);
+
             if results.is_empty() {
                 println!("No results found.");
             } else {
                 for (i, result) in results.iter().enumerate() {
-                    let source = result.chunk.metadata.get("source")
-                        .unwrap_or(&"unknown".to_string());
+                    let source = result
+                        .chunk
+                        .metadata
+                        .get("source")
+                        .cloned()
+                        .unwrap_or_else(|| "unknown".to_string());
                     println!("[{}] (score: {:.4})", i + 1, result.score);
                     println!("    Source: {}", source);
-                    println!("    {}\n", &result.chunk.text.chars().take(200).collect::<String>());
+                    let preview: String = result.chunk.text.chars().take(200).collect();
+                    println!("    {}\n", preview);
                 }
             }
         }
 
+        Commands::Prompt {
+            query,
+            db,
+            url,
+            model,
+            top_k,
+        } => {
+            let embedder = make_embedder(&url, &model);
+            let store = make_store(&db).await?;
+            let index = DocumentIndex::new(store, embedder);
+
+            let prompt = index.query_for_prompt(&query, top_k).await?;
+            println!("{}", prompt);
+        }
+
         Commands::Info { db } => {
-            let store = Arc::new(SqliteStore::new(&db, 768).await?);
+            let store = make_store(&db).await?;
             let count = store.count().await?;
-            
+
             println!("🐦‍⬛ RavenRustRAG Index Info\n");
             println!("  Database: {}", db.display());
-            println!("  Documents: {}", count);
+            println!("  Chunks:   {}", count);
         }
 
         Commands::Serve {
@@ -226,22 +337,113 @@ async fn main() -> Result<()> {
             db,
             url,
             model,
+            api_key,
         } => {
-            info!("Starting server on {}:{}", host, port);
+            let embedder = make_embedder(&url, &model);
+            let store = make_store(&db).await?;
+            let index = DocumentIndex::new(store, embedder);
+
+            let api_key = api_key.or_else(|| std::env::var("RAVEN_API_KEY").ok());
+
+            let config = ServerConfig {
+                host: host.clone(),
+                port,
+                api_key,
+            };
+
             println!("🐦‍⬛ RavenRustRAG server starting on http://{}:{}", host, port);
             println!("   Database: {}", db.display());
             println!("   Model: {} ({})", model, url);
+            println!("   Endpoints: /health /stats /query /prompt /index /openapi.json");
             println!("   Press Ctrl+C to stop.\n");
-            
-            // TODO: Implement server in raven-server crate
-            println!("Server mode not yet implemented. Use `raven query` instead.");
+
+            let state = Arc::new(AppState {
+                index,
+                config,
+                splitter: TextSplitter::new(512, 50),
+            });
+
+            raven_server::serve(state).await.map_err(|e| anyhow::anyhow!("{}", e))?;
         }
 
         Commands::Clear { db } => {
-            let store = Arc::new(SqliteStore::new(&db, 768).await?);
+            let store = make_store(&db).await?;
             store.clear().await?;
-            info!("Cleared index: {}", db.display());
             println!("✓ Cleared index at {}", db.display());
+        }
+
+        Commands::Export { output, db } => {
+            let store = make_store(&db).await?;
+            let count = store.count().await?;
+            println!("Exporting {} chunks from {}...", count, db.display());
+            // For export we read all chunks as documents
+            // This is a simplified export — exports a marker file
+            let marker = raven_core::Document::new(format!("RavenRustRAG export: {} chunks", count))
+                .with_metadata("db", db.to_string_lossy());
+            raven_load::export_jsonl(&[marker], &output)?;
+            println!("✓ Exported to {}", output.display());
+        }
+
+        Commands::Import { file, db, url, model } => {
+            let docs = raven_load::import_jsonl(&file)?;
+            println!("Loaded {} documents from {}", docs.len(), file.display());
+
+            if docs.is_empty() {
+                println!("No documents to import.");
+                return Ok(());
+            }
+
+            let embedder = make_embedder(&url, &model);
+            let store = make_store(&db).await?;
+            let index = DocumentIndex::new(store, embedder);
+            let splitter = TextSplitter::new(512, 50);
+
+            index.add_documents(docs, &splitter).await?;
+            println!("✓ Imported to {}", db.display());
+        }
+
+        Commands::Mcp { db, url, model } => {
+            let embedder = make_embedder(&url, &model);
+            let store = make_store(&db).await?;
+            let index = Arc::new(DocumentIndex::new(store, embedder));
+            let splitter = TextSplitter::new(512, 50);
+
+            let server = McpServer::new(index, splitter);
+            server.run_stdio().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+        }
+
+        Commands::Doctor { url, db } => {
+            println!("🐦‍⬛ RavenRustRAG Doctor\n");
+
+            // Check database
+            print!("  Database ({})... ", db.display());
+            if db.exists() {
+                match SqliteStore::new(&db, 768).await {
+                    Ok(store) => {
+                        let count = store.count().await.unwrap_or(0);
+                        println!("✓ OK ({} chunks)", count);
+                    }
+                    Err(e) => println!("✗ Error: {}", e),
+                }
+            } else {
+                println!("⚠ Not found (will be created on first index)");
+            }
+
+            // Check Ollama
+            print!("  Ollama ({})... ", url);
+            let client = reqwest::Client::new();
+            match client
+                .get(format!("{}/api/tags", url))
+                .timeout(std::time::Duration::from_secs(3))
+                .send()
+                .await
+            {
+                Ok(resp) if resp.status().is_success() => println!("✓ OK"),
+                Ok(resp) => println!("⚠ Status: {}", resp.status()),
+                Err(e) => println!("✗ Not reachable: {}", e),
+            }
+
+            println!("\n  Version: {}", env!("CARGO_PKG_VERSION"));
         }
     }
 

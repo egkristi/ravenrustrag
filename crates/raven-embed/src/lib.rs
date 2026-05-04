@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use raven_core::{Chunk, RavenError, Result};
+use raven_core::{RavenError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -18,7 +18,10 @@ pub trait Embedder: Send + Sync {
     fn model_name(&self) -> &str;
 }
 
-/// Ollama embedding backend
+// =============================================================================
+// Ollama backend
+// =============================================================================
+
 pub struct OllamaBackend {
     client: reqwest::Client,
     base_url: String,
@@ -32,7 +35,7 @@ impl OllamaBackend {
             client: reqwest::Client::new(),
             base_url: base_url.into(),
             model: model.into(),
-            dimension: 768, // nomic-embed-text default
+            dimension: 768,
         }
     }
 
@@ -70,6 +73,7 @@ impl Embedder for OllamaBackend {
             .client
             .post(&url)
             .json(&request)
+            .timeout(std::time::Duration::from_secs(30))
             .send()
             .await
             .map_err(|e| RavenError::Embed(format!("HTTP error: {}", e)))?;
@@ -103,10 +107,123 @@ impl Embedder for OllamaBackend {
     }
 }
 
-/// Simple in-memory LRU cache for embeddings
+// =============================================================================
+// OpenAI-compatible backend (OpenAI, LM Studio, LocalAI, vLLM, etc.)
+// =============================================================================
+
+pub struct OpenAIBackend {
+    client: reqwest::Client,
+    base_url: String,
+    model: String,
+    api_key: Option<String>,
+    dimension: usize,
+}
+
+impl OpenAIBackend {
+    pub fn new(base_url: impl Into<String>, model: impl Into<String>) -> Self {
+        Self {
+            client: reqwest::Client::new(),
+            base_url: base_url.into(),
+            model: model.into(),
+            api_key: None,
+            dimension: 1536,
+        }
+    }
+
+    pub fn with_api_key(mut self, key: impl Into<String>) -> Self {
+        self.api_key = Some(key.into());
+        self
+    }
+
+    pub fn with_dimension(mut self, dim: usize) -> Self {
+        self.dimension = dim;
+        self
+    }
+}
+
+#[derive(Serialize)]
+struct OpenAIEmbedRequest {
+    model: String,
+    input: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct OpenAIEmbedResponse {
+    data: Vec<OpenAIEmbedData>,
+}
+
+#[derive(Deserialize)]
+struct OpenAIEmbedData {
+    embedding: Vec<f32>,
+}
+
+#[async_trait]
+impl Embedder for OpenAIBackend {
+    async fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
+        if texts.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let request = OpenAIEmbedRequest {
+            model: self.model.clone(),
+            input: texts.to_vec(),
+        };
+
+        let url = format!("{}/embeddings", self.base_url);
+        let mut req_builder = self
+            .client
+            .post(&url)
+            .json(&request)
+            .timeout(std::time::Duration::from_secs(30));
+
+        if let Some(ref key) = self.api_key {
+            req_builder = req_builder.bearer_auth(key);
+        }
+
+        let response = req_builder
+            .send()
+            .await
+            .map_err(|e| RavenError::Embed(format!("HTTP error: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unknown error".to_string());
+            return Err(RavenError::Embed(format!(
+                "OpenAI API returned {}: {}",
+                status, text
+            )));
+        }
+
+        let body: OpenAIEmbedResponse = response
+            .json()
+            .await
+            .map_err(|e| RavenError::Embed(format!("JSON parse error: {}", e)))?;
+
+        let embeddings = body.data.into_iter().map(|d| d.embedding).collect();
+        Ok(embeddings)
+    }
+
+    fn dimension(&self) -> usize {
+        self.dimension
+    }
+
+    fn model_name(&self) -> &str {
+        &self.model
+    }
+}
+
+// =============================================================================
+// Embedding cache
+// =============================================================================
+
 pub struct EmbeddingCache {
     cache: Arc<Mutex<HashMap<String, Vec<f32>>>>,
     max_size: usize,
+    hits: Arc<Mutex<u64>>,
+    misses: Arc<Mutex<u64>>,
 }
 
 impl EmbeddingCache {
@@ -114,18 +231,25 @@ impl EmbeddingCache {
         Self {
             cache: Arc::new(Mutex::new(HashMap::new())),
             max_size,
+            hits: Arc::new(Mutex::new(0)),
+            misses: Arc::new(Mutex::new(0)),
         }
     }
 
     pub async fn get(&self, text: &str) -> Option<Vec<f32>> {
         let cache = self.cache.lock().await;
-        cache.get(text).cloned()
+        let result = cache.get(text).cloned();
+        if result.is_some() {
+            *self.hits.lock().await += 1;
+        } else {
+            *self.misses.lock().await += 1;
+        }
+        result
     }
 
     pub async fn set(&self, text: String, embedding: Vec<f32>) {
         let mut cache = self.cache.lock().await;
         if cache.len() >= self.max_size && !cache.contains_key(&text) {
-            // Simple eviction: remove first key
             let key_to_remove = cache.keys().next().cloned();
             if let Some(key) = key_to_remove {
                 cache.remove(&key);
@@ -133,9 +257,19 @@ impl EmbeddingCache {
         }
         cache.insert(text, embedding);
     }
+
+    pub async fn stats(&self) -> (u64, u64, usize) {
+        let hits = *self.hits.lock().await;
+        let misses = *self.misses.lock().await;
+        let size = self.cache.lock().await.len();
+        (hits, misses, size)
+    }
 }
 
-/// Cached embedder wrapper
+// =============================================================================
+// Cached embedder wrapper
+// =============================================================================
+
 pub struct CachedEmbedder<E: Embedder> {
     inner: E,
     cache: EmbeddingCache,
@@ -148,6 +282,10 @@ impl<E: Embedder> CachedEmbedder<E> {
             cache: EmbeddingCache::new(cache_size),
         }
     }
+
+    pub async fn cache_stats(&self) -> (u64, u64, usize) {
+        self.cache.stats().await
+    }
 }
 
 #[async_trait]
@@ -157,7 +295,6 @@ impl<E: Embedder> Embedder for CachedEmbedder<E> {
         let mut missing = Vec::new();
         let mut missing_indices = Vec::new();
 
-        // Check cache
         for (i, text) in texts.iter().enumerate() {
             if let Some(emb) = self.cache.get(text).await {
                 results[i] = emb;
@@ -167,10 +304,9 @@ impl<E: Embedder> Embedder for CachedEmbedder<E> {
             }
         }
 
-        // Embed missing
         if !missing.is_empty() {
             let embeddings = self.inner.embed(&missing).await?;
-            for (idx, (i, emb)) in missing_indices.iter().zip(embeddings.into_iter()).enumerate() {
+            for (idx, (i, emb)) in missing_indices.iter().zip(embeddings).enumerate() {
                 self.cache.set(missing[idx].clone(), emb.clone()).await;
                 results[*i] = emb;
             }
@@ -188,30 +324,61 @@ impl<E: Embedder> Embedder for CachedEmbedder<E> {
     }
 }
 
+// =============================================================================
+// Dummy embedder for testing
+// =============================================================================
+
+pub struct DummyEmbedder {
+    dim: usize,
+}
+
+impl DummyEmbedder {
+    pub fn new(dim: usize) -> Self {
+        Self { dim }
+    }
+}
+
+impl Default for DummyEmbedder {
+    fn default() -> Self {
+        Self { dim: 3 }
+    }
+}
+
+#[async_trait]
+impl Embedder for DummyEmbedder {
+    async fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
+        Ok(texts
+            .iter()
+            .map(|t| {
+                // Deterministic but unique: use first bytes of text hash
+                let hash = raven_core::fingerprint(t);
+                let bytes = hash.as_bytes();
+                (0..self.dim)
+                    .map(|i| {
+                        let b = bytes[i % bytes.len()] as f32;
+                        (b - 96.0) / 26.0 // Normalize to roughly [-1, 1]
+                    })
+                    .collect()
+            })
+            .collect())
+    }
+
+    fn dimension(&self) -> usize {
+        self.dim
+    }
+
+    fn model_name(&self) -> &str {
+        "dummy"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    struct DummyEmbedder;
-
-    #[async_trait]
-    impl Embedder for DummyEmbedder {
-        async fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
-            Ok(texts.iter().map(|_| vec![1.0, 2.0, 3.0]).collect())
-        }
-
-        fn dimension(&self) -> usize {
-            3
-        }
-
-        fn model_name(&self) -> &str {
-            "dummy"
-        }
-    }
-
     #[tokio::test]
     async fn test_cached_embedder() {
-        let embedder = DummyEmbedder;
+        let embedder = DummyEmbedder::default();
         let cached = CachedEmbedder::new(embedder, 100);
 
         let texts = vec!["hello".to_string(), "world".to_string()];
@@ -221,5 +388,20 @@ mod tests {
         // Second call should hit cache
         let result2 = cached.embed(&texts).await.unwrap();
         assert_eq!(result1, result2);
+
+        let (hits, misses, size) = cached.cache_stats().await;
+        assert_eq!(hits, 2);
+        assert_eq!(misses, 2);
+        assert_eq!(size, 2);
+    }
+
+    #[tokio::test]
+    async fn test_dummy_embedder_deterministic() {
+        let embedder = DummyEmbedder::new(10);
+        let texts = vec!["hello".to_string()];
+        let r1 = embedder.embed(&texts).await.unwrap();
+        let r2 = embedder.embed(&texts).await.unwrap();
+        assert_eq!(r1, r2);
+        assert_eq!(r1[0].len(), 10);
     }
 }

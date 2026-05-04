@@ -108,23 +108,12 @@ pub enum RavenError {
 pub type Result<T> = std::result::Result<T, RavenError>;
 
 /// Configuration for RavenRustRAG
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     pub embedder: EmbedderConfig,
     pub store: StoreConfig,
     pub splitter: SplitterConfig,
     pub server: ServerConfig,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            embedder: EmbedderConfig::default(),
-            store: StoreConfig::default(),
-            splitter: SplitterConfig::default(),
-            server: ServerConfig::default(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

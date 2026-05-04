@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use raven_core::{Chunk, RavenError, Result, SearchResult};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -267,7 +267,6 @@ impl VectorStore for MemoryStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use raven_core::{Document, fingerprint};
 
     #[tokio::test]
     async fn test_memory_store() {
