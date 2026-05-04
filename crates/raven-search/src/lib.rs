@@ -103,7 +103,7 @@ impl DocumentIndex {
         } else {
             let batches: Vec<Vec<String>> = texts
                 .chunks(self.embed_batch_size)
-                .map(|b| b.to_vec())
+                .map(<[String]>::to_vec)
                 .collect();
 
             let mut handles = Vec::with_capacity(batches.len());

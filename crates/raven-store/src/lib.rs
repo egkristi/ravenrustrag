@@ -894,8 +894,11 @@ pub mod hnsw {
             let chunks: Vec<Chunk> = (0..100)
                 .map(|i| {
                     let angle = i as f32 * 0.01;
-                    Chunk::new(format!("doc{i}"), format!("text {i}"))
-                        .with_embedding(vec![angle.cos(), angle.sin(), 0.0])
+                    Chunk::new(format!("doc{i}"), format!("text {i}")).with_embedding(vec![
+                        angle.cos(),
+                        angle.sin(),
+                        0.0,
+                    ])
                 })
                 .collect();
 

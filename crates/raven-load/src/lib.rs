@@ -449,11 +449,9 @@ fn extract_docx_text(xml: &str) -> String {
                 continue;
             }
             // Check for <w:p> or <w:p ...> (paragraph start)
-            if i + 4 < len && &bytes[i..i + 4] == b"<w:p" {
-                if paragraph_has_text {
-                    result.push('\n');
-                    paragraph_has_text = false;
-                }
+            if i + 4 < len && &bytes[i..i + 4] == b"<w:p" && paragraph_has_text {
+                result.push('\n');
+                paragraph_has_text = false;
             }
             // Skip to end of tag
             if let Some(end) = xml[i..].find('>') {

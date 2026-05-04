@@ -24,6 +24,7 @@ pub struct Entity {
 
 /// A directed relationship between two entities.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::struct_field_names)]
 pub struct Relation {
     pub source: String,
     pub target: String,
@@ -61,9 +62,7 @@ impl KnowledgeGraph {
 
     /// Add an entity to the graph.
     pub fn add_entity(&mut self, entity: Entity) {
-        self.entities
-            .entry(entity.name.clone())
-            .or_insert(entity);
+        self.entities.entry(entity.name.clone()).or_insert(entity);
     }
 
     /// Add a directed relation between two entities.
@@ -178,19 +177,25 @@ impl KnowledgeGraph {
 
     /// Save graph to JSON file.
     pub fn save(&self, path: &Path) -> Result<()> {
-        let json = serde_json::to_string_pretty(self)
-            .map_err(raven_core::RavenError::Serde)?;
+        let json = serde_json::to_string_pretty(self).map_err(raven_core::RavenError::Serde)?;
         std::fs::write(path, json)?;
-        info!("Graph saved: {} entities, {} edges", self.entity_count(), self.edge_count());
+        info!(
+            "Graph saved: {} entities, {} edges",
+            self.entity_count(),
+            self.edge_count()
+        );
         Ok(())
     }
 
     /// Load graph from JSON file.
     pub fn load(path: &Path) -> Result<Self> {
         let json = std::fs::read_to_string(path)?;
-        let graph: Self = serde_json::from_str(&json)
-            .map_err(raven_core::RavenError::Serde)?;
-        info!("Graph loaded: {} entities, {} edges", graph.entity_count(), graph.edge_count());
+        let graph: Self = serde_json::from_str(&json).map_err(raven_core::RavenError::Serde)?;
+        info!(
+            "Graph loaded: {} entities, {} edges",
+            graph.entity_count(),
+            graph.edge_count()
+        );
         Ok(graph)
     }
 }
@@ -233,9 +238,9 @@ fn extract_proper_nouns(text: &str, entities: &mut HashSet<Entity>) {
         if word.len() > 1 && word.chars().next().is_some_and(char::is_uppercase) {
             // Check it's not a sentence start (preceded by sentence-ending punctuation)
             let is_sentence_start = i == 0
-                || words
-                    .get(i.wrapping_sub(1))
-                    .is_some_and(|prev| prev.ends_with('.') || prev.ends_with('!') || prev.ends_with('?'));
+                || words.get(i.wrapping_sub(1)).is_some_and(|prev| {
+                    prev.ends_with('.') || prev.ends_with('!') || prev.ends_with('?')
+                });
 
             if !is_sentence_start {
                 // Collect consecutive capitalized words
@@ -271,8 +276,6 @@ fn extract_proper_nouns(text: &str, entities: &mut HashSet<Entity>) {
 }
 
 fn extract_known_terms(text: &str, entities: &mut HashSet<Entity>) {
-    let lower = text.to_lowercase();
-
     const TECH_TERMS: &[(&str, &str)] = &[
         ("rust", "TECH"),
         ("python", "TECH"),
@@ -306,6 +309,8 @@ fn extract_known_terms(text: &str, entities: &mut HashSet<Entity>) {
         ("websocket", "CONCEPT"),
     ];
 
+    let lower = text.to_lowercase();
+
     for (term, entity_type) in TECH_TERMS {
         if lower.contains(term) {
             entities.insert(Entity {
@@ -318,13 +323,74 @@ fn extract_known_terms(text: &str, entities: &mut HashSet<Entity>) {
 
 fn is_common_word(word: &str) -> bool {
     const COMMON: &[&str] = &[
-        "the", "this", "that", "these", "those", "here", "there", "where", "when", "what", "which",
-        "how", "why", "who", "all", "each", "every", "both", "few", "more", "most", "other",
-        "some", "such", "only", "same", "than", "too", "very", "just", "because", "but", "and",
-        "however", "also", "then", "first", "last", "next", "new", "old", "long", "great",
-        "little", "own", "right", "big", "high", "different", "small", "large", "important",
-        "still", "before", "after", "since", "while", "about", "between", "through", "during",
-        "without", "again", "once", "further", "already", "always", "never",
+        "the",
+        "this",
+        "that",
+        "these",
+        "those",
+        "here",
+        "there",
+        "where",
+        "when",
+        "what",
+        "which",
+        "how",
+        "why",
+        "who",
+        "all",
+        "each",
+        "every",
+        "both",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "only",
+        "same",
+        "than",
+        "too",
+        "very",
+        "just",
+        "because",
+        "but",
+        "and",
+        "however",
+        "also",
+        "then",
+        "first",
+        "last",
+        "next",
+        "new",
+        "old",
+        "long",
+        "great",
+        "little",
+        "own",
+        "right",
+        "big",
+        "high",
+        "different",
+        "small",
+        "large",
+        "important",
+        "still",
+        "before",
+        "after",
+        "since",
+        "while",
+        "about",
+        "between",
+        "through",
+        "during",
+        "without",
+        "again",
+        "once",
+        "further",
+        "already",
+        "always",
+        "never",
     ];
     COMMON.contains(&word)
 }
@@ -348,10 +414,7 @@ pub struct GraphRetriever {
 
 impl GraphRetriever {
     pub fn new(graph: KnowledgeGraph) -> Self {
-        Self {
-            graph,
-            max_hops: 2,
-        }
+        Self { graph, max_hops: 2 }
     }
 
     pub fn with_max_hops(mut self, max_hops: usize) -> Self {
@@ -476,7 +539,8 @@ mod tests {
 
     #[test]
     fn test_extract_entities_tech() {
-        let entities = extract_entities("Rust is a systems programming language with SQLite support.");
+        let entities =
+            extract_entities("Rust is a systems programming language with SQLite support.");
         let names: Vec<&str> = entities.iter().map(|e| e.name.as_str()).collect();
         assert!(names.contains(&"rust"));
         assert!(names.contains(&"sqlite"));
@@ -484,9 +548,12 @@ mod tests {
 
     #[test]
     fn test_extract_entities_proper_nouns() {
-        let entities = extract_entities("The document was written by John Smith at Microsoft Research.");
+        let entities =
+            extract_entities("The document was written by John Smith at Microsoft Research.");
         let names: Vec<&str> = entities.iter().map(|e| e.name.as_str()).collect();
-        assert!(names.iter().any(|n| n.contains("john") || n.contains("smith")));
+        assert!(names
+            .iter()
+            .any(|n| n.contains("john") || n.contains("smith")));
     }
 
     #[test]

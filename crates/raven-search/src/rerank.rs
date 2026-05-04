@@ -29,10 +29,7 @@ pub async fn rerank(
     let texts: Vec<&str> = candidates.iter().map(|r| r.chunk.text.as_str()).collect();
     let scores = reranker.score(query, &texts).await?;
 
-    let mut scored: Vec<(f32, &SearchResult)> = scores
-        .into_iter()
-        .zip(candidates.iter())
-        .collect();
+    let mut scored: Vec<(f32, &SearchResult)> = scores.into_iter().zip(candidates.iter()).collect();
 
     scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
     scored.truncate(top_k);
@@ -58,8 +55,7 @@ pub struct KeywordReranker;
 impl Reranker for KeywordReranker {
     async fn score(&self, query: &str, documents: &[&str]) -> Result<Vec<f32>> {
         let query_lower = query.to_lowercase();
-        let query_terms: std::collections::HashSet<&str> =
-            query_lower.split_whitespace().collect();
+        let query_terms: std::collections::HashSet<&str> = query_lower.split_whitespace().collect();
 
         Ok(documents
             .iter()
@@ -76,50 +72,6 @@ impl Reranker for KeywordReranker {
             .collect())
     }
 }
-
-// =============================================================================
-// ONNX cross-encoder (optional)
-// =============================================================================
-
-#[cfg(feature = "onnx")]
-pub mod onnx_reranker {
-    //! ONNX-based cross-encoder reranker.
-    //!
-    //! Requires a cross-encoder model in ONNX format.
-    //! Enable with `--features onnx` on the raven-embed crate.
-
-    use super::*;
-
-    /// Placeholder for ONNX cross-encoder.
-    /// Full implementation requires model-specific tokenization.
-    pub struct OnnxReranker {
-        _model_path: std::path::PathBuf,
-    }
-
-    impl OnnxReranker {
-        pub fn new(model_path: impl Into<std::path::PathBuf>) -> Self {
-            Self {
-                _model_path: model_path.into(),
-            }
-        }
-    }
-
-    #[async_trait::async_trait]
-    impl Reranker for OnnxReranker {
-        async fn score(&self, query: &str, documents: &[&str]) -> Result<Vec<f32>> {
-            // Fallback to keyword scoring until ONNX model loading is configured
-            // Full implementation would:
-            // 1. Tokenize (query, doc) pairs with proper tokenizer
-            // 2. Run ONNX inference to get relevance scores
-            // 3. Apply sigmoid to logits
-            let fallback = KeywordReranker;
-            fallback.score(query, documents).await
-        }
-    }
-}
-
-#[cfg(feature = "onnx")]
-pub use onnx_reranker::OnnxReranker;
 
 #[cfg(test)]
 mod tests {

@@ -457,7 +457,10 @@ pub mod onnx {
     }
 
     impl OnnxEmbedder {
-        pub fn new(_model_path: impl Into<std::path::PathBuf>, dimension: usize) -> std::result::Result<Self, String> {
+        pub fn new(
+            _model_path: impl Into<std::path::PathBuf>,
+            dimension: usize,
+        ) -> std::result::Result<Self, String> {
             Ok(Self { dimension })
         }
     }

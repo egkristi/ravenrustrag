@@ -37,6 +37,8 @@ cast_possible_truncation = "allow"
 cast_sign_loss = "allow"
 doc_markdown = "allow"
 similar_names = "allow"
+float_cmp = "allow"
+wildcard_imports = "allow"
 
 [workspace.dependencies]
 tokio = { version = "1.35", features = ["full"] }

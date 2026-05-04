@@ -327,6 +327,7 @@ async fn make_store(db: &PathBuf) -> Result<Arc<SqliteStore>> {
 }
 
 #[tokio::main]
+#[allow(clippy::too_many_lines)]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 

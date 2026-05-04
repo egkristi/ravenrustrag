@@ -536,6 +536,7 @@ async fn delete_handler(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 async fn openapi() -> impl IntoResponse {
     let schema = serde_json::json!({
         "openapi": "3.0.3",
@@ -969,8 +970,10 @@ mod tests {
         let store = Arc::new(MemoryStore::new());
         let embedder = Arc::new(DummyEmbedder::new(3));
         let index = DocumentIndex::new(store, embedder);
-        let mut config = ServerConfig::default();
-        config.api_key = api_key.map(String::from);
+        let config = ServerConfig {
+            api_key: api_key.map(String::from),
+            ..ServerConfig::default()
+        };
         let splitter = TextSplitter::new(200, 20);
         Arc::new(AppState::new(index, config, splitter))
     }

@@ -28,5 +28,10 @@ fn bench_cosine_1536(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_cosine_128, bench_cosine_768, bench_cosine_1536);
+criterion_group!(
+    benches,
+    bench_cosine_128,
+    bench_cosine_768,
+    bench_cosine_1536
+);
 criterion_main!(benches);

@@ -328,7 +328,7 @@ impl SentenceSplitter {
                         && word_before_dot
                             .chars()
                             .next()
-                            .is_some_and(|c| c.is_alphabetic())
+                            .is_some_and(char::is_alphabetic)
                     {
                         i += 1;
                         continue;

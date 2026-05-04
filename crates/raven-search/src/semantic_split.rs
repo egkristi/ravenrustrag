@@ -66,8 +66,7 @@ impl SemanticSplitter {
             }
 
             // Embed all sentences
-            let sentence_strings: Vec<String> =
-                sentences.iter().map(|s| s.to_string()).collect();
+            let sentence_strings: Vec<String> = sentences.iter().map(ToString::to_string).collect();
             let embeddings = self.embedder.embed(&sentence_strings).await?;
 
             // Group by consecutive similarity
@@ -118,10 +117,6 @@ impl SemanticSplitter {
 
         groups
     }
-}
-
-fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    raven_core::cosine_similarity(a, b)
 }
 
 /// Simple sentence splitter (extracted from raven-split logic)
@@ -201,10 +196,7 @@ mod tests {
         assert!(chunks.len() > 1);
 
         for (i, chunk) in chunks.iter().enumerate() {
-            assert_eq!(
-                chunk.metadata.get("chunk_index").unwrap(),
-                &i.to_string()
-            );
+            assert_eq!(chunk.metadata.get("chunk_index").unwrap(), &i.to_string());
         }
     }
 
@@ -226,10 +218,10 @@ mod tests {
     fn test_cosine_similarity() {
         let a = vec![1.0, 0.0, 0.0];
         let b = vec![1.0, 0.0, 0.0];
-        assert!((cosine_similarity(&a, &b) - 1.0).abs() < 0.001);
+        assert!((raven_core::cosine_similarity(&a, &b) - 1.0).abs() < 0.001);
 
         let c = vec![0.0, 1.0, 0.0];
-        assert!((cosine_similarity(&a, &c)).abs() < 0.001);
+        assert!((raven_core::cosine_similarity(&a, &c)).abs() < 0.001);
     }
 
     #[test]

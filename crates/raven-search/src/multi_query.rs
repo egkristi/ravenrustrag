@@ -45,8 +45,7 @@ pub fn expand_query(query: &str) -> Vec<String> {
     }
 
     // Definition/explanation form
-    if !trimmed.to_lowercase().contains("definition")
-        && !trimmed.to_lowercase().contains("explain")
+    if !trimmed.to_lowercase().contains("definition") && !trimmed.to_lowercase().contains("explain")
     {
         let first_noun_phrase = keywords.first().map_or(trimmed, String::as_str);
         variants.push(format!("{first_noun_phrase} explained"));
@@ -93,9 +92,9 @@ pub fn merge_expanded_results(
 
 const STOPWORDS: &[&str] = &[
     "the", "a", "an", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
-    "do", "does", "did", "will", "would", "could", "should", "may", "might", "shall", "can",
-    "of", "in", "to", "for", "with", "on", "at", "from", "by", "about", "as", "into", "through",
-    "and", "or", "but", "not", "no", "if", "then", "than", "that", "this", "it", "its",
+    "do", "does", "did", "will", "would", "could", "should", "may", "might", "shall", "can", "of",
+    "in", "to", "for", "with", "on", "at", "from", "by", "about", "as", "into", "through", "and",
+    "or", "but", "not", "no", "if", "then", "than", "that", "this", "it", "its",
 ];
 
 fn extract_keywords(text: &str) -> Vec<String> {
@@ -198,9 +197,7 @@ mod tests {
         ];
         index.add_documents(docs, &splitter).await.unwrap();
 
-        let results = query_expanded(&index, "Rust programming", 5)
-            .await
-            .unwrap();
+        let results = query_expanded(&index, "Rust programming", 5).await.unwrap();
         assert!(!results.is_empty());
     }
 }
