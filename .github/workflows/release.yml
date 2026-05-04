@@ -8,10 +8,15 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build (${{ matrix.artifact }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       matrix:
         include:

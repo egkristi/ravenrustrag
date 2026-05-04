@@ -10,59 +10,40 @@ Index thousands of documents in milliseconds. Query with microsecond latency. Sh
 [![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-egkristi.github.io-blueviolet)](https://egkristi.github.io/ravenrustrag/)
 
-## Why Rust instead of Python?
-
-RavenRAG (Python) proved the concept. RavenRustRAG delivers on the promise.
-
-| | Python (RavenRAG v0.7.0) | Rust (RavenRustRAG) |
-|---|---|---|
-| **Startup** | 2–5s (import + model init) | <50ms |
-| **Query latency** | 50–200ms | 35 µs (100 docs, excl. embedding) |
-| **Memory baseline** | 200–500MB+ | 20–50MB |
-| **Deployment** | virtualenv + 4 core deps + optional extras | Single `raven` binary (~9MB) |
-| **Concurrency** | GIL-bounded, fake async | Tokio, true async, lock-free reads |
-| **Type safety** | Runtime `TypeError`, `AttributeError` | Compile-time `Send + Sync` guarantees |
-| **Thread safety** | None — concurrent requests can corrupt state | `Arc<RwLock>`, fearless concurrency |
-| **Docker image** | ~1.5GB (Python + model + deps) | ~15MB (static musl binary) |
-| **Install** | `pip install ravenrag[all]` + pray | `cargo install ravenrustrag` |
-
 ## Features
 
-**Everything RavenRAG can do, plus more — faster, safer, smaller.**
-
-| Feature | Description | vs Python |
-|---------|-------------|-----------|
-| **Blazing fast** | Compiled native code, zero-copy where possible | 10–100x faster |
-| **Local-first** | No cloud APIs required. Works fully offline | Parity |
-| **Single binary** | `cargo install` or download. That's it | No virtualenv |
-| **True async** | Built on Tokio. Thousands of concurrent queries | Not `asyncio.to_thread` wrappers |
-| **Pluggable storage** | SQLite (default), in-memory, or custom backend | Parity (no ChromaDB dep) |
-| **Hybrid search** | Dense vectors + BM25 keyword matching with RRF fusion | Parity |
-| **Reranking** | Keyword reranker + trait for custom backends (ONNX planned) | Extensible |
-| **Semantic chunking** | Sentence-boundary + embedding cosine similarity splitting | Parity |
-| **Flexible splitting** | Character, token-aware, and semantic strategies | Parity |
-| **File loaders** | txt, md, html, csv, json, jsonl, pdf + plugin system | pdf via feature flag |
-| **Metadata filtering** | Filter search results by arbitrary metadata | Parity |
-| **Parent-child** | Search chunks, return full parent documents | Clean trait-based (no abstraction leak) |
-| **Context formatting** | LLM-ready prompt generation with citations | Parity |
-| **Citations** | Full provenance: source file + chunk reference | Parity |
-| **Retrieval eval** | Built-in MRR, NDCG, Recall@k, Precision@k metrics | Parity+ |
-| **CLI** | `raven index`, `query`, `serve`, `watch`, `mcp`, `doctor`, `benchmark`, `graph` | 13 commands |
-| **HTTP API** | Axum server with auth, CORS, rate limit, timeout, OpenAPI | Body limit, graceful shutdown |
-| **MCP server** | Model Context Protocol for Claude, Copilot, Cursor | Parity |
-| **Embedding backends** | Ollama, OpenAI-compatible, auto-detect | ONNX planned |
-| **Watch mode** | Auto-reindex on file changes (debounce + delete) | Parity |
-| **Config file** | `raven.toml` + env vars, auto-discovery | Parity |
-| **Incremental indexing** | SHA-256 fingerprinting, skip unchanged files | Parity |
-| **Export/import** | JSONL backup and restore (streaming I/O) | Streaming, not load-all |
-| **Multi-collection** | Route queries across multiple indices | Fused top-k |
-| **Knowledge graph** | Entity extraction + graph traversal + graph-vector fusion | Beyond Python |
-| **Observability** | Tracing spans, `/metrics` endpoint, OpenTelemetry export | Structured logging |
-| **Streaming** | `query_stream()` yields results via channel | Beyond Python |
-| **Thread-safe** | All types are `Send + Sync` by default | Python has none |
-| **HNSW search** | O(log n) approximate nearest neighbor via `instant-distance` | Beyond Python |
-| **Lock-free cache** | DashMap + AtomicU64 embedding cache, zero contention | Beyond Python |
-| **Memory-mapped I/O** | 256 MB mmap for zero-copy SQLite reads | Beyond Python |
+| Feature | Description |
+|---------|-------------|
+| **Blazing fast** | Compiled native code, zero-copy where possible. Sub-50ms startup, 35 µs queries |
+| **Local-first** | No cloud APIs required. Works fully offline with Ollama |
+| **Single binary** | `cargo install ravenrustrag` or download a static musl binary (~9MB) |
+| **True async** | Built on Tokio. Thousands of concurrent queries with lock-free reads |
+| **Pluggable storage** | SQLite with WAL + mmap (default), in-memory, or custom backend |
+| **Hybrid search** | Dense vectors + BM25 keyword matching with Reciprocal Rank Fusion |
+| **HNSW search** | O(log n) approximate nearest neighbor via `instant-distance` |
+| **Reranking** | Keyword reranker + trait for custom backends (ONNX planned) |
+| **Knowledge graph** | Entity extraction + graph traversal + graph-vector fusion |
+| **Semantic chunking** | Sentence-boundary + embedding cosine similarity splitting |
+| **Flexible splitting** | Character, token-aware, and semantic strategies |
+| **File loaders** | txt, md, html, csv, json, jsonl, pdf + plugin system |
+| **Metadata filtering** | Filter search results by arbitrary key-value metadata |
+| **Parent-child** | Search chunks, return full parent documents |
+| **Multi-collection** | Route queries across multiple indices with fused top-k |
+| **Context formatting** | LLM-ready prompt generation with source citations |
+| **Retrieval eval** | Built-in MRR, NDCG, Recall@k, Precision@k metrics |
+| **CLI** | 13 commands: index, query, serve, watch, mcp, doctor, benchmark, graph, etc. |
+| **HTTP API** | Axum server with auth, CORS, rate limit, timeout, body limit, OpenAPI |
+| **MCP server** | Model Context Protocol for Claude, Copilot, Cursor |
+| **Embedding backends** | Ollama, OpenAI-compatible, auto-detect |
+| **Watch mode** | Auto-reindex on file changes with debounce and delete tracking |
+| **Streaming** | `query_stream()` yields results via async channel |
+| **Incremental indexing** | SHA-256 fingerprinting, skip unchanged files |
+| **Export/import** | JSONL backup and restore with streaming I/O |
+| **Lock-free cache** | DashMap + AtomicU64 embedding cache, zero contention |
+| **Memory-mapped I/O** | 256 MB mmap for zero-copy SQLite reads |
+| **Observability** | Tracing spans, `/metrics` endpoint, OpenTelemetry export |
+| **Thread-safe** | All types are `Send + Sync` by default. No data races possible |
+| **Config file** | `raven.toml` + env vars + CLI flags, auto-discovery |
 
 ## Quick Start
 
@@ -351,16 +332,6 @@ Measured on Apple Silicon (M-series), release build, using `DummyEmbedder` (128-
 | Vector query, 1,000 docs | 370 µs |
 | Hybrid query (BM25 + vector), 100 docs | 55 µs |
 | Index 10 docs (split + embed + store) | 41 µs |
-
-### vs Python (RavenRAG v0.7.0)
-
-| Metric | RavenRustRAG | RavenRAG (Python) | Ratio |
-|--------|-------------|-------------------|-------|
-| Startup | <50ms | 2–5s | ~50x |
-| Query (100 docs, no embed) | 35 µs | 50–200ms | ~3,000x |
-| Memory baseline | 20–50MB | 200–500MB+ | ~10x |
-| Release binary | 8.7 MB | ~1.5GB (Docker) | ~170x |
-| Lines of code | ~9,100 | ~4,200 | 2.2x (9 crates, 123 tests) |
 
 Benchmarks depend on hardware, embedding model, and document size. Query latency above excludes embedding time (network-bound for Ollama/OpenAI).
 
