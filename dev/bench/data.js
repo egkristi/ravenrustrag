@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777933418742,
+  "lastUpdate": 1777933717781,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -503,6 +503,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 111572,
             "range": "± 692",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "69d0ed9add4ebbdbb77e4c8a223d442208a0ee36",
+          "message": "test: concurrent stress tests and 10k+ scaling closes #59\n\nAdded stress_tests.rs integration test suite (7 tests):\n- test_10k_document_indexing: 10k docs indexed at 20k+ docs/sec\n- test_10k_query_latency: sub-500ms avg in debug, sub-10ms in release\n- test_concurrent_indexing: 8 parallel threads indexing simultaneously\n- test_concurrent_query_while_indexing: mixed read/write workload\n- test_bm25_scaling: BM25 search at 10k chunks\n- test_many_small_documents: 50k tiny docs at 190k+ docs/sec (release)\n- test_large_document: single 500KB+ doc splits correctly\n\nAll pass in both debug and release mode.",
+          "timestamp": "2026-05-05T00:24:13+02:00",
+          "tree_id": "608602ad44d3c705dd8d4b535177c21bbe1efc81",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/69d0ed9add4ebbdbb77e4c8a223d442208a0ee36"
+        },
+        "date": 1777933717239,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 99,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 547,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1086,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 53836,
+            "range": "± 592",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 583853,
+            "range": "± 3899",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 95046,
+            "range": "± 323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39355,
+            "range": "± 187",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 114326,
+            "range": "± 915",
             "unit": "ns/iter"
           }
         ]
