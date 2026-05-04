@@ -1,267 +1,178 @@
 # RavenRustRAG — Implementation Plan
 
-> **Status:** Planning  
-> **Target:** v0.1.0-alpha within 2 weeks  
+> **Status:** v0.1.0 foundation lagt  
+> **Target:** v0.1.0-alpha bygbar < 1 uke  
 > **Motto:** *Make it work, make it right, make it fast — in that order.*
 
-## 1. Philosophy
+## Hva som er nytt i RavenRAG v0.7.0 (Python)
 
-1. **Local-first** — Works without internet, cloud APIs optional
-2. **Single binary** — `cargo install` and go
-3. **Async by default** — Tokio throughout, zero blocking I/O
-4. **Modular** — Use as CLI, server, library, or MCP tool
-5. **Ergonomic** — Good defaults, minimal configuration
+Basert på analyse av oppdatert repo (2026-05-04):
 
-## 2. Architecture
+| Feature | Status i Python | Plan for Rust |
+|---|---|---|
+| Knowledge graph retrieval | ✅ Entity extraction + graph traversal | Fase 3 |
+| Docker + CI container build | ✅ Dockerfile, GitHub Actions | Fase 2 |
+| OpenAPI schema in server | ✅ Innebygget spec | Fase 2 |
+| QueryResult.citation | ✅ Metadata-drevet | ✅ I core |
+| Eval metrics (MRR, NDCG) | ✅ Innebygget | Fase 3 |
+| Context formatting/templates | ✅ Templat-støtte | Fase 2 |
+| MCP server | ✅ stdio transport | Fase 2 |
+| Watch mode | ✅ Auto-reindex | Fase 2 |
+| Export/import JSONL | ✅ Backup/restore | Fase 2 |
+| Multi-collection routing | ✅ MultiCollectionRouter | Fase 3 |
+| Parent-child retrieval | ✅ Search chunks, return parents | Fase 3 |
+| Semantic splitting | ✅ Embedder-drevet | Fase 2 |
+| CSV/RTF/PPTX/XLSX loaders | ✅ Plugin-system | Fase 2 |
+| Async pipeline API | ✅ aadd(), aquery() | ✅ I core (async/await) |
+| FAISS/SQLite alt stores | ✅ Pluggable | ✅ I store |
+| Cross-encoder reranking | ✅ Optional | Fase 2 |
+| BM25 hybrid search | ✅ rank_bm25 + RRF | Fase 2 |
 
-### 2.1 Crate Structure
+## 1. Arkitektur
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        RavenRustRAG                          │
+├─────────────────────────────────────────────────────────────┤
+│  CLI │ API Server │ MCP Server │ Library                    │
+├─────────────────────────────────────────────────────────────┤
+│  Pipeline: load → split → embed → store → search → format   │
+├─────────┬──────────┬──────────┬──────────┬──────────────────┤
+│ Loaders │ Splitters│ Embedders│  Stores  │ Search/Rerank    │
+│  .txt   │  Text    │  Ollama  │  SQLite  │  Vector (flat)   │
+│  .md    │  Token   │  OpenAI  │  Memory  │  BM25 (stretch)  │
+│  .pdf*  │Semantic* │  Local*  │  Custom  │  Hybrid*         │
+│  .csv*  │          │          │          │  Rerank*         │
+│  .html* │          │          │          │  Graph*          │
+└─────────┴──────────┴──────────┴──────────┴──────────────────┘
+  * = stretch goal for v0.1.0
+```
+
+## 2. Crate-struktur
 
 ```
 ravenrustrag/
 ├── Cargo.toml              # Workspace root
 ├── crates/
-│   ├── raven-core/         # Core types, Document, Chunk, errors
-│   ├── raven-embed/        # Embedding backends (trait + impls)
-│   ├── raven-store/        # Vector stores (SQLite, memory, trait)
-│   ├── raven-split/        # Text splitting strategies
-│   ├── raven-load/         # File loaders
-│   ├── raven-search/       # Search, hybrid, reranking
-│   ├── raven-server/       # Axum HTTP API
-│   ├── raven-cli/          # CLI binary
-│   └── raven-mcp/          # MCP protocol server
-├── raven.toml              # Example config
-└── benches/                # Criterion benchmarks
+│   ├── raven-core/         # Document, Chunk, SearchResult, Config, errors
+│   ├── raven-embed/        # Embedder trait, OllamaBackend, caching
+│   ├── raven-store/        # VectorStore trait, SqliteStore, MemoryStore
+│   ├── raven-split/        # Splitter trait, TextSplitter (stretch: Semantic)
+│   ├── raven-load/         # Loader trait, TextLoader, DirectoryLoader
+│   ├── raven-search/       # DocumentIndex, Pipeline, Builder
+│   ├── raven-server/       # Axum HTTP API (stretch for v0.1.0)
+│   ├── raven-cli/          # CLI binary: index, query, info, clear, serve
+│   └── raven-mcp/          # MCP server (stretch)
+├── raven.toml              # Eksempel config
+├── Dockerfile              # Multi-stage build (stretch)
+└── .github/workflows/      # CI (stretch)
 ```
 
-### 2.2 Core Types
+## 3. Fase 1: Foundation (Denne uken)
 
-```rust
-// crates/raven-core/src/lib.rs
-pub struct Document {
-    pub id: String,
-    pub text: String,
-    pub metadata: HashMap<String, String>,
-}
+### 3.1 raven-core ✅
+- [x] `Document` — med metadata, id (SHA-256 fallback)
+- [x] `Chunk` — doc_id, text, metadata, embedding
+- [x] `SearchResult` — chunk, score, distance, citation-property
+- [x] `RavenError` — thiserror-basert enum
+- [x] `Config` — TOML + env var støtte
+- [x] Fingerprint (SHA-256)
 
-pub struct Chunk {
-    pub id: String,
-    pub doc_id: String,
-    pub text: String,
-    pub metadata: HashMap<String, String>,
-    pub embedding: Option<Vec<f32>>,
-}
+### 3.2 raven-embed ✅
+- [x] `Embedder` trait (async)
+- [x] `OllamaBackend` — HTTP client til Ollama /api/embed
+- [x] `EmbeddingCache` — LRU in-memory cache
+- [x] `CachedEmbedder` — wrapper
 
-pub struct SearchResult {
-    pub chunk: Chunk,
-    pub score: f32,
-    pub distance: f32,
-}
+### 3.3 raven-store ✅
+- [x] `VectorStore` trait (async)
+- [x] `SqliteStore` — rusqlite + flat brute-force cosine search
+- [x] `MemoryStore` — for testing
+- [x] Metadata-filtering støtte
+- [x] Fingerprint-tabell for inkrementell indeksering
 
-#[derive(Debug, Error)]
-pub enum RavenError {
-    #[error("store error: {0}")]
-    Store(#[from] StoreError),
-    #[error("embedder error: {0}")]
-    Embed(#[from] EmbedError),
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-}
-```
+### 3.4 raven-split ✅
+- [x] `Splitter` trait
+- [x] `TextSplitter` — character-basert med overlap
 
-## 3. Phase 1: Foundation (Week 1)
+### 3.5 raven-load ✅
+- [x] `Loader` — from_file, from_directory
+- [x] Extension-filtering
+- [x] Recursive directory walking
 
-### 3.1 raven-core
-- [ ] Define `Document`, `Chunk`, `SearchResult`
-- [ ] Error types with `thiserror`
-- [ ] Content fingerprinting (SHA-256)
-- [ ] Config types (TOML deserialization)
+### 3.6 raven-search ✅
+- [x] `DocumentIndex` — hjertet
+- [x] Builder pattern
+- [x] `add_documents()` — split + embed + store pipeline
+- [x] `query()` — embed + search
+- [x] `query_for_prompt()` — formatert LLM prompt med sitater
 
-### 3.2 raven-embed
-- [ ] `Embedder` trait: `async fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>>`
-- [ ] `OllamaBackend` — HTTP client to Ollama API
-- [ ] `OpenAIBackend` — OpenAI-compatible (optional feature)
-- [ ] `LocalBackend` — ONNX Runtime for local models (optional)
-- [ ] Embedding cache (LRU in-memory)
+### 3.7 raven-cli ✅ (skeleton)
+- [x] `raven index <path>` — indekser dokumenter
+- [x] `raven query "tekst"` — søk
+- [x] `raven info` — statistikk
+- [x] `raven clear` — tøm indeks
+- [x] `raven serve` — placeholder for server
 
-### 3.3 raven-store
-- [ ] `VectorStore` trait:
-  ```rust
-  pub trait VectorStore: Send + Sync {
-      async fn add(&self, chunks: &[Chunk]) -> Result<()>;
-      async fn search(&self, query: &[f32], top_k: usize) -> Result<Vec<SearchResult>>;
-      async fn delete(&self, doc_id: &str) -> Result<()>;
-      async fn count(&self) -> Result<usize>;
-  }
-  ```
-- [ ] `SqliteStore` — rusqlite + custom vector ops
-  - Flat brute-force search first (cosine similarity)
-  - HNSW via `sqlite-vec` or custom implementation
-- [ ] `MemoryStore` — in-memory, for testing
-- [ ] Metadata filtering
+## 4. Fase 2: Features (Neste uke)
 
-### 3.4 raven-split
-- [ ] `Splitter` trait
-- [ ] `TextSplitter` — character-based with overlap
-- [ ] `TokenSplitter` — tiktoken-rs approximation
-- [ ] `SemanticSplitter` — sentence boundaries + embedder (optional)
+- [ ] HTTP API server (Axum) — /health, /query, /index, /stats, /openapi.json
+- [ ] CLI: `raven serve --host --port`
+- [ ] Semantic splitting (sentence boundaries + embedder)
+- [ ] PDF/CSV/HTML loaders
+- [ ] Watch mode (notify-rs)
+- [ ] Export/import JSONL
+- [ ] Context formatting med templates
+- [ ] Docker multi-stage build
+- [ ] GitHub Actions CI
+- [ ] Cross-encoder reranking
+- [ ] BM25 hybrid search
+- [ ] MCP server
+- [ ] Config file (raven.toml)
 
-### 3.5 raven-load
-- [ ] `Loader` trait
-- [ ] `TextLoader` — .txt, .md
-- [ ] `PdfLoader` — pdf-extract (optional)
-- [ ] `HtmlLoader` — html5ever (optional)
-- [ ] `DirectoryLoader` — glob + recursive
+## 5. Fase 3: Advanced (Senere)
 
-### 3.6 Integration: DocumentIndex
-- [ ] Builder pattern:
-  ```rust
-  let index = DocumentIndex::builder()
-      .store(SqliteStore::new("./raven.db"))
-      .embedder(OllamaBackend::new("http://localhost:11434", "nomic-embed-text"))
-      .splitter(TextSplitter::new(512, 50))
-      .build()?;
-  ```
-- [ ] `add(documents)` → split → embed → store
-- [ ] `query(text)` → embed → search → return results
-- [ ] `query_for_prompt(text)` → query → format with citations
-
-### 3.7 raven-cli (basic)
-- [ ] `raven index <path> --db <db>`
-- [ ] `raven query "text" --db <db>`
-- [ ] `raven info --db <db>`
-- [ ] clap for argument parsing
-- [ ] tokio runtime
-
-## 4. Phase 2: Advanced Features (Week 2)
-
-### 4.1 Hybrid Search
-- [ ] BM25 index (tantivy-lite or custom)
-- [ ] Reciprocal Rank Fusion (RRF)
-- [ ] Configurable alpha (vector vs sparse weight)
-
-### 4.2 Reranking
-- [ ] `Reranker` trait
-- [ ] Cross-encoder via ONNX (optional)
-- [ ] ColBERT-style late interaction (stretch)
-
-### 4.3 HTTP API (raven-server)
-- [ ] Axum routes:
-  - `GET /health`
-  - `GET /stats`
-  - `POST /query` (JSON body)
-  - `POST /prompt`
-  - `POST /index`
-  - `GET /openapi.json`
-- [ ] Bearer auth (optional)
-- [ ] CORS support
-- [ ] Graceful shutdown
-
-### 4.4 MCP Server (raven-mcp)
-- [ ] stdio transport
-- [ ] Tools: `rag_search`, `rag_index`, `rag_stats`
-- [ ] Resources: `rag://{collection}/stats`
-
-### 4.5 CLI Polish
-- [ ] `raven serve` — start API server
-- [ ] `raven watch` — file watcher (notify-rs)
-- [ ] `raven export` — JSONL dump
-- [ ] `raven import` — JSONL restore
-- [ ] `raven benchmark` — built-in benchmarks
-- [ ] `raven doctor` — diagnostics
-- [ ] Progress bars (indicatif)
-- [ ] Colored output
-
-### 4.6 Incremental Indexing
-- [ ] File fingerprinting (mtime + content hash)
-- [ ] Skip unchanged files
-- [ ] Detect deletions
-- [ ] Fingerprint persistence (SQLite table)
-
-## 5. Phase 3: Production Readiness
-
-### 5.1 Testing
-- [ ] Unit tests (80%+ coverage)
-- [ ] Integration tests (full pipeline)
-- [ ] Property-based tests (proptest)
+- [ ] Knowledge graph (entity extraction, graph traversal)
+- [ ] Multi-collection routing
+- [ ] Parent-child retrieval
+- [ ] Eval metrics (MRR, NDCG, Recall@k)
+- [ ] HNSW vektor-søk (i stedet for flat)
+- [ ] ONNX Runtime local embeddings
 - [ ] Benchmarks (Criterion)
-
-### 5.2 Documentation
-- [ ] rustdoc for all public APIs
-- [ ] User guide (mdBook)
-- [ ] Architecture decision records (ADRs)
-
-### 5.3 CI/CD
-- [ ] GitHub Actions: test, clippy, fmt, audit
-- [ ] Cross-compilation releases (Linux, macOS, Windows)
+- [ ] rustdoc + mdBook guide
 - [ ] crates.io publish
-- [ ] Docker image
 
-### 5.4 Performance
-- [ ] SIMD vector ops (ndarray + packed_simd)
-- [ ] Connection pooling (embedder HTTP client)
-- [ ] Streaming index (process large files in chunks)
-- [ ] Memory-mapped storage option
+## 6. Kjente begrensninger
 
-## 6. Key Dependencies
+1. **Mangler C-linker på host** — `cargo build` feiler på `cc not found`. Krever `build-essential` på systemet.
+2. **Flat vektor-søk** — O(n) brute-force. Tilstrekkelig for < 10k dokumenter.
+3. **Kun Ollama-embedder** — OpenAI/ONNX kommer i Fase 2.
 
-| Crate | Purpose |
-|-------|---------|
-| `tokio` | Async runtime |
-| `axum` | HTTP server |
-| `serde` + `toml` | Config, serialization |
-| `clap` | CLI parsing |
-| `reqwest` | HTTP client (embedders) |
-| `rusqlite` | SQLite storage |
-| `ndarray` | Vector math |
-| `thiserror` + `anyhow` | Error handling |
-| `tracing` | Logging |
-| `notify` | File watching |
-| `indicatif` | Progress bars |
-| `tiktoken-rs` | Token counting |
-| `serde_json` | JSON handling |
-| `utoipa` | OpenAPI generation |
-| `tower` | Middleware (auth, CORS) |
-| `sha2` | Content hashing |
-| `walkdir` | Directory traversal |
+## 7. Bygginstruksjoner (når linker er tilgjengelig)
 
-## 7. Design Decisions
+```bash
+# Clone
+git clone https://github.com/egkristi/ravenrustrag.git
+cd ravenrustrag
 
-### 7.1 SQLite as Default Store
-- **Pro:** Single file, zero setup, ACID, cross-platform
-- **Con:** No native vector search (need custom or extension)
-- **Mitigation:** Flat search for small datasets, HNSW for large
+# Build debug
+cargo build
 
-### 7.2 Async Throughout
-- **Pro:** Concurrent embedding requests, non-blocking I/O
-- **Con:** Slightly more complex code
-- **Mitigation:** Good abstractions, `.await` is ergonomic in Rust
+# Build release (optimalisert)
+cargo build --release
 
-### 7.3 Modular Crate Structure
-- **Pro:** Users only pull what they need, faster compile times
-- **Con:** More workspace complexity
-- **Mitigation:** Workspace-level Cargo.toml with shared deps
+# Test
+cargo test
 
-## 8. Success Criteria
+# Kjør CLI
+./target/release/raven index ./docs --db ./raven.db
+./target/release/raven query "What is RAG?"
 
-- [ ] `cargo install ravenrustrag` → single binary works
-- [ ] Index 1000 documents in <5s (with local embedder)
-- [ ] Query latency <10ms (cold), <1ms (cached)
-- [ ] Memory footprint <50MB for 10k documents
-- [ ] All RavenRAG Python features replicated
-- [ ] Faster in every benchmark
-
-## 9. Immediate Next Steps
-
-1. Initialize workspace: `cargo new --lib ravenrustrag`
-2. Set up workspace Cargo.toml with all crates
-3. Implement `raven-core` types
-4. Implement `OllamaBackend` embedder
-5. Implement `SqliteStore` with flat search
-6. Wire up basic `DocumentIndex`
-7. CLI skeleton with `index` and `query` commands
-8. Test end-to-end with sample documents
+# Med Ollama
+raven index ./docs --url http://localhost:11434 --model nomic-embed-text
+```
 
 ---
 
-**Last updated:** 2026-05-04  
-**Next review:** After v0.1.0-alpha
+**Sist oppdatert:** 2026-05-04  
+**Neste gjennomgang:** Når C-linker er tilgjengelig og koden kompilerer
