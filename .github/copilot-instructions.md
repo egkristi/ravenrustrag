@@ -142,12 +142,12 @@ raven doctor           # Diagnostics
 ## Reference: Python RavenRAG v0.7.0
 
 The Python version has ~4,200 lines across 24 modules. Key features to match or exceed:
-- Knowledge graph retrieval (Fase 3)
-- BM25 hybrid search with RRF (Fase 2)
-- Cross-encoder reranking (Fase 2)
-- Watch mode with debounce (Fase 2)
-- Multi-collection routing (Fase 3)
-- Parent-child retrieval (Fase 3)
-- Eval metrics: MRR, NDCG, Recall@k (Fase 3)
+- Knowledge graph retrieval (Phase 3)
+- BM25 hybrid search with RRF (Phase 2)
+- Cross-encoder reranking (Phase 2)
+- Watch mode with debounce (Phase 2)
+- Multi-collection routing (Phase 3)
+- Parent-child retrieval (Phase 3)
+- Eval metrics: MRR, NDCG, Recall@k (Phase 3)
 
 See PLAN.md for the full roadmap.

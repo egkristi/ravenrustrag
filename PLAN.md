@@ -161,7 +161,7 @@ ravenrustrag/
 
 ## 4. Phase 2: Feature Parity with Python
 
-**Goal:** Match alle features i RavenRAG v0.7.0, men med bedre design.
+**Goal:** Match all features in RavenRAG v0.7.0, but with better design.
 
 ### 4.1 HTTP API Server (raven-server)
 - [x] Axum-based server with Tokio
@@ -185,12 +185,12 @@ ravenrustrag/
 - [x] Tool: `search` — query with top_k
 - [x] Tool: `get_prompt` — search + format LLM prompt
 - [x] Tool: `collection_info` — index statistics
-- [x] Tool: `index_documents` — add documents **ny vs Python**
+- [x] Tool: `index_documents` — add documents **new vs Python**
 - [ ] Proper error codes and schema validation
 
 ### 4.3 Additional Embedding Backends
 - [x] `OpenAIBackend` — OpenAI-compatible API (OpenAI, LM Studio, LocalAI, vLLM)
-- [ ] ONNX Runtime local embeddings — **better than Python** (native, ingen Python-runtime)
+- [ ] ONNX Runtime local embeddings — **better than Python** (native, no Python runtime)
 - [ ] Backend auto-detection based on URL scheme (`ollama://`, `openai://`, `onnx://`)
 
 ### 4.4 Splitter Extensions
@@ -289,11 +289,11 @@ Features that make the Rust version **strictly better** than Python:
 ### 5.4 Observability
 - [x] Tracing with `tracing` crate (structured logging)
 - [x] Timing spans for all pipeline steps
-- [x] `/metrics` endpoint med request counters
+- [x] `/metrics` endpoint with request counters
 - [ ] OpenTelemetry export (optional feature)
 
 ### 5.5 HNSW Vector Search
-- [ ] Replace flat brute-force with HNSW (instant-distance eller usearch)
+- [ ] Replace flat brute-force with HNSW (instant-distance or usearch)
 - [ ] O(log n) search instead of O(n)
 - [ ] Scalable to millions of documents — **much better than Python**
 
@@ -360,7 +360,7 @@ cargo test
 ./target/release/raven index ./docs --db ./raven.db
 ./target/release/raven query "What is RAG?"
 
-# Med Ollama
+# With Ollama
 raven index ./docs --url http://localhost:11434 --model nomic-embed-text
 ```
 
