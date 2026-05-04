@@ -1,0 +1,74 @@
+[package]
+name = "ravenrustrag"
+version = "0.1.0-alpha.1"
+edition = "2021"
+authors = ["Erling Kristiansen <egkristi@gmail.com>"]
+description = "Fearlessly fast local-first RAG engine in Rust"
+license = "MIT"
+repository = "https://github.com/egkristi/ravenrustrag"
+keywords = ["rag", "vector-search", "embeddings", "llm", "retrieval"]
+categories = ["command-line-utilities", "text-processing"]
+rust-version = "1.75"
+
+[workspace]
+members = [
+    "crates/raven-core",
+    "crates/raven-embed",
+    "crates/raven-store",
+    "crates/raven-split",
+    "crates/raven-load",
+    "crates/raven-search",
+    "crates/raven-server",
+    "crates/raven-cli",
+    "crates/raven-mcp",
+]
+resolver = "2"
+
+[workspace.dependencies]
+tokio = { version = "1.35", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
+clap = { version = "4.4", features = ["derive"] }
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
+rusqlite = { version = "0.30", features = ["bundled"] }
+ndarray = "0.15"
+sha2 = "0.10"
+walkdir = "2.4"
+indicatif = "0.17"
+notify = "6.1"
+toml = "0.8"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tokio-test = "0.4"
+criterion = "0.5"
+
+[dependencies]
+raven-core = { path = "crates/raven-core" }
+raven-embed = { path = "crates/raven-embed" }
+raven-store = { path = "crates/raven-store" }
+raven-split = { path = "crates/raven-split" }
+raven-load = { path = "crates/raven-load" }
+raven-search = { path = "crates/raven-search" }
+raven-server = { path = "crates/raven-server" }
+raven-cli = { path = "crates/raven-cli" }
+raven-mcp = { path = "crates/raven-mcp" }
+
+[[bin]]
+name = "raven"
+path = "crates/raven-cli/src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0

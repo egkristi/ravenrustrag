@@ -1,0 +1,7 @@
+[package]
+name = "raven-split"
+version = "0.1.0-alpha.1"
+edition = "2021"
+
+[dependencies]
+raven-core = { path = "../raven-core" }

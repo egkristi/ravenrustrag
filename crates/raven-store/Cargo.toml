@@ -1,0 +1,19 @@
+[package]
+name = "raven-store"
+version = "0.1.0-alpha.1"
+edition = "2021"
+
+[dependencies]
+raven-core = { path = "../raven-core" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rusqlite = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+ndarray = { workspace = true }
+async-trait = "0.1"
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+tempfile = "3.8"

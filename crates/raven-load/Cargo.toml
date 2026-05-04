@@ -1,0 +1,9 @@
+[package]
+name = "raven-load"
+version = "0.1.0-alpha.1"
+edition = "2021"
+
+[dependencies]
+raven-core = { path = "../raven-core" }
+walkdir = { workspace = true }
+thiserror = { workspace = true }

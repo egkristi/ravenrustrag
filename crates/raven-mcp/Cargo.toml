@@ -1,0 +1,10 @@
+[package]
+name = "raven-mcp"
+version = "0.1.0-alpha.1"
+edition = "2021"
+
+[dependencies]
+raven-core = { path = "../raven-core" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
