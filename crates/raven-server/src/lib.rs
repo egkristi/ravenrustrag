@@ -1317,3 +1317,60 @@ mod tests {
         assert!(json["count"].as_u64().unwrap() > 0);
     }
 }
+
+// =============================================================================
+// OpenTelemetry integration (optional, behind "otel" feature)
+// =============================================================================
+
+#[cfg(feature = "otel")]
+pub mod telemetry {
+    //! OpenTelemetry tracing export.
+    //!
+    //! When enabled, exports spans to an OTLP endpoint (default: `http://localhost:4317`).
+    //! Set `OTEL_EXPORTER_OTLP_ENDPOINT` to override.
+
+    use opentelemetry::trace::TracerProvider;
+    use opentelemetry_sdk::runtime::Tokio;
+    use tracing_opentelemetry::OpenTelemetryLayer;
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt;
+    use tracing_subscriber::EnvFilter;
+
+    /// Initialize tracing with OpenTelemetry OTLP exporter.
+    ///
+    /// Call this once at application startup, before creating the server.
+    /// Returns a guard that shuts down the tracer on drop.
+    pub fn init_telemetry(service_name: &str) -> OtelGuard {
+        let exporter = opentelemetry_otlp::SpanExporter::builder()
+            .with_tonic()
+            .build()
+            .expect("Failed to create OTLP exporter");
+
+        let provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
+            .with_batch_exporter(exporter, Tokio)
+            .build();
+
+        let tracer = provider.tracer(service_name.to_string());
+
+        tracing_subscriber::registry()
+            .with(EnvFilter::from_default_env())
+            .with(tracing_subscriber::fmt::layer())
+            .with(OpenTelemetryLayer::new(tracer))
+            .init();
+
+        OtelGuard { provider }
+    }
+
+    /// Guard that shuts down the OpenTelemetry tracer provider on drop.
+    pub struct OtelGuard {
+        provider: opentelemetry_sdk::trace::SdkTracerProvider,
+    }
+
+    impl Drop for OtelGuard {
+        fn drop(&mut self) {
+            if let Err(e) = self.provider.shutdown() {
+                eprintln!("Error shutting down OTel provider: {e:?}");
+            }
+        }
+    }
+}
