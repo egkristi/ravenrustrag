@@ -185,16 +185,10 @@ impl DocumentIndex {
 
         for parent_id in &parent_ids {
             // Find the best scoring chunk for this parent (for the score)
-            let best_result = results
-                .iter()
-                .find(|r| {
-                    let pid = r
-                        .chunk
-                        .metadata
-                        .get("source_id")
-                        .unwrap_or(&r.chunk.doc_id);
-                    pid == parent_id
-                });
+            let best_result = results.iter().find(|r| {
+                let pid = r.chunk.metadata.get("source_id").unwrap_or(&r.chunk.doc_id);
+                pid == parent_id
+            });
 
             // Collect all chunks from this parent, sorted by chunk_index
             let mut sibling_chunks: Vec<_> = all_chunks
@@ -220,14 +214,13 @@ impl DocumentIndex {
                     .join("\n");
 
                 let mut merged_chunk = raven_core::Chunk::new(&best.chunk.doc_id, &merged_text);
-                merged_chunk.metadata = best.chunk.metadata.clone();
+                merged_chunk.metadata.clone_from(&best.chunk.metadata);
                 merged_chunk
                     .metadata
                     .insert("retrieval_mode".to_string(), "parent".to_string());
-                merged_chunk.metadata.insert(
-                    "child_chunks".to_string(),
-                    sibling_chunks.len().to_string(),
-                );
+                merged_chunk
+                    .metadata
+                    .insert("child_chunks".to_string(), sibling_chunks.len().to_string());
 
                 parent_results.push(SearchResult {
                     chunk: merged_chunk,
@@ -370,7 +363,11 @@ impl MultiCollectionRouter {
         }
 
         // Sort by score descending and take top_k
-        all_results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        all_results.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         all_results.truncate(top_k);
         Ok(all_results)
     }
@@ -636,7 +633,10 @@ mod tests {
 
         index.add_documents(docs, &splitter).await.unwrap();
         let chunk_count = index.count().await.unwrap();
-        assert!(chunk_count > 1, "Document should be split into multiple chunks");
+        assert!(
+            chunk_count > 1,
+            "Document should be split into multiple chunks"
+        );
 
         // Parent query should return merged results
         let results = index.query_parent("Rust", 2).await.unwrap();
@@ -644,7 +644,11 @@ mod tests {
         // The merged text should be longer than individual chunks
         assert!(results[0].chunk.text.contains("Rust"));
         assert_eq!(
-            results[0].chunk.metadata.get("retrieval_mode").map(String::as_str),
+            results[0]
+                .chunk
+                .metadata
+                .get("retrieval_mode")
+                .map(String::as_str),
             Some("parent")
         );
     }
@@ -676,7 +680,9 @@ mod tests {
         let results = router.query("programming", 5).await.unwrap();
         assert_eq!(results.len(), 2);
         // Each result should have a collection tag
-        assert!(results.iter().all(|r| r.chunk.metadata.contains_key("collection")));
+        assert!(results
+            .iter()
+            .all(|r| r.chunk.metadata.contains_key("collection")));
 
         let collections = router.collections().await;
         assert_eq!(collections.len(), 2);
@@ -689,10 +695,7 @@ mod tests {
         let index = DocumentIndex::new(store, embedder);
 
         let splitter = TextSplitter::new(200, 10);
-        let docs = vec![
-            Document::new("Rust is fast"),
-            Document::new("Rust is safe"),
-        ];
+        let docs = vec![Document::new("Rust is fast"), Document::new("Rust is safe")];
         index.add_documents(docs, &splitter).await.unwrap();
 
         let mut rx = index.query_stream("Rust", 5).await.unwrap();

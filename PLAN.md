@@ -1,6 +1,6 @@
 # RavenRustRAG — Implementation Plan
 
-> **Status:** v0.1.0-alpha — Phase 1 complete, Phase 2 in progress  
+> **Status:** v0.1.0-alpha — Phase 1 complete, Phase 2 mostly complete, Phase 3 in progress  
 > **Motto:** *Make it work, make it right, make it fast — in that order.*  
 > **Goal:** Functionally superior to the Python version (RavenRAG v0.7.0) with orders-of-magnitude better performance.
 
@@ -13,11 +13,11 @@ Complete feature list of the Python version as of 2026-05-04 (~4,200 lines, 24 m
 | Category | Python Features | Rust Status |
 |---|---|---|
 | **Core** | Document, QueryResult (citation), DocumentIndex, async (aadd/aquery) | ✅ Phase 1 |
-| **Embedding** | sentence-transformers, Ollama, OpenAI, vLLM, custom protocol | 🟡 Ollama only |
+| **Embedding** | sentence-transformers, Ollama, OpenAI, vLLM, custom protocol | \u2705 Ollama + OpenAI + auto-detect |", "oldString": "| **Embedding** | sentence-transformers, Ollama, OpenAI, vLLM, custom protocol | \ud83d\udfe1 Ollama only |
 | **Storage** | ChromaDB, FAISS, SQLite-vec, VectorStoreBackend protocol | ✅ SQLite + Memory |
 | **Splitting** | TextSplitter, TokenSplitter, SemanticSplitter | ✅ Text + Token + Sentence |
 | **Loaders** | .txt .md .pdf .docx .pptx .xlsx .csv .rtf .html + plugin system | ✅ txt,md,csv,json,jsonl,html |
-| **Search** | Vector, BM25 hybrid (RRF), cross-encoder reranking, streaming | ✅ Vector + BM25 hybrid (RRF) |
+| **Search** | Vector, BM25 hybrid (RRF), cross-encoder reranking, streaming | ✅ Vector + BM25 hybrid (RRF) + streaming |
 | **Graph** | KnowledgeGraph, GraphRetriever, entity extraction, RRF fusion | ❌ Phase 3 |
 | **Server** | HTTP (stdlib), auth, CORS, /metrics, /openapi.json, 7 endpoints | ✅ Axum, auth, CORS, /metrics |
 | **MCP** | stdio JSON-RPC, 3 tools (search, get_prompt, collection_info) | ✅ 4 tools |
@@ -30,8 +30,8 @@ Complete feature list of the Python version as of 2026-05-04 (~4,200 lines, 24 m
 | **Export** | JSONL backup/restore | ✅ export/import |
 | **Fingerprint** | SHA-256 incremental indexing | ✅ |
 | **Observability** | @timed decorator, /metrics, raven benchmark | ✅ tracing spans, /metrics |
-| **Multi-collection** | MultiCollectionRouter, cross-index query | ❌ Phase 3 |
-| **Parent-child** | query_parent() — search chunks, return parents | ❌ Phase 3 |
+| **Multi-collection** | MultiCollectionRouter, cross-index query | ✅ MultiCollectionRouter |
+| **Parent-child** | query_parent() — search chunks, return parents | ✅ query_parent() |
 | **Context** | ContextFormatter, templates, citations in prompts | ✅ Base |
 | **Docker** | Multi-stage, model pre-download, non-root, healthcheck | ✅ Dockerfile |
 | **CI** | GitHub Actions, lint, test (75% coverage), container build | ✅ GitHub Actions |
@@ -167,7 +167,7 @@ ravenrustrag/
 - [x] Axum-based server with Tokio
 - [x] `GET /health` — health check
 - [x] `GET /stats` — index statistics
-- [ ] `GET /collections` — list collections
+- [x] `GET /collections` — list collections
 - [x] `GET /metrics` — timing and cache stats
 - [x] `GET /openapi.json` — OpenAPI 3.0 schema
 - [x] `POST /query` — search (top_k, where, rerank, hybrid, alpha)
@@ -177,7 +177,7 @@ ravenrustrag/
 - [x] CORS configuration (tower-http)
 - [x] Request size limit (10MB)
 - [x] Request timeout (configurable) — [#5](https://github.com/egkristi/ravenrustrag/issues/5)
-- [ ] Rate limiting (tower middleware) — [#2](https://github.com/egkristi/ravenrustrag/issues/2) — **better than Python**
+- [x] Rate limiting (token-bucket middleware) — [#2](https://github.com/egkristi/ravenrustrag/issues/2) — **better than Python**
 - [x] Graceful shutdown
 
 ### 4.2 MCP Server (raven-mcp)
@@ -186,7 +186,7 @@ ravenrustrag/
 - [x] Tool: `get_prompt` — search + format LLM prompt
 - [x] Tool: `collection_info` — index statistics
 - [x] Tool: `index_documents` — add documents **new vs Python**
-- [ ] Proper error codes and schema validation
+- [x] Proper error codes and schema validation (JSON-RPC named constants, top_k range check)
 
 ### 4.3 Additional Embedding Backends
 - [x] `OpenAIBackend` — OpenAI-compatible API (OpenAI, LM Studio, LocalAI, vLLM)
@@ -231,7 +231,7 @@ ravenrustrag/
 - [x] JSONL export (`raven export -o backup.jsonl`)
 - [x] JSONL import (`raven import backup.jsonl`)
 - [x] Skip invalid/empty rows on import
-- [ ] Streaming I/O for store filer — **better than Python** (ikke last alt i minne)
+- [x] Streaming I/O for large files (export_jsonl_streaming, import_jsonl_streaming)
 
 ### 4.10 Context Formatting
 - [x] `ContextFormatter` with templates ({context}, {query}, {sources})
@@ -245,7 +245,7 @@ ravenrustrag/
 - [x] `raven export` / `raven import` — JSONL backup/restore
 - [x] `raven doctor` — diagnostics (check Ollama, db, config)
 - [x] `raven mcp` — start MCP server
-- [ ] `raven benchmark` — performance measurement (Criterion-based) — **better than Python**
+- [x] `raven benchmark` — performance measurement (index, query, hybrid, BM25)
 - [x] `--hybrid`, `--verbose` flags on query
 
 ### 4.12 Configuration
@@ -266,7 +266,7 @@ ravenrustrag/
 Findings from the security audit ([#1](https://github.com/egkristi/ravenrustrag/issues/1)–[#10](https://github.com/egkristi/ravenrustrag/issues/10)):
 
 - [x] Configurable CORS origins (default to localhost) — [#1](https://github.com/egkristi/ravenrustrag/issues/1)
-- [ ] Rate limiting via tower middleware — [#2](https://github.com/egkristi/ravenrustrag/issues/2)
+- [x] Rate limiting via tower middleware — [#2](https://github.com/egkristi/ravenrustrag/issues/2)
 - [x] Query string length validation — [#3](https://github.com/egkristi/ravenrustrag/issues/3)
 - [x] Generic error messages to clients (no internal leaks) — [#4](https://github.com/egkristi/ravenrustrag/issues/4)
 - [x] Per-request timeout — [#5](https://github.com/egkristi/ravenrustrag/issues/5)
@@ -291,9 +291,9 @@ Already mitigated:
 Features that make the Rust version **strictly better** than Python:
 
 ### 5.1 Advanced Retrieval
-- [ ] Parent-child retrieval (`query_parent()` — via VectorStore trait, no abstraction leaks)
-- [ ] Multi-collection routing (`MultiCollectionRouter`)
-- [ ] Streaming results (`query_stream()` — async Stream trait)
+- [x] Parent-child retrieval (`query_parent()` — via VectorStore trait, no abstraction leaks)
+- [x] Multi-collection routing (`MultiCollectionRouter`)
+- [x] Streaming results (`query_stream()` — channel-based)
 - [ ] Multi-query expansion (rewrite query into multiple variants)
 
 ### 5.2 Knowledge Graph
@@ -305,8 +305,8 @@ Features that make the Rust version **strictly better** than Python:
 
 ### 5.3 Eval & Benchmarking
 - [x] `evaluate()` — MRR, NDCG, Recall@k, Precision@k against ground truth
-- [ ] Criterion-based micro-benchmarks
-- [ ] `raven benchmark` with detailed report (index speed, query latency, memory)
+- [x] Criterion-based micro-benchmarks (crates/raven-search/benches/)
+- [x] `raven benchmark` with detailed report (index speed, query latency, BM25)
 - [ ] CI-driven performance regression
 
 ### 5.4 Observability
@@ -332,7 +332,7 @@ Features that make the Rust version **strictly better** than Python:
 ## 6. Phase 4: Polish & Release
 
 ### 6.1 Documentation
-- [ ] rustdoc for all public items
+- [x] rustdoc for all public items (crate-level docs + key types)
 - [ ] mdBook user guide
 - [ ] Migration guide from Python RavenRAG
 - [ ] Performance comparisons vs Python version

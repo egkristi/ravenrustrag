@@ -42,22 +42,22 @@ RavenRAG (Python) proved the concept. RavenRustRAG delivers on the promise.
 | **Flexible splitting** | Character, token-aware, and semantic strategies | Parity |
 | **File loaders** | txt, md, html, csv, json, jsonl + plugin system | pdf, docx planned |
 | **Metadata filtering** | Filter search results by arbitrary metadata | Parity |
-| **Parent-child** *(planned)* | Search chunks, return full parent documents | Clean trait-based (no abstraction leak) |
+| **Parent-child** | Search chunks, return full parent documents | Clean trait-based (no abstraction leak) |
 | **Context formatting** | LLM-ready prompt generation with citations | Parity |
 | **Citations** | Full provenance: source file + chunk reference | Parity |
 | **Retrieval eval** | Built-in MRR, NDCG, Recall@k, Precision@k metrics | Parity+ |
-| **CLI** | `raven index`, `query`, `serve`, `watch`, `mcp`, `doctor` | 11 commands |
-| **HTTP API** | Axum server with auth, CORS, OpenAPI | Body limit, graceful shutdown |
+| **CLI** | `raven index`, `query`, `serve`, `watch`, `mcp`, `doctor`, `benchmark` | 12 commands |
+| **HTTP API** | Axum server with auth, CORS, rate limit, timeout, OpenAPI | Body limit, graceful shutdown |
 | **MCP server** | Model Context Protocol for Claude, Copilot, Cursor | Parity |
-| **Embedding backends** | Ollama, OpenAI-compatible | ONNX planned |
+| **Embedding backends** | Ollama, OpenAI-compatible, auto-detect | ONNX planned |
 | **Watch mode** | Auto-reindex on file changes (debounce + delete) | Parity |
 | **Config file** | `raven.toml` + env vars, auto-discovery | Parity |
 | **Incremental indexing** | SHA-256 fingerprinting, skip unchanged files | Parity |
 | **Export/import** | JSONL backup and restore (streaming I/O) | Streaming, not load-all |
-| **Multi-collection** *(planned)* | Route queries across multiple indices | Phase 3 |
+| **Multi-collection** | Route queries across multiple indices | Fused top-k |
 | **Knowledge graph** *(planned)* | Entity extraction + graph traversal retrieval | Phase 3 |
 | **Observability** | Tracing spans, `/metrics` endpoint | Structured logging |
-| **Streaming** *(planned)* | `query_stream()` yields results via async Stream | Phase 3 |
+| **Streaming** | `query_stream()` yields results via channel | Phase 3: further streaming |
 | **Thread-safe** | All types are `Send + Sync` by default | Python has none |
 | **HNSW search** *(planned)* | O(log n) approximate nearest neighbor | Phase 3 |
 

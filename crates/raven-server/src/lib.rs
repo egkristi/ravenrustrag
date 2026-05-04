@@ -524,8 +524,12 @@ fn build_cors_layer(config: &ServerConfig) -> CorsLayer {
         // Default: only allow localhost origins (#1)
         CorsLayer::new()
             .allow_origin([
-                "http://localhost".parse::<HeaderValue>().expect("valid header"),
-                "http://127.0.0.1".parse::<HeaderValue>().expect("valid header"),
+                "http://localhost"
+                    .parse::<HeaderValue>()
+                    .expect("valid header"),
+                "http://127.0.0.1"
+                    .parse::<HeaderValue>()
+                    .expect("valid header"),
                 "http://localhost:8484"
                     .parse::<HeaderValue>()
                     .expect("valid header"),

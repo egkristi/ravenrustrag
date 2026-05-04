@@ -84,8 +84,8 @@ fn bench_bm25(c: &mut Criterion) {
     let chunks: Vec<raven_core::Chunk> = (0..1000)
         .map(|i| {
             raven_core::Chunk::new(
-                &format!("doc_{i}"),
-                &format!("Rust programming language number {i} with safety and performance"),
+                format!("doc_{i}"),
+                format!("Rust programming language number {i} with safety and performance"),
             )
         })
         .collect();

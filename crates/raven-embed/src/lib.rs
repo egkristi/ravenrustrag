@@ -390,20 +390,17 @@ pub fn create_embedder(
     url: Option<&str>,
     api_key: Option<&str>,
 ) -> Arc<dyn Embedder> {
-    match backend {
-        "openai" => {
-            let base_url = url.unwrap_or("https://api.openai.com/v1");
-            let mut embedder = OpenAIBackend::new(base_url, model);
-            if let Some(key) = api_key {
-                embedder = embedder.with_api_key(key);
-            }
-            Arc::new(embedder)
+    if backend == "openai" {
+        let base_url = url.unwrap_or("https://api.openai.com/v1");
+        let mut embedder = OpenAIBackend::new(base_url, model);
+        if let Some(key) = api_key {
+            embedder = embedder.with_api_key(key);
         }
-        _ => {
-            // Default: Ollama
-            let base_url = url.unwrap_or("http://localhost:11434");
-            Arc::new(OllamaBackend::new(base_url, model))
-        }
+        Arc::new(embedder)
+    } else {
+        // Default: Ollama
+        let base_url = url.unwrap_or("http://localhost:11434");
+        Arc::new(OllamaBackend::new(base_url, model))
     }
 }
 
@@ -415,20 +412,17 @@ pub fn create_cached_embedder(
     api_key: Option<&str>,
     cache_size: usize,
 ) -> Arc<dyn Embedder> {
-    match backend {
-        "openai" => {
-            let base_url = url.unwrap_or("https://api.openai.com/v1");
-            let mut embedder = OpenAIBackend::new(base_url, model);
-            if let Some(key) = api_key {
-                embedder = embedder.with_api_key(key);
-            }
-            Arc::new(CachedEmbedder::new(embedder, cache_size))
+    if backend == "openai" {
+        let base_url = url.unwrap_or("https://api.openai.com/v1");
+        let mut embedder = OpenAIBackend::new(base_url, model);
+        if let Some(key) = api_key {
+            embedder = embedder.with_api_key(key);
         }
-        _ => {
-            let base_url = url.unwrap_or("http://localhost:11434");
-            let embedder = OllamaBackend::new(base_url, model);
-            Arc::new(CachedEmbedder::new(embedder, cache_size))
-        }
+        Arc::new(CachedEmbedder::new(embedder, cache_size))
+    } else {
+        let base_url = url.unwrap_or("http://localhost:11434");
+        let embedder = OllamaBackend::new(base_url, model);
+        Arc::new(CachedEmbedder::new(embedder, cache_size))
     }
 }
 

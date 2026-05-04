@@ -206,15 +206,9 @@ fn default_max_query_length() -> usize {
 }
 
 /// Context formatting configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ContextConfig {
     pub template: Option<String>,
-}
-
-impl Default for ContextConfig {
-    fn default() -> Self {
-        Self { template: None }
-    }
 }
 
 impl Default for ServerConfig {

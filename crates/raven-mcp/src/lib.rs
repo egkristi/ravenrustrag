@@ -184,7 +184,9 @@ impl McpServer {
             "get_prompt" => self.tool_get_prompt(id, arguments).await,
             "collection_info" => self.tool_collection_info(id).await,
             "index_documents" => self.tool_index_documents(id, arguments).await,
-            _ => JsonRpcResponse::error(id, MCP_TOOL_NOT_FOUND, format!("Unknown tool: {tool_name}")),
+            _ => {
+                JsonRpcResponse::error(id, MCP_TOOL_NOT_FOUND, format!("Unknown tool: {tool_name}"))
+            }
         }
     }
 
@@ -197,7 +199,11 @@ impl McpServer {
 
         // Validate query
         if query.is_empty() {
-            return JsonRpcResponse::error(id, JSONRPC_INVALID_PARAMS, "Query must not be empty".to_string());
+            return JsonRpcResponse::error(
+                id,
+                JSONRPC_INVALID_PARAMS,
+                "Query must not be empty".to_string(),
+            );
         }
         if query.len() > 10_000 {
             return JsonRpcResponse::error(
@@ -246,7 +252,11 @@ impl McpServer {
 
         // Validate query
         if query.is_empty() {
-            return JsonRpcResponse::error(id, JSONRPC_INVALID_PARAMS, "Query must not be empty".to_string());
+            return JsonRpcResponse::error(
+                id,
+                JSONRPC_INVALID_PARAMS,
+                "Query must not be empty".to_string(),
+            );
         }
         if query.len() > 10_000 {
             return JsonRpcResponse::error(
@@ -347,8 +357,11 @@ impl McpServer {
             let req: JsonRpcRequest = match serde_json::from_str(&line) {
                 Ok(r) => r,
                 Err(e) => {
-                    let err_resp =
-                        JsonRpcResponse::error(Value::Null, JSONRPC_PARSE_ERROR, format!("Parse error: {e}"));
+                    let err_resp = JsonRpcResponse::error(
+                        Value::Null,
+                        JSONRPC_PARSE_ERROR,
+                        format!("Parse error: {e}"),
+                    );
                     let out = serde_json::to_string(&err_resp).unwrap_or_default();
                     stdout.write_all(out.as_bytes()).await?;
                     stdout.write_all(b"\n").await?;

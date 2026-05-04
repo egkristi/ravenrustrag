@@ -499,11 +499,7 @@ async fn main() -> Result<()> {
             println!("   Endpoints: /health /stats /metrics /query /prompt /index /openapi.json");
             println!("   Press Ctrl+C to stop.\n");
 
-            let state = Arc::new(AppState::new(
-                index,
-                config,
-                TextSplitter::new(512, 50),
-            ));
+            let state = Arc::new(AppState::new(index, config, TextSplitter::new(512, 50)));
 
             raven_server::serve(state)
                 .await
@@ -562,7 +558,12 @@ async fn main() -> Result<()> {
             println!("✓ Imported to {}", db.display());
         }
 
-        Commands::Mcp { db, backend, url, model } => {
+        Commands::Mcp {
+            db,
+            backend,
+            url,
+            model,
+        } => {
             let embedder = make_embedder(&backend, &url, &model);
             let store = make_store(&db).await?;
             let index = Arc::new(DocumentIndex::new(store, embedder));
@@ -666,7 +667,7 @@ async fn main() -> Result<()> {
             let index_time = start.elapsed();
             let chunks = index.count().await?;
 
-            println!("  Index:  {num_docs} docs -> {chunks} chunks in {:?}", index_time);
+            println!("  Index:  {num_docs} docs -> {chunks} chunks in {index_time:?}");
             println!(
                 "          {:.1} docs/sec",
                 num_docs as f64 / index_time.as_secs_f64()
@@ -695,8 +696,7 @@ async fn main() -> Result<()> {
                     .await?;
                 hybrid_times.push(start.elapsed());
             }
-            let avg_hybrid =
-                hybrid_times.iter().sum::<std::time::Duration>() / iterations as u32;
+            let avg_hybrid = hybrid_times.iter().sum::<std::time::Duration>() / iterations as u32;
             let min_hybrid = hybrid_times.iter().min().copied().unwrap_or_default();
             let max_hybrid = hybrid_times.iter().max().copied().unwrap_or_default();
 
@@ -708,7 +708,12 @@ async fn main() -> Result<()> {
             let bm25_idx = {
                 let mut b = raven_search::Bm25Index::new();
                 let all_chunks: Vec<raven_core::Chunk> = (0..chunks)
-                    .map(|i| raven_core::Chunk::new(&format!("doc_{i}"), &format!("Rust programming document number {i}")))
+                    .map(|i| {
+                        raven_core::Chunk::new(
+                            format!("doc_{i}"),
+                            format!("Rust programming document number {i}"),
+                        )
+                    })
                     .collect();
                 b.add(&all_chunks);
                 b
