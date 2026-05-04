@@ -2,7 +2,9 @@ use raven_core::{Chunk, Document, Result, SearchResult};
 use raven_embed::Embedder;
 use raven_split::Splitter;
 use raven_store::VectorStore;
+use std::path::Path;
 use std::sync::Arc;
+use tracing::{info, warn};
 
 /// Main document index — the heart of RavenRustRAG
 pub struct DocumentIndex {
@@ -190,6 +192,122 @@ impl DocumentIndexBuilder {
             .ok_or_else(|| raven_core::RavenError::Config("Embedder not configured".to_string()))?;
 
         Ok(DocumentIndex::new(store, embedder))
+    }
+}
+
+// =============================================================================
+// File watcher
+// =============================================================================
+
+use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use std::collections::HashSet;
+use tokio::sync::mpsc;
+use tokio::time::{Duration, Instant};
+
+/// Watch a directory and auto-index changed files with debounce.
+pub async fn watch_directory(
+    index: Arc<DocumentIndex>,
+    store: Arc<dyn VectorStore>,
+    splitter: Arc<dyn Splitter>,
+    watch_path: &Path,
+    extensions: &[&str],
+    debounce_ms: u64,
+) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let (tx, mut rx) = mpsc::channel::<Event>(256);
+
+    let mut watcher = RecommendedWatcher::new(
+        move |result: std::result::Result<Event, notify::Error>| {
+            if let Ok(event) = result {
+                let _ = tx.blocking_send(event);
+            }
+        },
+        notify::Config::default(),
+    )?;
+
+    watcher.watch(watch_path, RecursiveMode::Recursive)?;
+    info!("Watching {:?} for changes...", watch_path);
+
+    let ext_set: HashSet<String> = extensions
+        .iter()
+        .map(|e| e.trim_start_matches('.').to_string())
+        .collect();
+
+    let debounce = Duration::from_millis(debounce_ms);
+    let mut pending: HashSet<std::path::PathBuf> = HashSet::new();
+    let mut last_event = Instant::now();
+
+    loop {
+        tokio::select! {
+            Some(event) = rx.recv() => {
+                match event.kind {
+                    EventKind::Create(_) | EventKind::Modify(_) => {
+                        for path in &event.paths {
+                            if path.is_file() {
+                                if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                                    if ext_set.contains(ext) {
+                                        pending.insert(path.clone());
+                                        last_event = Instant::now();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    EventKind::Remove(_) => {
+                        for path in &event.paths {
+                            let path_str = path.to_string_lossy().to_string();
+                            info!("File removed: {}", path_str);
+                            if let Err(e) = store.delete(&path_str).await {
+                                warn!("Failed to delete chunks for {}: {}", path_str, e);
+                            }
+                            if let Err(e) = store.delete_fingerprint(&path_str).await {
+                                warn!("Failed to delete fingerprint for {}: {}", path_str, e);
+                            }
+                            pending.remove(path);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ = tokio::time::sleep(Duration::from_millis(100)) => {
+                if !pending.is_empty() && last_event.elapsed() >= debounce {
+                    let files: Vec<_> = pending.drain().collect();
+                    for file_path in files {
+                        let path_str = file_path.to_string_lossy().to_string();
+
+                        let content = match std::fs::read_to_string(&file_path) {
+                            Ok(c) => c,
+                            Err(e) => {
+                                warn!("Failed to read {}: {}", path_str, e);
+                                continue;
+                            }
+                        };
+
+                        let hash = raven_core::fingerprint(&content);
+
+                        // Check fingerprint
+                        if let Ok(Some(existing)) = store.get_fingerprint(&path_str).await {
+                            if existing == hash {
+                                continue;
+                            }
+                            store.delete(&path_str).await.ok();
+                        }
+
+                        match raven_load::Loader::from_file(&file_path) {
+                            Ok(doc) => {
+                                let doc = doc.with_metadata("source_path", &path_str);
+                                if let Err(e) = index.add_documents(vec![doc], splitter.as_ref()).await {
+                                    warn!("Failed to index {}: {}", path_str, e);
+                                } else {
+                                    store.set_fingerprint(&path_str, &hash).await.ok();
+                                    info!("Re-indexed: {}", path_str);
+                                }
+                            }
+                            Err(e) => warn!("Failed to load {}: {}", path_str, e),
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -200,6 +200,32 @@ enum Commands {
         #[arg(short, long, default_value = "./raven.db")]
         db: PathBuf,
     },
+
+    /// Watch a directory and auto-index on changes
+    Watch {
+        /// Path to watch
+        path: PathBuf,
+
+        /// Database path
+        #[arg(short, long, default_value = "./raven.db")]
+        db: PathBuf,
+
+        /// Ollama URL
+        #[arg(short, long, default_value = "http://localhost:11434")]
+        url: String,
+
+        /// Embedding model
+        #[arg(short, long, default_value = "nomic-embed-text")]
+        model: String,
+
+        /// File extensions to watch (comma-separated)
+        #[arg(long, default_value = "txt,md")]
+        extensions: String,
+
+        /// Debounce interval in milliseconds
+        #[arg(long, default_value_t = 500)]
+        debounce: u64,
+    },
 }
 
 fn make_embedder(url: &str, model: &str) -> Arc<CachedEmbedder<OllamaBackend>> {
@@ -521,6 +547,32 @@ async fn main() -> Result<()> {
             }
 
             println!("\n  Version: {}", env!("CARGO_PKG_VERSION"));
+        }
+
+        Commands::Watch {
+            path,
+            db,
+            url,
+            model,
+            extensions,
+            debounce,
+        } => {
+            let embedder = make_embedder(&url, &model);
+            let store = make_store(&db).await?;
+            let index = Arc::new(DocumentIndex::new(store.clone(), embedder));
+            let splitter: Arc<dyn raven_split::Splitter> = Arc::new(TextSplitter::new(512, 50));
+
+            let exts: Vec<&str> = extensions.split(',').map(|s| s.trim()).collect();
+
+            println!(
+                "🐦‍⬛ Watching {:?} for changes (extensions: {}, debounce: {}ms)",
+                path, extensions, debounce
+            );
+            println!("   Press Ctrl+C to stop.\n");
+
+            raven_search::watch_directory(index, store, splitter, &path, &exts, debounce)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
         }
     }
 

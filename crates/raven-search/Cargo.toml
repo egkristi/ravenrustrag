@@ -8,4 +8,7 @@ raven-core = { path = "../raven-core" }
 raven-embed = { path = "../raven-embed" }
 raven-store = { path = "../raven-store" }
 raven-split = { path = "../raven-split" }
+raven-load = { path = "../raven-load" }
 tokio = { workspace = true }
+notify = { workspace = true }
+tracing = { workspace = true }
