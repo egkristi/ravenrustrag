@@ -8,6 +8,7 @@ Index thousands of documents in milliseconds. Query with microsecond latency. Sh
 
 [![Rust](https://img.shields.io/badge/rust-1.86%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-egkristi.github.io-blueviolet)](https://egkristi.github.io/ravenrustrag/)
 
 ## Why Rust instead of Python?
 

@@ -1,6 +1,6 @@
 # RavenRustRAG — Implementation Plan
 
-> **Status:** v0.1.0-alpha — Phase 1 complete, Phase 2 complete, Phase 3 complete, Phase 4 in progress  
+> **Status:** v0.1.0-alpha — Phases 1–3 complete, Phase 4 in progress, 13 open issues  
 > **Motto:** *Make it work, make it right, make it fast — in that order.*  
 > **Goal:** Functionally superior to the Python version (RavenRAG v0.7.0) with orders-of-magnitude better performance.
 
@@ -357,15 +357,44 @@ Features that make the Rust version **strictly better** than Python:
 - [ ] crates.io publish — [#52](https://github.com/egkristi/ravenrustrag/issues/52)
 - [ ] `cargo install ravenrustrag` — [#52](https://github.com/egkristi/ravenrustrag/issues/52)
 - [x] GitHub Releases with pre-built binaries (linux, macos) — release.yml workflow
-- [ ] Homebrew formula — [#52](https://github.com/egkristi/ravenrustrag/issues/52)
-- [ ] AUR package — [#52](https://github.com/egkristi/ravenrustrag/issues/52)
+- [ ] Homebrew tap formula — [#55](https://github.com/egkristi/ravenrustrag/issues/55)
+- [ ] AUR package — [#56](https://github.com/egkristi/ravenrustrag/issues/56)
+- [ ] Shell completions (bash, zsh, fish) — [#62](https://github.com/egkristi/ravenrustrag/issues/62)
 
 ### 6.3 Quality
 - [ ] 80%+ test coverage — [#53](https://github.com/egkristi/ravenrustrag/issues/53)
-- [ ] Property-based testing (proptest) for splitters and search — [#53](https://github.com/egkristi/ravenrustrag/issues/53)
-- [ ] Fuzzing for parsers and input handling — [#53](https://github.com/egkristi/ravenrustrag/issues/53)
-- [ ] Concurrent stress tests — [#53](https://github.com/egkristi/ravenrustrag/issues/53)
-- [ ] 10k+ document scaling test — [#53](https://github.com/egkristi/ravenrustrag/issues/53)
+- [ ] Property-based testing (proptest) for splitters and search — [#58](https://github.com/egkristi/ravenrustrag/issues/58)
+- [ ] Fuzzing for parsers and input handling — [#57](https://github.com/egkristi/ravenrustrag/issues/57)
+- [ ] Concurrent stress tests — [#59](https://github.com/egkristi/ravenrustrag/issues/59)
+- [ ] 10k+ document scaling test — [#59](https://github.com/egkristi/ravenrustrag/issues/59)
+
+### 6.4 Stability
+- [ ] SQLite schema versioning and automatic migrations — [#60](https://github.com/egkristi/ravenrustrag/issues/60)
+- [ ] v1.0 stable release — [#61](https://github.com/egkristi/ravenrustrag/issues/61)
+
+---
+
+## Phase 5: Future
+
+Features planned for post-1.0 development:
+
+### 5F.1 LLM Generation
+- [ ] Generator trait + Ollama/OpenAI backends — [#63](https://github.com/egkristi/ravenrustrag/issues/63)
+- [ ] `raven ask <question>` — full RAG pipeline with answer generation
+- [ ] `POST /ask` server endpoint with streaming SSE response
+- [ ] Configurable system prompts and temperature
+
+### 5F.2 ONNX Runtime (when ort crate is compatible)
+- [ ] Local embedding without Ollama — [#43](https://github.com/egkristi/ravenrustrag/issues/43)
+- [ ] Cross-encoder reranking — [#44](https://github.com/egkristi/ravenrustrag/issues/44)
+- [ ] Quantized model support (int8/fp16)
+
+### 5F.3 Advanced Features
+- [ ] Incremental BM25 updates (avoid full rebuild)
+- [ ] Async SQLite backend (tokio-rusqlite)
+- [ ] Binary/quantized embedding storage (reduced disk/memory)
+- [ ] WebSocket streaming endpoint
+- [ ] Configuration hot-reload for long-running server
 
 ---
 
@@ -373,6 +402,8 @@ Features that make the Rust version **strictly better** than Python:
 
 1. **ONNX not functional** — Stub exists behind feature flag but `ort` crate has MSRV conflicts (requires reqwest 0.12+). [#43](https://github.com/egkristi/ravenrustrag/issues/43)
 2. **No ONNX cross-encoder** — Reranker trait exists, but only keyword-based. Blocked by #43. [#44](https://github.com/egkristi/ravenrustrag/issues/44)
+3. **No schema migrations** — Database schema changes require manual re-indexing. [#60](https://github.com/egkristi/ravenrustrag/issues/60)
+4. **No LLM generation** — System formats prompts but cannot call LLMs directly. [#63](https://github.com/egkristi/ravenrustrag/issues/63)
 
 ## 7.1 Open Issues
 
@@ -380,8 +411,17 @@ Features that make the Rust version **strictly better** than Python:
 |---|---|---|---|
 | [#43](https://github.com/egkristi/ravenrustrag/issues/43) | ONNX Runtime embedding backend | High | Deferred (MSRV conflict) |
 | [#44](https://github.com/egkristi/ravenrustrag/issues/44) | ONNX cross-encoder reranking | Medium | Deferred (blocked by #43) |
-| [#52](https://github.com/egkristi/ravenrustrag/issues/52) | Publish to crates.io + package managers | High | Open |
-| [#53](https://github.com/egkristi/ravenrustrag/issues/53) | Testing: coverage, proptest, fuzz, stress | Medium | Open |
+| [#52](https://github.com/egkristi/ravenrustrag/issues/52) | Publish to crates.io | High | Open |
+| [#53](https://github.com/egkristi/ravenrustrag/issues/53) | 80%+ test coverage target | Medium | Open |
+| [#55](https://github.com/egkristi/ravenrustrag/issues/55) | Homebrew tap for macOS | Medium | Open |
+| [#56](https://github.com/egkristi/ravenrustrag/issues/56) | AUR package for Arch Linux | Low | Open |
+| [#57](https://github.com/egkristi/ravenrustrag/issues/57) | Fuzz testing (cargo-fuzz) | Medium | Open |
+| [#58](https://github.com/egkristi/ravenrustrag/issues/58) | Property-based testing (proptest) | Medium | Open |
+| [#59](https://github.com/egkristi/ravenrustrag/issues/59) | Concurrent stress tests + 10k scaling | Medium | Open |
+| [#60](https://github.com/egkristi/ravenrustrag/issues/60) | SQLite schema migrations | High | Open |
+| [#61](https://github.com/egkristi/ravenrustrag/issues/61) | v1.0 stable release | High | Open (meta) |
+| [#62](https://github.com/egkristi/ravenrustrag/issues/62) | Shell completions (bash/zsh/fish) | Low | Open |
+| [#63](https://github.com/egkristi/ravenrustrag/issues/63) | LLM generation integration | Medium | Open |
 
 ### Resolved Issues
 
@@ -439,5 +479,5 @@ raven index ./docs --url http://localhost:11434 --model nomic-embed-text
 
 ---
 
-**Last updated:** 2026-05-04  
-**Next milestone:** Phase 4 completion — crates.io publish (#52) and comprehensive testing (#53)
+**Last updated:** 2026-05-05  
+**Next milestone:** v1.0 stable release (#61) — requires #52, #53, #55–#60
