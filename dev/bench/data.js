@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777931143438,
+  "lastUpdate": 1777931566051,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -215,6 +215,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 113343,
             "range": "± 437",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "1a861b76ab96d50b7087b6a44869bd1c2f44bd48",
+          "message": "fix: docs workflow — deploy to gh-pages branch instead of Pages API\n\nThe repo uses gh-pages branch for GitHub Pages (shared with benchmarks).\nSwitch from deploy-pages action to git worktree push, preserving the\ndev/bench/ directory used by benchmark-action.",
+          "timestamp": "2026-05-04T23:48:55+02:00",
+          "tree_id": "c7c0e2d9d21376416eb7816b3fe6f7a967fe8d06",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/1a861b76ab96d50b7087b6a44869bd1c2f44bd48"
+        },
+        "date": 1777931565039,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 99,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 547,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1085,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 54250,
+            "range": "± 206",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 575831,
+            "range": "± 1764",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 94417,
+            "range": "± 657",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39465,
+            "range": "± 207",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 115799,
+            "range": "± 821",
             "unit": "ns/iter"
           }
         ]
