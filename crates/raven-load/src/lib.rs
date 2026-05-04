@@ -369,6 +369,60 @@ pub fn export_jsonl(documents: &[Document], path: impl AsRef<Path>) -> Result<us
     Ok(count)
 }
 
+/// Streaming JSONL export: writes documents one at a time from an iterator.
+/// Avoids loading all documents into memory at once.
+pub fn export_jsonl_streaming<'a>(
+    documents: impl Iterator<Item = &'a Document>,
+    path: impl AsRef<Path>,
+) -> Result<usize> {
+    use std::io::Write;
+    let file = std::fs::File::create(path)?;
+    let mut writer = std::io::BufWriter::new(file);
+    let mut count = 0;
+
+    for doc in documents {
+        let line = serde_json::to_string(doc).map_err(raven_core::RavenError::Serde)?;
+        writeln!(writer, "{line}")?;
+        count += 1;
+    }
+
+    writer.flush()?;
+    Ok(count)
+}
+
+/// Streaming JSONL import: yields documents one at a time via callback.
+/// Avoids loading all documents into memory at once.
+pub fn import_jsonl_streaming(
+    path: impl AsRef<Path>,
+    mut callback: impl FnMut(Document) -> Result<()>,
+) -> Result<usize> {
+    use std::io::BufRead;
+    let file = std::fs::File::open(path)?;
+    let reader = std::io::BufReader::new(file);
+    let mut count = 0;
+
+    for line in reader.lines() {
+        let line = line?;
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        match serde_json::from_str::<Document>(line) {
+            Ok(doc) => {
+                if !doc.text.is_empty() {
+                    callback(doc)?;
+                    count += 1;
+                }
+            }
+            Err(e) => {
+                warn!("Skipping invalid JSONL row: {}", e);
+            }
+        }
+    }
+
+    Ok(count)
+}
+
 pub fn import_jsonl(path: impl AsRef<Path>) -> Result<Vec<Document>> {
     use std::io::BufRead;
     let file = std::fs::File::open(path)?;

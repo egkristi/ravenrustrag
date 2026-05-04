@@ -148,6 +148,93 @@ impl DocumentIndex {
         self.store.count().await
     }
 
+    /// Parent-child retrieval: search chunks, then group by parent document
+    /// and return all sibling chunks for each matching parent.
+    /// This gives full document context instead of isolated chunks.
+    #[tracing::instrument(skip(self), fields(top_k))]
+    pub async fn query_parent(&self, query_text: &str, top_k: usize) -> Result<Vec<SearchResult>> {
+        // Search more chunks to find diverse parents
+        let results = self.query(query_text, top_k * 3).await?;
+
+        // Collect unique parent doc_ids (preserving order by best score)
+        let mut seen_parents = std::collections::HashSet::new();
+        let mut parent_ids = Vec::new();
+        for r in &results {
+            let parent_id = r
+                .chunk
+                .metadata
+                .get("source_id")
+                .cloned()
+                .unwrap_or_else(|| r.chunk.doc_id.clone());
+            if seen_parents.insert(parent_id.clone()) {
+                parent_ids.push(parent_id);
+            }
+            if parent_ids.len() >= top_k {
+                break;
+            }
+        }
+
+        // For each parent, fetch all its chunks from the store
+        let all_chunks = self.store.all().await?;
+        let mut parent_results = Vec::new();
+
+        for parent_id in &parent_ids {
+            // Find the best scoring chunk for this parent (for the score)
+            let best_result = results
+                .iter()
+                .find(|r| {
+                    let pid = r
+                        .chunk
+                        .metadata
+                        .get("source_id")
+                        .unwrap_or(&r.chunk.doc_id);
+                    pid == parent_id
+                });
+
+            // Collect all chunks from this parent, sorted by chunk_index
+            let mut sibling_chunks: Vec<_> = all_chunks
+                .iter()
+                .filter(|c| {
+                    let cid = c.metadata.get("source_id").unwrap_or(&c.doc_id);
+                    cid == parent_id
+                })
+                .collect();
+            sibling_chunks.sort_by_key(|c| {
+                c.metadata
+                    .get("chunk_index")
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .unwrap_or(0)
+            });
+
+            // Merge sibling chunks into a single result
+            if let Some(best) = best_result {
+                let merged_text = sibling_chunks
+                    .iter()
+                    .map(|c| c.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
+                let mut merged_chunk = raven_core::Chunk::new(&best.chunk.doc_id, &merged_text);
+                merged_chunk.metadata = best.chunk.metadata.clone();
+                merged_chunk
+                    .metadata
+                    .insert("retrieval_mode".to_string(), "parent".to_string());
+                merged_chunk.metadata.insert(
+                    "child_chunks".to_string(),
+                    sibling_chunks.len().to_string(),
+                );
+
+                parent_results.push(SearchResult {
+                    chunk: merged_chunk,
+                    score: best.score,
+                    distance: best.distance,
+                });
+            }
+        }
+
+        Ok(parent_results)
+    }
+
     pub async fn delete(&self, doc_id: &str) -> Result<()> {
         self.store.delete(doc_id).await
     }
@@ -442,5 +529,32 @@ mod tests {
             .await
             .unwrap();
         assert!(!results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_query_parent() {
+        let store = Arc::new(MemoryStore::new());
+        let embedder = Arc::new(DummyEmbedder::new(3));
+        let index = DocumentIndex::new(store, embedder);
+
+        // Use a small chunk size so the document gets split into multiple chunks
+        let splitter = TextSplitter::new(30, 5);
+        let docs = vec![Document::new(
+            "Rust is fast. Rust is safe. Rust is concurrent. Rust is awesome.",
+        )];
+
+        index.add_documents(docs, &splitter).await.unwrap();
+        let chunk_count = index.count().await.unwrap();
+        assert!(chunk_count > 1, "Document should be split into multiple chunks");
+
+        // Parent query should return merged results
+        let results = index.query_parent("Rust", 2).await.unwrap();
+        assert!(!results.is_empty());
+        // The merged text should be longer than individual chunks
+        assert!(results[0].chunk.text.contains("Rust"));
+        assert_eq!(
+            results[0].chunk.metadata.get("retrieval_mode").map(String::as_str),
+            Some("parent")
+        );
     }
 }

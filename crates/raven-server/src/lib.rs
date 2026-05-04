@@ -559,6 +559,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/stats", get(stats))
+        .route("/collections", get(collections_handler))
         .route("/metrics", get(metrics_handler))
         .route("/query", post(query_handler))
         .route("/prompt", post(prompt_handler))
@@ -578,6 +579,17 @@ pub fn build_router(state: Arc<AppState>) -> Router {
                 .layer(tower::timeout::TimeoutLayer::new(timeout)),
         )
         .with_state(state)
+}
+
+async fn collections_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let count = state.index.count().await.unwrap_or(0);
+    Json(serde_json::json!({
+        "collections": [{
+            "name": "default",
+            "chunks": count,
+            "embedder": "configured"
+        }]
+    }))
 }
 
 async fn metrics_handler(
