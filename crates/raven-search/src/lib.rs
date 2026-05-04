@@ -31,6 +31,9 @@ pub use graph::{
     extract_entities, graph_vector_fusion, Entity, GraphRetriever, KnowledgeGraph, Relation,
 };
 
+pub mod rerank;
+pub use rerank::{rerank, KeywordReranker, Reranker};
+
 /// Main document index — the heart of RavenRustRAG
 pub struct DocumentIndex {
     store: Arc<dyn VectorStore>,
