@@ -10,6 +10,11 @@ use tracing::{info, warn};
 pub mod bm25;
 pub use bm25::{reciprocal_rank_fusion, Bm25Index};
 
+pub mod eval;
+pub use eval::{
+    eval_summary, evaluate_batch, mrr, ndcg_at_k, precision_at_k, recall_at_k, EvalResult,
+};
+
 /// Main document index — the heart of RavenRustRAG
 pub struct DocumentIndex {
     store: Arc<dyn VectorStore>,
