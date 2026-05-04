@@ -42,23 +42,29 @@ impl DocumentIndex {
     }
 
     /// Add raw documents: split, embed, store
+    #[tracing::instrument(skip_all, fields(num_documents = documents.len()))]
     pub async fn add_documents(
         &self,
         documents: Vec<Document>,
         splitter: &dyn Splitter,
     ) -> Result<()> {
-        let chunks = splitter.split(documents);
+        let chunks = {
+            let _span = tracing::info_span!("split", num_documents = documents.len()).entered();
+            splitter.split(documents)
+        };
 
         if chunks.is_empty() {
             return Ok(());
         }
 
         let texts: Vec<String> = chunks.iter().map(|c| c.text.clone()).collect();
+        info!("Split into {} chunks", texts.len());
 
         // Embed in batches
         let batch_size = 64;
         let mut all_embeddings = Vec::with_capacity(texts.len());
 
+        info!(num_chunks = texts.len(), "Embedding chunks");
         for batch in texts.chunks(batch_size) {
             let embeddings = self.embedder.embed(batch).await?;
             all_embeddings.extend(embeddings);
@@ -75,6 +81,7 @@ impl DocumentIndex {
             .collect();
 
         // Store in batches
+        info!(num_chunks = embedded_chunks.len(), "Storing chunks");
         for batch in embedded_chunks.chunks(100) {
             self.store.add(batch).await?;
         }
@@ -86,6 +93,7 @@ impl DocumentIndex {
     }
 
     /// Query the index
+    #[tracing::instrument(skip(self), fields(top_k))]
     pub async fn query(&self, query_text: &str, top_k: usize) -> Result<Vec<SearchResult>> {
         let query_embedding = self.embedder.embed(&[query_text.to_string()]).await?;
         let embedding = query_embedding
@@ -98,6 +106,7 @@ impl DocumentIndex {
 
     /// Hybrid query: combine vector search and BM25 with Reciprocal Rank Fusion.
     /// `alpha` controls the blend: 1.0 = pure vector, 0.0 = pure BM25.
+    #[tracing::instrument(skip(self), fields(top_k, alpha))]
     pub async fn query_hybrid(
         &self,
         query_text: &str,
