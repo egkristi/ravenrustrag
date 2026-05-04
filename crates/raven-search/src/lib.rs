@@ -20,6 +20,9 @@ pub use eval::{
     eval_summary, evaluate_batch, mrr, ndcg_at_k, precision_at_k, recall_at_k, EvalResult,
 };
 
+pub mod semantic_split;
+pub use semantic_split::SemanticSplitter;
+
 /// Main document index — the heart of RavenRustRAG
 pub struct DocumentIndex {
     store: Arc<dyn VectorStore>,
