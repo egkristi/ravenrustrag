@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777931566051,
+  "lastUpdate": 1777932202347,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -287,6 +287,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 115799,
             "range": "± 821",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "9889ba073d9598c28dab00d54d166e9c70817f29",
+          "message": "docs: comprehensive documentation update\n\n- README: mark implemented features (HNSW, graph, semantic split, streaming,\n  lock-free cache, mmap), fix command count (13), add /ready endpoint,\n  fix --extensions format (no dots), add Documentation section with link\n  to GitHub Pages, update roadmap to phase-based, fix config example\n- docs/index.md: expand feature list, update crate descriptions\n- docs/quickstart.md: fix default port (8484 not 3000)\n- docs/configuration.md: use correct TOML section names matching Config\n  struct (embedder/splitter/pipeline/server), add all server options\n- docs/api.md: fix auth documentation (stats/metrics require auth by\n  default unless public_stats=true), fix rate limit (per second not minute)",
+          "timestamp": "2026-05-04T23:59:54+02:00",
+          "tree_id": "e6f8b9a801ce534194344f0a9bc4064d542fa6ba",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/9889ba073d9598c28dab00d54d166e9c70817f29"
+        },
+        "date": 1777932201356,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 99,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 547,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1085,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 54655,
+            "range": "± 826",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 578814,
+            "range": "± 2301",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 96166,
+            "range": "± 640",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39129,
+            "range": "± 116",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 114105,
+            "range": "± 703",
             "unit": "ns/iter"
           }
         ]
