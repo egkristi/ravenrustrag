@@ -13,7 +13,7 @@ Complete feature list of the Python version as of 2026-05-04 (~4,200 lines, 24 m
 | Category | Python Features | Rust Status |
 |---|---|---|
 | **Core** | Document, QueryResult (citation), DocumentIndex, async (aadd/aquery) | ✅ Phase 1 |
-| **Embedding** | sentence-transformers, Ollama, OpenAI, vLLM, custom protocol | \u2705 Ollama + OpenAI + auto-detect |", "oldString": "| **Embedding** | sentence-transformers, Ollama, OpenAI, vLLM, custom protocol | \ud83d\udfe1 Ollama only |
+| **Embedding** | sentence-transformers, Ollama, OpenAI, vLLM, custom protocol | ✅ Ollama + OpenAI + auto-detect |
 | **Storage** | ChromaDB, FAISS, SQLite-vec, VectorStoreBackend protocol | ✅ SQLite + Memory |
 | **Splitting** | TextSplitter, TokenSplitter, SemanticSplitter | ✅ Text + Token + Sentence |
 | **Loaders** | .txt .md .pdf .docx .pptx .xlsx .csv .rtf .html + plugin system | ✅ txt,md,csv,json,jsonl,html |
@@ -21,7 +21,7 @@ Complete feature list of the Python version as of 2026-05-04 (~4,200 lines, 24 m
 | **Graph** | KnowledgeGraph, GraphRetriever, entity extraction, RRF fusion | ❌ Phase 3 |
 | **Server** | HTTP (stdlib), auth, CORS, /metrics, /openapi.json, 7 endpoints | ✅ Axum, auth, CORS, /metrics |
 | **MCP** | stdio JSON-RPC, 3 tools (search, get_prompt, collection_info) | ✅ 4 tools |
-| **CLI** | 11 commands (index, query, prompt, serve, watch, info, export, import, doctor, mcp, benchmark) | ✅ 11 commands |
+| **CLI** | 11 commands (index, query, prompt, serve, watch, info, export, import, doctor, mcp, benchmark) | ✅ 12 commands |
 | **Pipeline** | Pipeline class, run/query/stream, error strategies | ✅ DocumentIndex pipeline |
 | **Config** | TOML + pyproject.toml + env vars, auto-discovery | ✅ Base |
 | **Cache** | Thread-safe LRU embedding cache | ✅ |
@@ -258,7 +258,7 @@ ravenrustrag/
 - [x] Multi-stage Dockerfile (builder → debian-slim)
 - [ ] Static binary (`musl` target) — **better than Python** (~15MB vs ~1.5GB image)
 - [x] GitHub Actions: test, lint (clippy), format (rustfmt), release
-- [ ] Container build and push to GHCR
+- [x] Container build and push to GHCR
 - [ ] Cross-compile for linux/amd64 and linux/arm64
 
 ### 4.14 Security Hardening

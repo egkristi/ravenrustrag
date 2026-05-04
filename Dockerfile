@@ -61,7 +61,7 @@ WORKDIR /data
 
 ENV RAVEN_DB=/data/raven.db
 
-EXPOSE 3000
+EXPOSE 8484
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD raven doctor || exit 1

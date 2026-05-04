@@ -482,7 +482,14 @@ async fn main() -> Result<()> {
         } => {
             let embedder = make_embedder(&backend, &url, &model);
             let store = make_store(&db).await?;
-            let index = DocumentIndex::new(store, embedder);
+            let index = DocumentIndex::new(store.clone(), embedder);
+
+            // Populate BM25 index from stored chunks for hybrid search support
+            let all_chunks = store.all().await?;
+            if !all_chunks.is_empty() {
+                index.add_chunks(&all_chunks).await?;
+                info!("BM25 index loaded with {} chunks", all_chunks.len());
+            }
 
             let api_key = api_key.or_else(|| std::env::var("RAVEN_API_KEY").ok());
 

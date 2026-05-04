@@ -127,10 +127,18 @@ pub struct QueryRequest {
     pub query: String,
     #[serde(default = "default_top_k")]
     pub top_k: usize,
+    #[serde(default)]
+    pub hybrid: bool,
+    #[serde(default = "default_alpha")]
+    pub alpha: f32,
 }
 
 fn default_top_k() -> usize {
     5
+}
+
+fn default_alpha() -> f32 {
+    0.5
 }
 
 #[derive(Serialize)]
@@ -166,6 +174,10 @@ pub struct PromptRequest {
     #[serde(default = "default_top_k")]
     pub top_k: usize,
     pub template: Option<String>,
+    #[serde(default)]
+    pub hybrid: bool,
+    #[serde(default = "default_alpha")]
+    pub alpha: f32,
 }
 
 #[derive(Serialize)]
@@ -278,7 +290,13 @@ async fn query_handler(
 
     let top_k = req.top_k.clamp(1, 1000);
 
-    match state.index.query(&req.query, top_k).await {
+    let result = if req.hybrid {
+        state.index.query_hybrid(&req.query, top_k, req.alpha).await
+    } else {
+        state.index.query(&req.query, top_k).await
+    };
+
+    match result {
         Ok(results) => {
             let count = results.len();
             let items: Vec<ResultItem> = results.into_iter().map(Into::into).collect();
@@ -337,7 +355,13 @@ async fn prompt_handler(
 
     let top_k = req.top_k.clamp(1, 1000);
 
-    match state.index.query(&req.query, top_k).await {
+    let result = if req.hybrid {
+        state.index.query_hybrid(&req.query, top_k, req.alpha).await
+    } else {
+        state.index.query(&req.query, top_k).await
+    };
+
+    match result {
         Ok(results) => {
             let sources: Vec<String> = results
                 .iter()
@@ -477,7 +501,9 @@ async fn openapi() -> impl IntoResponse {
                                     "required": ["query"],
                                     "properties": {
                                         "query": { "type": "string" },
-                                        "top_k": { "type": "integer", "default": 5 }
+                                        "top_k": { "type": "integer", "default": 5 },
+                                        "hybrid": { "type": "boolean", "default": false, "description": "Use hybrid BM25+vector search with RRF" },
+                                        "alpha": { "type": "number", "default": 0.5, "description": "Blend factor: 1.0=pure vector, 0.0=pure BM25" }
                                     }
                                 }
                             }
