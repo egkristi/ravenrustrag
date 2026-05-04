@@ -240,35 +240,92 @@ async fn main() -> Result<()> {
 
             let exts: Vec<&str> = extensions.split(',').map(|s| s.trim()).collect();
             let ext_refs: Vec<&str> = exts.to_vec();
-            let docs = Loader::from_directory(&path, Some(&ext_refs))?;
-            info!("Loaded {} documents", docs.len());
 
-            if docs.is_empty() {
+            // Collect file paths for incremental indexing
+            let entries: Vec<_> = walkdir::WalkDir::new(&path)
+                .follow_links(false)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().is_file())
+                .filter(|e| {
+                    e.path()
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .map(|ext| ext_refs.iter().any(|e2| e2.trim_start_matches('.') == ext))
+                        .unwrap_or(false)
+                })
+                .collect();
+
+            info!("Found {} files", entries.len());
+
+            if entries.is_empty() {
                 warn!("No documents found in {:?}", path);
                 return Ok(());
             }
 
             let embedder = make_embedder(&url, &model);
             let store = make_store(&db).await?;
-            let index = DocumentIndex::new(store, embedder);
+            let index = DocumentIndex::new(store.clone(), embedder);
             let splitter = TextSplitter::new(chunk_size, chunk_overlap);
 
-            let pb = indicatif::ProgressBar::new(docs.len() as u64);
+            let pb = indicatif::ProgressBar::new(entries.len() as u64);
             pb.set_style(
                 indicatif::ProgressStyle::default_bar()
                     .template("{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}")
                     .unwrap(),
             );
 
-            let batch_size = 10;
-            for batch in docs.chunks(batch_size) {
-                let batch_docs: Vec<_> = batch.to_vec();
-                let batch_len = batch_docs.len();
-                index.add_documents(batch_docs, &splitter).await?;
-                pb.inc(batch_len as u64);
+            let mut indexed = 0usize;
+            let mut skipped = 0usize;
+
+            for entry in &entries {
+                let file_path = entry.path();
+                let path_str = file_path.to_string_lossy().to_string();
+
+                // Read file content and check fingerprint
+                let content = match std::fs::read_to_string(file_path) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        warn!("Failed to read {}: {}", path_str, e);
+                        pb.inc(1);
+                        continue;
+                    }
+                };
+
+                let hash = raven_core::fingerprint(&content);
+
+                // Check if already indexed with same content
+                if let Ok(Some(existing)) = store.get_fingerprint(&path_str).await {
+                    if existing == hash {
+                        skipped += 1;
+                        pb.inc(1);
+                        continue;
+                    }
+                    // Content changed — delete old chunks for this file
+                    store.delete(&path_str).await.ok();
+                }
+
+                // Load and index the document
+                match Loader::from_file(file_path) {
+                    Ok(doc) => {
+                        let doc = doc.with_metadata("source_path", &path_str);
+                        index.add_documents(vec![doc], &splitter).await?;
+                        store.set_fingerprint(&path_str, &hash).await?;
+                        indexed += 1;
+                    }
+                    Err(e) => {
+                        warn!("Failed to load {}: {}", path_str, e);
+                    }
+                }
+
+                pb.inc(1);
             }
 
-            pb.finish_with_message(format!("Done! {} chunks indexed", index.count().await?));
+            let total_chunks = index.count().await?;
+            pb.finish_with_message(format!(
+                "Done! {} new, {} skipped, {} total chunks",
+                indexed, skipped, total_chunks
+            ));
         }
 
         Commands::Query {
