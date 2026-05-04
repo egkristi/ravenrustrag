@@ -430,6 +430,210 @@ pub fn create_cached_embedder(
 }
 
 // =============================================================================
+// LLM Generation (text completion)
+// =============================================================================
+
+/// LLM text generation backend trait
+#[async_trait]
+pub trait Generator: Send + Sync {
+    /// Generate a completion for the given prompt
+    async fn generate(&self, prompt: &str) -> Result<String>;
+
+    /// Generate with streaming — calls callback for each token, returns full text
+    async fn generate_stream(
+        &self,
+        prompt: &str,
+        callback: &(dyn Fn(String) + Send + Sync),
+    ) -> Result<String>;
+
+    /// Get the model name
+    fn model_name(&self) -> &str;
+}
+
+/// Configuration for LLM generation
+#[derive(Debug, Clone)]
+pub struct GeneratorConfig {
+    pub model: String,
+    pub temperature: f32,
+    pub max_tokens: Option<u32>,
+    pub system_prompt: Option<String>,
+}
+
+impl Default for GeneratorConfig {
+    fn default() -> Self {
+        Self {
+            model: "llama3".to_string(),
+            temperature: 0.7,
+            max_tokens: Some(2048),
+            system_prompt: None,
+        }
+    }
+}
+
+/// Ollama LLM generation backend
+pub struct OllamaGenerator {
+    client: reqwest::Client,
+    base_url: String,
+    config: GeneratorConfig,
+}
+
+impl OllamaGenerator {
+    pub fn new(base_url: impl Into<String>, config: GeneratorConfig) -> Self {
+        Self {
+            client: reqwest::Client::new(),
+            base_url: base_url.into(),
+            config,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct OllamaGenerateRequest {
+    model: String,
+    prompt: String,
+    stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system: Option<String>,
+    options: OllamaOptions,
+}
+
+#[derive(Serialize)]
+struct OllamaOptions {
+    temperature: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    num_predict: Option<u32>,
+}
+
+#[derive(Deserialize)]
+struct OllamaGenerateResponse {
+    response: String,
+}
+
+#[derive(Deserialize)]
+struct OllamaStreamChunk {
+    response: String,
+    #[allow(dead_code)]
+    done: bool,
+}
+
+#[async_trait]
+impl Generator for OllamaGenerator {
+    async fn generate(&self, prompt: &str) -> Result<String> {
+        let request = OllamaGenerateRequest {
+            model: self.config.model.clone(),
+            prompt: prompt.to_string(),
+            stream: false,
+            system: self.config.system_prompt.clone(),
+            options: OllamaOptions {
+                temperature: self.config.temperature,
+                num_predict: self.config.max_tokens,
+            },
+        };
+
+        let url = format!("{}/api/generate", self.base_url);
+        let response = self
+            .client
+            .post(&url)
+            .json(&request)
+            .timeout(std::time::Duration::from_secs(120))
+            .send()
+            .await
+            .map_err(|e| RavenError::Embed(format!("Ollama generate error: {e}")))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unknown error".to_string());
+            return Err(RavenError::Embed(format!(
+                "Ollama generate returned {status}: {text}"
+            )));
+        }
+
+        let body: OllamaGenerateResponse = response
+            .json()
+            .await
+            .map_err(|e| RavenError::Embed(format!("JSON parse error: {e}")))?;
+
+        Ok(body.response)
+    }
+
+    async fn generate_stream(
+        &self,
+        prompt: &str,
+        callback: &(dyn Fn(String) + Send + Sync),
+    ) -> Result<String> {
+        let request = OllamaGenerateRequest {
+            model: self.config.model.clone(),
+            prompt: prompt.to_string(),
+            stream: true,
+            system: self.config.system_prompt.clone(),
+            options: OllamaOptions {
+                temperature: self.config.temperature,
+                num_predict: self.config.max_tokens,
+            },
+        };
+
+        let url = format!("{}/api/generate", self.base_url);
+        let response = self
+            .client
+            .post(&url)
+            .json(&request)
+            .timeout(std::time::Duration::from_secs(300))
+            .send()
+            .await
+            .map_err(|e| RavenError::Embed(format!("Ollama stream error: {e}")))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unknown error".to_string());
+            return Err(RavenError::Embed(format!(
+                "Ollama stream returned {status}: {text}"
+            )));
+        }
+
+        let mut full_response = String::new();
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| RavenError::Embed(format!("Failed to read stream: {e}")))?;
+
+        // Ollama streaming format: newline-delimited JSON
+        let text = String::from_utf8_lossy(&bytes).into_owned();
+        for line in text.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            if let Ok(chunk) = serde_json::from_str::<OllamaStreamChunk>(line) {
+                full_response.push_str(&chunk.response);
+                callback(chunk.response);
+            }
+        }
+
+        Ok(full_response)
+    }
+
+    fn model_name(&self) -> &str {
+        &self.config.model
+    }
+}
+
+/// Create a generator from configuration
+pub fn create_generator(
+    _backend: &str,
+    url: Option<&str>,
+    config: GeneratorConfig,
+) -> Arc<dyn Generator> {
+    let base_url = url.unwrap_or("http://localhost:11434");
+    // Currently only Ollama is supported; OpenAI-compatible can be added later
+    Arc::new(OllamaGenerator::new(base_url, config))
+}
+
+// =============================================================================
 // ONNX Runtime local embedder (optional feature)
 // =============================================================================
 

@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
 use raven_core::ServerConfig;
-use raven_embed::Embedder;
+use raven_embed::{Embedder, GeneratorConfig};
 use raven_load::Loader;
 use raven_mcp::McpServer;
 use raven_search::DocumentIndex;
@@ -133,6 +133,40 @@ enum Commands {
         /// Number of context chunks
         #[arg(short = 'k', long, default_value_t = 3)]
         top_k: usize,
+    },
+
+    /// Ask a question — full RAG pipeline with LLM-generated answer
+    Ask {
+        /// Question to answer
+        query: String,
+
+        /// Database path
+        #[arg(short, long, default_value = "./raven.db")]
+        db: PathBuf,
+
+        /// Embedding backend (ollama or openai)
+        #[arg(short, long, default_value = "ollama")]
+        backend: String,
+
+        /// Ollama URL
+        #[arg(short, long, default_value = "http://localhost:11434")]
+        url: String,
+
+        /// Embedding model
+        #[arg(short, long, default_value = "nomic-embed-text")]
+        model: String,
+
+        /// LLM model for generation
+        #[arg(long, default_value = "llama3")]
+        llm_model: String,
+
+        /// Number of context chunks
+        #[arg(short = 'k', long, default_value_t = 3)]
+        top_k: usize,
+
+        /// Temperature for generation
+        #[arg(long, default_value_t = 0.7)]
+        temperature: f32,
     },
 
     /// Show index statistics
@@ -551,6 +585,67 @@ async fn main() -> Result<()> {
 
             let prompt = index.query_for_prompt(&query, top_k).await?;
             println!("{prompt}");
+        }
+
+        Commands::Ask {
+            query,
+            db,
+            backend,
+            url,
+            model,
+            llm_model,
+            top_k,
+            temperature,
+        } => {
+            let embedder = make_embedder(&backend, &url, &model);
+            let store = make_store(&db).await?;
+            let index = DocumentIndex::new(store, embedder);
+
+            // Get context prompt from RAG pipeline
+            let prompt = index.query_for_prompt(&query, top_k).await?;
+
+            // Generate answer using LLM
+            let config = GeneratorConfig {
+                model: llm_model,
+                temperature,
+                max_tokens: Some(2048),
+                system_prompt: Some(
+                    "You are a helpful assistant. Answer the question based on the provided context. \
+                     If the context doesn't contain relevant information, say so."
+                        .to_string(),
+                ),
+            };
+            let generator = raven_embed::create_generator(&backend, Some(&url), config);
+
+            if cli.json {
+                let answer = generator
+                    .generate(&prompt)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "query": query,
+                        "answer": answer,
+                        "model": generator.model_name(),
+                    }))?
+                );
+            } else {
+                // Stream tokens to stdout
+                use std::io::Write;
+                println!();
+                let answer = generator
+                    .generate_stream(&prompt, &|token| {
+                        print!("{token}");
+                        std::io::stdout().flush().ok();
+                    })
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+                if !answer.ends_with('\n') {
+                    println!();
+                }
+            }
         }
 
         Commands::Info { db } => {
