@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Pre-commit hook — mirrors CI pipeline checks to catch failures before push.
 # Install: git config core.hooksPath .githooks
+# Bypass: git commit --no-verify
 set -euo pipefail
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
 NC='\033[0m'
 
 fail() {
@@ -13,31 +13,21 @@ fail() {
     exit 1
 }
 
-pass() {
-    echo -e "${GREEN}OK:${NC} $1"
-}
-
-# Allow skipping with SKIP_HOOKS=1 git commit ...
-if [ "${SKIP_HOOKS:-0}" = "1" ]; then
-    echo -e "${YELLOW}Pre-commit hooks skipped (SKIP_HOOKS=1)${NC}"
-    exit 0
-fi
-
 echo "Running pre-commit checks..."
 
 # 1. Format check (fast)
 echo -n "  fmt ... "
 cargo fmt --all --check 2>/dev/null || fail "cargo fmt --all --check"
-pass "format"
+echo -e "${GREEN}ok${NC}"
 
 # 2. Clippy (matches CI exactly)
 echo -n "  clippy ... "
 cargo clippy --all-targets -- -D warnings -A clippy::unwrap_used 2>/dev/null || fail "cargo clippy --all-targets -- -D warnings -A clippy::unwrap_used"
-pass "clippy"
+echo -e "${GREEN}ok${NC}"
 
 # 3. Tests
 echo -n "  test ... "
 cargo test --all 2>/dev/null || fail "cargo test --all"
-pass "tests"
+echo -e "${GREEN}ok${NC}"
 
 echo -e "${GREEN}All pre-commit checks passed.${NC}"

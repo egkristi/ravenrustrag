@@ -1,14 +1,12 @@
 # Multi-stage build for RavenRustRAG
 # Produces a small static binary (~15MB)
 
-# --- Build stage (musl for static linking) ---
-FROM rust:1.86-bookworm AS builder
+# --- Build stage (Alpine = native musl, no cross-compilation issues) ---
+FROM rust:1.86-alpine AS builder
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends musl-tools && \
-    rustup target add x86_64-unknown-linux-musl && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache musl-dev gcc
 
 # Copy manifests first for dependency caching
 COPY Cargo.toml Cargo.lock ./
@@ -34,7 +32,7 @@ RUN mkdir -p crates/raven-core/src && echo "pub fn dummy() {}" > crates/raven-co
     mkdir -p crates/raven-cli/src && echo "fn main() {}" > crates/raven-cli/src/main.rs
 
 # Build dependencies only (cached layer)
-RUN cargo build --release --target x86_64-unknown-linux-musl 2>/dev/null || true
+RUN cargo build --release 2>/dev/null || true
 
 # Copy real source code
 COPY crates/ crates/
@@ -43,13 +41,13 @@ COPY crates/ crates/
 RUN find crates -name "*.rs" -exec touch {} +
 
 # Build the actual binary (static musl)
-RUN cargo build --release --target x86_64-unknown-linux-musl
+RUN cargo build --release
 
 # --- Runtime stage (scratch — no OS, just the binary) ---
 FROM scratch
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/raven /raven
+COPY --from=builder /app/target/release/raven /raven
 
 VOLUME /data
 
