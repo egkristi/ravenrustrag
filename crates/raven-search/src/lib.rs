@@ -251,6 +251,27 @@ impl DocumentIndex {
     pub fn store(&self) -> &Arc<dyn VectorStore> {
         &self.store
     }
+
+    /// Stream query results one at a time via a channel.
+    /// Returns a receiver that yields results as they are found.
+    pub async fn query_stream(
+        &self,
+        query_text: &str,
+        top_k: usize,
+    ) -> Result<tokio::sync::mpsc::Receiver<SearchResult>> {
+        let results = self.query(query_text, top_k).await?;
+        let (tx, rx) = tokio::sync::mpsc::channel(top_k.max(1));
+
+        tokio::spawn(async move {
+            for result in results {
+                if tx.send(result).await.is_err() {
+                    break;
+                }
+            }
+        });
+
+        Ok(rx)
+    }
 }
 
 // =============================================================================
@@ -298,6 +319,71 @@ pub fn format_prompt(query: &str, results: &[SearchResult], template: Option<&st
         }
         prompt.push_str("\n---\nAnswer the query using the provided context.");
         prompt
+    }
+}
+
+// =============================================================================
+// Multi-collection routing
+// =============================================================================
+
+/// Routes queries across multiple `DocumentIndex` instances and fuses results.
+pub struct MultiCollectionRouter {
+    collections: Vec<(String, Arc<DocumentIndex>)>,
+}
+
+impl MultiCollectionRouter {
+    pub fn new() -> Self {
+        Self {
+            collections: Vec::new(),
+        }
+    }
+
+    /// Add a named collection (index) to the router.
+    pub fn add(&mut self, name: impl Into<String>, index: Arc<DocumentIndex>) {
+        self.collections.push((name.into(), index));
+    }
+
+    /// Query all collections and fuse results by score, returning top_k.
+    pub async fn query(&self, query_text: &str, top_k: usize) -> Result<Vec<SearchResult>> {
+        let mut all_results = Vec::new();
+
+        for (name, index) in &self.collections {
+            match index.query(query_text, top_k).await {
+                Ok(mut results) => {
+                    // Tag results with their collection name
+                    for r in &mut results {
+                        r.chunk
+                            .metadata
+                            .insert("collection".to_string(), name.clone());
+                    }
+                    all_results.extend(results);
+                }
+                Err(e) => {
+                    warn!("Query failed for collection '{name}': {e}");
+                }
+            }
+        }
+
+        // Sort by score descending and take top_k
+        all_results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        all_results.truncate(top_k);
+        Ok(all_results)
+    }
+
+    /// List available collections with chunk counts.
+    pub async fn collections(&self) -> Vec<(String, usize)> {
+        let mut result = Vec::new();
+        for (name, index) in &self.collections {
+            let count = index.count().await.unwrap_or(0);
+            result.push((name.clone(), count));
+        }
+        result
+    }
+}
+
+impl Default for MultiCollectionRouter {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -556,5 +642,59 @@ mod tests {
             results[0].chunk.metadata.get("retrieval_mode").map(String::as_str),
             Some("parent")
         );
+    }
+
+    #[tokio::test]
+    async fn test_multi_collection_router() {
+        let store1 = Arc::new(MemoryStore::new());
+        let embedder1 = Arc::new(DummyEmbedder::new(3));
+        let index1 = Arc::new(DocumentIndex::new(store1, embedder1));
+
+        let store2 = Arc::new(MemoryStore::new());
+        let embedder2 = Arc::new(DummyEmbedder::new(3));
+        let index2 = Arc::new(DocumentIndex::new(store2, embedder2));
+
+        let splitter = TextSplitter::new(200, 10);
+        index1
+            .add_documents(vec![Document::new("Rust is fast")], &splitter)
+            .await
+            .unwrap();
+        index2
+            .add_documents(vec![Document::new("Python is slow")], &splitter)
+            .await
+            .unwrap();
+
+        let mut router = MultiCollectionRouter::new();
+        router.add("rust-docs", index1);
+        router.add("python-docs", index2);
+
+        let results = router.query("programming", 5).await.unwrap();
+        assert_eq!(results.len(), 2);
+        // Each result should have a collection tag
+        assert!(results.iter().all(|r| r.chunk.metadata.contains_key("collection")));
+
+        let collections = router.collections().await;
+        assert_eq!(collections.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_query_stream() {
+        let store = Arc::new(MemoryStore::new());
+        let embedder = Arc::new(DummyEmbedder::new(3));
+        let index = DocumentIndex::new(store, embedder);
+
+        let splitter = TextSplitter::new(200, 10);
+        let docs = vec![
+            Document::new("Rust is fast"),
+            Document::new("Rust is safe"),
+        ];
+        index.add_documents(docs, &splitter).await.unwrap();
+
+        let mut rx = index.query_stream("Rust", 5).await.unwrap();
+        let mut count = 0;
+        while let Some(_result) = rx.recv().await {
+            count += 1;
+        }
+        assert_eq!(count, 2);
     }
 }
