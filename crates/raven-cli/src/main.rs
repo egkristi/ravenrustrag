@@ -448,6 +448,7 @@ async fn main() -> Result<()> {
                 host: host.clone(),
                 port,
                 api_key,
+                ..ServerConfig::default()
             };
 
             println!("🐦‍⬛ RavenRustRAG server starting on http://{host}:{port}");

@@ -172,6 +172,28 @@ pub struct ServerConfig {
     pub host: String,
     pub port: u16,
     pub api_key: Option<String>,
+    #[serde(default)]
+    pub cors_origins: Vec<String>,
+    #[serde(default = "default_request_timeout")]
+    pub request_timeout_secs: u64,
+    #[serde(default = "default_rate_limit")]
+    pub rate_limit_per_second: u32,
+    #[serde(default = "default_max_query_length")]
+    pub max_query_length: usize,
+    #[serde(default)]
+    pub public_stats: bool,
+}
+
+fn default_request_timeout() -> u64 {
+    60
+}
+
+fn default_rate_limit() -> u32 {
+    100
+}
+
+fn default_max_query_length() -> usize {
+    10_000
 }
 
 impl Default for ServerConfig {
@@ -180,6 +202,11 @@ impl Default for ServerConfig {
             host: "127.0.0.1".to_string(),
             port: 8484,
             api_key: None,
+            cors_origins: Vec::new(),
+            request_timeout_secs: default_request_timeout(),
+            rate_limit_per_second: default_rate_limit(),
+            max_query_length: default_max_query_length(),
+            public_stats: false,
         }
     }
 }
@@ -254,6 +281,27 @@ impl Config {
             if let Ok(overlap) = val.parse() {
                 self.splitter.chunk_overlap = overlap;
             }
+        }
+        if let Ok(val) = std::env::var("RAVEN_CORS_ORIGINS") {
+            self.server.cors_origins = val.split(',').map(|s| s.trim().to_string()).collect();
+        }
+        if let Ok(val) = std::env::var("RAVEN_REQUEST_TIMEOUT") {
+            if let Ok(timeout) = val.parse() {
+                self.server.request_timeout_secs = timeout;
+            }
+        }
+        if let Ok(val) = std::env::var("RAVEN_RATE_LIMIT") {
+            if let Ok(rate) = val.parse() {
+                self.server.rate_limit_per_second = rate;
+            }
+        }
+        if let Ok(val) = std::env::var("RAVEN_MAX_QUERY_LENGTH") {
+            if let Ok(len) = val.parse() {
+                self.server.max_query_length = len;
+            }
+        }
+        if let Ok(val) = std::env::var("RAVEN_PUBLIC_STATS") {
+            self.server.public_stats = val == "true" || val == "1";
         }
     }
 }

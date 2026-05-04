@@ -182,6 +182,18 @@ impl McpServer {
             .and_then(serde_json::Value::as_u64)
             .unwrap_or(5) as usize;
 
+        // Validate query (#3)
+        if query.is_empty() {
+            return JsonRpcResponse::error(id, -32602, "Query must not be empty".to_string());
+        }
+        if query.len() > 10_000 {
+            return JsonRpcResponse::error(
+                id,
+                -32602,
+                "Query too long (max 10000 characters)".to_string(),
+            );
+        }
+
         match self.index.query(query, top_k).await {
             Ok(results) => {
                 let items: Vec<Value> = results
@@ -212,6 +224,18 @@ impl McpServer {
             .and_then(serde_json::Value::as_u64)
             .unwrap_or(3) as usize;
 
+        // Validate query (#3)
+        if query.is_empty() {
+            return JsonRpcResponse::error(id, -32602, "Query must not be empty".to_string());
+        }
+        if query.len() > 10_000 {
+            return JsonRpcResponse::error(
+                id,
+                -32602,
+                "Query too long (max 10000 characters)".to_string(),
+            );
+        }
+
         match self.index.query_for_prompt(query, top_k).await {
             Ok(prompt) => JsonRpcResponse::success(
                 id,
@@ -241,6 +265,15 @@ impl McpServer {
             .cloned()
             .unwrap_or(Value::Array(vec![]));
         let doc_arr = docs_val.as_array().cloned().unwrap_or_default();
+
+        // Limit batch size (#7)
+        if doc_arr.len() > 100 {
+            return JsonRpcResponse::error(
+                id,
+                -32602,
+                "Too many documents (max 100 per call)".to_string(),
+            );
+        }
 
         let docs: Vec<Document> = doc_arr
             .into_iter()

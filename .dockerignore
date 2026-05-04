@@ -1,5 +1,16 @@
 target/
 .git/
+.github/
 *.db
+*.db-journal
+*.db-shm
+*.db-wal
 *.jsonl
 .env
+raven.toml
+*.md
+clippy.toml
+.editorconfig
+rust-toolchain.toml
+test_output/
+temp/

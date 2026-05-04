@@ -1,6 +1,6 @@
 use axum::{
     extract::{Json, State},
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, HeaderValue, Method, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Router,
@@ -11,10 +11,11 @@ use raven_split::TextSplitter;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use subtle::ConstantTimeEq;
-use tower_http::cors::{Any, CorsLayer};
-use tracing::info;
+use tower::ServiceBuilder;
+use tower_http::cors::CorsLayer;
+use tracing::{error, info};
 
 /// Shared application state
 pub struct AppState {
@@ -139,18 +140,30 @@ async fn health() -> Json<HealthResponse> {
     })
 }
 
-async fn stats(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+async fn stats(State(state): State<Arc<AppState>>, headers: HeaderMap) -> impl IntoResponse {
+    // Require auth unless public_stats is enabled (#6)
+    if !state.config.public_stats && !check_auth(&headers, &state.config) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "Unauthorized"})),
+        )
+            .into_response();
+    }
+
     match state.index.count().await {
         Ok(count) => Json(StatsResponse {
             documents: count,
             status: "ok".to_string(),
         })
         .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": e.to_string()})),
-        )
-            .into_response(),
+        Err(e) => {
+            error!("Stats failed: {e}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Internal server error"})),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -170,6 +183,25 @@ async fn query_handler(
             .into_response();
     }
 
+    // Validate query length (#3)
+    if req.query.len() > state.config.max_query_length {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": format!("Query too long (max {} characters)", state.config.max_query_length)
+            })),
+        )
+            .into_response();
+    }
+
+    if req.query.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "Query must not be empty"})),
+        )
+            .into_response();
+    }
+
     let top_k = req.top_k.clamp(1, 1000);
 
     match state.index.query(&req.query, top_k).await {
@@ -182,11 +214,15 @@ async fn query_handler(
             })
             .into_response()
         }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": e.to_string()})),
-        )
-            .into_response(),
+        Err(e) => {
+            error!("Query failed: {e}");
+            state.metrics.errors_total.fetch_add(1, Ordering::Relaxed);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Internal server error"})),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -202,6 +238,25 @@ async fn prompt_handler(
         return (
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({"error": "Unauthorized"})),
+        )
+            .into_response();
+    }
+
+    // Validate query length (#3)
+    if req.query.len() > state.config.max_query_length {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": format!("Query too long (max {} characters)", state.config.max_query_length)
+            })),
+        )
+            .into_response();
+    }
+
+    if req.query.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "Query must not be empty"})),
         )
             .into_response();
     }
@@ -245,11 +300,15 @@ async fn prompt_handler(
 
             Json(PromptResponse { prompt, sources }).into_response()
         }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": e.to_string()})),
-        )
-            .into_response(),
+        Err(e) => {
+            error!("Prompt failed: {e}");
+            state.metrics.errors_total.fetch_add(1, Ordering::Relaxed);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Internal server error"})),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -300,11 +359,15 @@ async fn index_handler(
             message: format!("Indexed {count} documents"),
         })
         .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": e.to_string()})),
-        )
-            .into_response(),
+        Err(e) => {
+            error!("Index failed: {e}");
+            state.metrics.errors_total.fetch_add(1, Ordering::Relaxed);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Internal server error"})),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -382,11 +445,46 @@ fn check_auth(headers: &HeaderMap, config: &ServerConfig) -> bool {
 
 // --- Server builder ---
 
+fn build_cors_layer(config: &ServerConfig) -> CorsLayer {
+    if config.cors_origins.is_empty() {
+        // Default: only allow localhost origins (#1)
+        CorsLayer::new()
+            .allow_origin([
+                "http://localhost".parse::<HeaderValue>().expect("valid header"),
+                "http://127.0.0.1".parse::<HeaderValue>().expect("valid header"),
+                "http://localhost:8484"
+                    .parse::<HeaderValue>()
+                    .expect("valid header"),
+                "http://127.0.0.1:8484"
+                    .parse::<HeaderValue>()
+                    .expect("valid header"),
+            ])
+            .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+            .allow_headers([
+                "content-type".parse().expect("valid header"),
+                "authorization".parse().expect("valid header"),
+            ])
+    } else {
+        let origins: Vec<HeaderValue> = config
+            .cors_origins
+            .iter()
+            .filter_map(|o| o.parse().ok())
+            .collect();
+        CorsLayer::new()
+            .allow_origin(origins)
+            .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+            .allow_headers([
+                "content-type".parse().expect("valid header"),
+                "authorization".parse().expect("valid header"),
+            ])
+    }
+}
+
 pub fn build_router(state: Arc<AppState>) -> Router {
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    let cors = build_cors_layer(&state.config);
+
+    // Request timeout (#5)
+    let timeout = Duration::from_secs(state.config.request_timeout_secs);
 
     Router::new()
         .route("/health", get(health))
@@ -398,10 +496,29 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/openapi.json", get(openapi))
         .layer(cors)
         .layer(axum::extract::DefaultBodyLimit::max(10 * 1024 * 1024)) // 10MB
+        .layer(
+            ServiceBuilder::new()
+                .layer(axum::error_handling::HandleErrorLayer::new(
+                    |_err: tower::BoxError| async move { StatusCode::REQUEST_TIMEOUT },
+                ))
+                .layer(tower::timeout::TimeoutLayer::new(timeout)),
+        )
         .with_state(state)
 }
 
-async fn metrics_handler(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+async fn metrics_handler(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    // Require auth unless public_stats is enabled (#6)
+    if !state.config.public_stats && !check_auth(&headers, &state.config) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "Unauthorized"})),
+        )
+            .into_response();
+    }
+
     let uptime = state.metrics.started_at.elapsed().as_secs();
     let chunks = state.index.count().await.unwrap_or(0);
 
@@ -414,6 +531,7 @@ async fn metrics_handler(State(state): State<Arc<AppState>>) -> Json<serde_json:
         "chunks_total": chunks,
         "version": env!("CARGO_PKG_VERSION"),
     }))
+    .into_response()
 }
 
 pub async fn serve(state: Arc<AppState>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
