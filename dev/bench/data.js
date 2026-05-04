@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777930943953,
+  "lastUpdate": 1777931143438,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -143,6 +143,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 111400,
             "range": "± 653",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "895721c163877c4719990131d86794fad3be9a28",
+          "message": "docs: finalize PLAN.md — mark completed issues, update status\n\n- Phase 3 complete, Phase 4 in progress\n- Mark #45, #46, #47, #48, #49, #50, #51, #54 as resolved\n- Update open issues table (4 remaining: #43, #44, #52, #53)\n- ONNX (#43, #44) marked as deferred due to MSRV conflict\n- GitHub Releases already working via release.yml\n- 148 checked items, 11 remaining across 4 issues",
+          "timestamp": "2026-05-04T23:42:27+02:00",
+          "tree_id": "96c0d97746347c02beddd65f2049a53cdddd20c9",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/895721c163877c4719990131d86794fad3be9a28"
+        },
+        "date": 1777931143019,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 100,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 547,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1086,
+            "range": "± 9",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 54162,
+            "range": "± 1257",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 574675,
+            "range": "± 2777",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 95619,
+            "range": "± 392",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39083,
+            "range": "± 89",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 113343,
+            "range": "± 437",
             "unit": "ns/iter"
           }
         ]
