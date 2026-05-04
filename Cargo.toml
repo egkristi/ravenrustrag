@@ -60,7 +60,7 @@ toml = "0.8"
 uuid = { version = "1.6", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 tokio-test = "0.4"
-criterion = "0.5"
+criterion = "0.8"
 
 [profile.release]
 opt-level = 3
