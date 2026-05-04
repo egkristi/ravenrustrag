@@ -3,11 +3,11 @@
 //! Provides the `Embedder` trait and implementations: Ollama, OpenAI, Cached, and Dummy.
 
 use async_trait::async_trait;
+use dashmap::DashMap;
 use raven_core::{RavenError, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 /// Embedding backend trait
 #[async_trait]
@@ -222,48 +222,51 @@ impl Embedder for OpenAIBackend {
 // =============================================================================
 
 pub struct EmbeddingCache {
-    cache: Arc<Mutex<HashMap<String, Vec<f32>>>>,
+    cache: Arc<DashMap<String, Vec<f32>>>,
     max_size: usize,
-    hits: Arc<Mutex<u64>>,
-    misses: Arc<Mutex<u64>>,
+    hits: AtomicU64,
+    misses: AtomicU64,
 }
 
 impl EmbeddingCache {
     pub fn new(max_size: usize) -> Self {
         Self {
-            cache: Arc::new(Mutex::new(HashMap::new())),
+            cache: Arc::new(DashMap::with_capacity(max_size)),
             max_size,
-            hits: Arc::new(Mutex::new(0)),
-            misses: Arc::new(Mutex::new(0)),
+            hits: AtomicU64::new(0),
+            misses: AtomicU64::new(0),
         }
     }
 
+    #[allow(clippy::unused_async)]
     pub async fn get(&self, text: &str) -> Option<Vec<f32>> {
-        let cache = self.cache.lock().await;
-        let result = cache.get(text).cloned();
+        let result = self.cache.get(text).map(|v| v.value().clone());
         if result.is_some() {
-            *self.hits.lock().await += 1;
+            self.hits.fetch_add(1, Ordering::Relaxed);
         } else {
-            *self.misses.lock().await += 1;
+            self.misses.fetch_add(1, Ordering::Relaxed);
         }
         result
     }
 
+    #[allow(clippy::unused_async)]
     pub async fn set(&self, text: String, embedding: Vec<f32>) {
-        let mut cache = self.cache.lock().await;
-        if cache.len() >= self.max_size && !cache.contains_key(&text) {
-            let key_to_remove = cache.keys().next().cloned();
-            if let Some(key) = key_to_remove {
-                cache.remove(&key);
+        if self.cache.len() >= self.max_size && !self.cache.contains_key(&text) {
+            // Evict one entry (random due to DashMap iteration order)
+            if let Some(entry) = self.cache.iter().next() {
+                let key = entry.key().clone();
+                drop(entry);
+                self.cache.remove(&key);
             }
         }
-        cache.insert(text, embedding);
+        self.cache.insert(text, embedding);
     }
 
+    #[allow(clippy::unused_async)]
     pub async fn stats(&self) -> (u64, u64, usize) {
-        let hits = *self.hits.lock().await;
-        let misses = *self.misses.lock().await;
-        let size = self.cache.lock().await.len();
+        let hits = self.hits.load(Ordering::Relaxed);
+        let misses = self.misses.load(Ordering::Relaxed);
+        let size = self.cache.len();
         (hits, misses, size)
     }
 }

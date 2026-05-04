@@ -82,6 +82,8 @@ jobs:
     name: Benchmark
     runs-on: ubuntu-latest
     needs: [test]
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -94,10 +96,12 @@ jobs:
           tool: 'cargo'
           output-file-path: bench-output.txt
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: false
+          auto-push: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench
           alert-threshold: '150%'
-          comment-on-alert: false
-          fail-on-alert: false
+          comment-on-alert: true
+          fail-on-alert: true
 
   build-release:
     name: Build Release

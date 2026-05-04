@@ -3,7 +3,7 @@
 //! Provides `DocumentIndex` (split, embed, store, search), hybrid BM25+vector search,
 //! parent-child retrieval, multi-collection routing, and evaluation metrics.
 
-use raven_core::{Chunk, Document, Result, SearchResult};
+use raven_core::{Chunk, Document, RavenError, Result, SearchResult};
 use raven_embed::Embedder;
 use raven_split::Splitter;
 use raven_store::{MetadataFilter, VectorStore};
@@ -113,7 +113,10 @@ impl DocumentIndex {
                 let embedder = Arc::clone(&self.embedder);
                 let sem = Arc::clone(&semaphore);
                 handles.push(tokio::spawn(async move {
-                    let _permit = sem.acquire().await.unwrap();
+                    let _permit = sem
+                        .acquire()
+                        .await
+                        .map_err(|e| RavenError::Embed(format!("Semaphore closed: {e}")))?;
                     embedder.embed(&batch).await
                 }));
             }

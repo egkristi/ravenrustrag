@@ -12,6 +12,7 @@ reqwest = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 async-trait = "0.1"
+dashmap = { workspace = true }
 
 [features]
 # ONNX support placeholder. Currently disabled due to reqwest version conflict
