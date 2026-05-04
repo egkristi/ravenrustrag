@@ -1,0 +1,46 @@
+[package]
+name = "raven-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+rust-version = "1.86"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+raven-core = { path = "../crates/raven-core" }
+raven-split = { path = "../crates/raven-split" }
+raven-load = { path = "../crates/raven-load" }
+tempfile = "3.8"
+
+[[bin]]
+name = "fuzz_text_splitter"
+path = "fuzz_targets/text_splitter.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_markdown_loader"
+path = "fuzz_targets/markdown_loader.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_csv_loader"
+path = "fuzz_targets/csv_loader.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_html_loader"
+path = "fuzz_targets/html_loader.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_json_loader"
+path = "fuzz_targets/json_loader.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_cosine_similarity"
+path = "fuzz_targets/cosine_similarity.rs"
+doc = false

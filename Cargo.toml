@@ -10,6 +10,7 @@ members = [
     "crates/raven-cli",
     "crates/raven-mcp",
 ]
+exclude = ["fuzz"]
 resolver = "2"
 
 [workspace.package]
