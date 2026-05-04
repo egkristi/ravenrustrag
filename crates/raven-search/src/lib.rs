@@ -4,17 +4,26 @@ use raven_split::Splitter;
 use raven_store::VectorStore;
 use std::path::Path;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tracing::{info, warn};
+
+pub mod bm25;
+pub use bm25::{reciprocal_rank_fusion, Bm25Index};
 
 /// Main document index — the heart of RavenRustRAG
 pub struct DocumentIndex {
     store: Arc<dyn VectorStore>,
     embedder: Arc<dyn Embedder>,
+    bm25: RwLock<Bm25Index>,
 }
 
 impl DocumentIndex {
     pub fn new(store: Arc<dyn VectorStore>, embedder: Arc<dyn Embedder>) -> Self {
-        Self { store, embedder }
+        Self {
+            store,
+            embedder,
+            bm25: RwLock::new(Bm25Index::new()),
+        }
     }
 
     pub fn builder() -> DocumentIndexBuilder {
@@ -23,6 +32,7 @@ impl DocumentIndex {
 
     /// Add documents (chunks must already have embeddings)
     pub async fn add_chunks(&self, chunks: &[Chunk]) -> Result<()> {
+        self.bm25.write().await.add(chunks);
         self.store.add(chunks).await
     }
 
@@ -64,6 +74,9 @@ impl DocumentIndex {
             self.store.add(batch).await?;
         }
 
+        // Also add to BM25 index
+        self.bm25.write().await.add(&embedded_chunks);
+
         Ok(())
     }
 
@@ -76,6 +89,28 @@ impl DocumentIndex {
             .ok_or_else(|| raven_core::RavenError::NotFound("Empty embedding".to_string()))?;
 
         self.store.search(&embedding, top_k).await
+    }
+
+    /// Hybrid query: combine vector search and BM25 with Reciprocal Rank Fusion.
+    /// `alpha` controls the blend: 1.0 = pure vector, 0.0 = pure BM25.
+    pub async fn query_hybrid(
+        &self,
+        query_text: &str,
+        top_k: usize,
+        alpha: f32,
+    ) -> Result<Vec<SearchResult>> {
+        // Fetch more than top_k from each source for better fusion
+        let fetch_k = top_k * 3;
+
+        let vector_results = self.query(query_text, fetch_k).await?;
+        let bm25_results = self.bm25.read().await.search(query_text, fetch_k);
+
+        Ok(reciprocal_rank_fusion(
+            &vector_results,
+            &bm25_results,
+            alpha,
+            top_k,
+        ))
     }
 
     /// Format results as LLM prompt with citations
@@ -104,6 +139,7 @@ impl DocumentIndex {
     }
 
     pub async fn clear(&self) -> Result<()> {
+        self.bm25.write().await.clear();
         self.store.clear().await
     }
 
@@ -366,5 +402,29 @@ mod tests {
             .unwrap();
 
         assert_eq!(index.count().await.unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_hybrid_query() {
+        let store = Arc::new(MemoryStore::new());
+        let embedder = Arc::new(DummyEmbedder::new(3));
+        let index = DocumentIndex::new(store, embedder);
+
+        let splitter = TextSplitter::new(200, 10);
+        let docs = vec![
+            Document::new("Rust programming is fast and memory safe"),
+            Document::new("Python is great for machine learning"),
+            Document::new("JavaScript runs in the browser"),
+        ];
+
+        index.add_documents(docs, &splitter).await.unwrap();
+        assert_eq!(index.count().await.unwrap(), 3);
+
+        // Hybrid query should return results
+        let results = index
+            .query_hybrid("Rust programming", 3, 0.5)
+            .await
+            .unwrap();
+        assert!(!results.is_empty());
     }
 }

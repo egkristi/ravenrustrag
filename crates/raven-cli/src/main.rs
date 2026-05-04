@@ -81,6 +81,14 @@ enum Commands {
         /// Number of results
         #[arg(short = 'k', long, default_value_t = 5)]
         top_k: usize,
+
+        /// Use hybrid search (BM25 + vector with RRF)
+        #[arg(long)]
+        hybrid: bool,
+
+        /// Alpha blend for hybrid search (1.0 = pure vector, 0.0 = pure BM25)
+        #[arg(long, default_value_t = 0.5)]
+        alpha: f32,
     },
 
     /// Get a formatted LLM prompt with citations
@@ -360,14 +368,25 @@ async fn main() -> Result<()> {
             url,
             model,
             top_k,
+            hybrid,
+            alpha,
         } => {
             let embedder = make_embedder(&url, &model);
             let store = make_store(&db).await?;
-            let index = DocumentIndex::new(store, embedder);
+            let index = DocumentIndex::new(store.clone(), embedder);
 
-            let results = index.query(&query, top_k).await?;
+            let results = if hybrid {
+                // For hybrid search, populate BM25 index from stored chunks
+                let all_chunks = store.all().await?;
+                index.add_chunks(&all_chunks).await?;
+                info!("BM25 index loaded with {} chunks", all_chunks.len());
+                index.query_hybrid(&query, top_k, alpha).await?
+            } else {
+                index.query(&query, top_k).await?
+            };
 
-            println!("\n🐦‍⬛ Results for: \"{}\"\n", query);
+            let mode = if hybrid { "hybrid" } else { "vector" };
+            println!("\n🐦‍⬛ Results for: \"{}\" ({})\n", query, mode);
 
             if results.is_empty() {
                 println!("No results found.");
