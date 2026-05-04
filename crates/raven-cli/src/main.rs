@@ -262,6 +262,17 @@ enum Commands {
         #[arg(long, default_value_t = 500)]
         debounce: u64,
     },
+
+    /// Run performance benchmarks
+    Benchmark {
+        /// Number of documents to generate
+        #[arg(short, long, default_value_t = 100)]
+        num_docs: usize,
+
+        /// Number of query iterations
+        #[arg(short, long, default_value_t = 50)]
+        iterations: usize,
+    },
 }
 
 fn make_embedder(backend: &str, url: &str, model: &str) -> Arc<dyn Embedder> {
@@ -622,6 +633,96 @@ async fn main() -> Result<()> {
             raven_search::watch_directory(index, store, splitter, &path, &exts, debounce)
                 .await
                 .map_err(|e| anyhow::anyhow!("{e}"))?;
+        }
+
+        Commands::Benchmark {
+            num_docs,
+            iterations,
+        } => {
+            use raven_embed::DummyEmbedder;
+            use raven_store::MemoryStore;
+
+            println!("Running benchmarks (num_docs={num_docs}, iterations={iterations})...\n");
+
+            let embedder = Arc::new(DummyEmbedder::new(128));
+            let splitter = TextSplitter::new(200, 20);
+
+            // Generate test documents
+            let docs: Vec<raven_core::Document> = (0..num_docs)
+                .map(|i| {
+                    raven_core::Document::new(format!(
+                        "Document {i} about Rust programming, memory safety, and performance. \
+                         Systems programming with zero-cost abstractions and fearless concurrency."
+                    ))
+                })
+                .collect();
+
+            // Benchmark indexing
+            let store = Arc::new(MemoryStore::new());
+            let index = DocumentIndex::new(store, embedder);
+
+            let start = std::time::Instant::now();
+            index.add_documents(docs, &splitter).await?;
+            let index_time = start.elapsed();
+            let chunks = index.count().await?;
+
+            println!("  Index:  {num_docs} docs -> {chunks} chunks in {:?}", index_time);
+            println!(
+                "          {:.1} docs/sec",
+                num_docs as f64 / index_time.as_secs_f64()
+            );
+
+            // Benchmark vector query
+            let mut query_times = Vec::with_capacity(iterations);
+            for _ in 0..iterations {
+                let start = std::time::Instant::now();
+                let _ = index.query("Rust programming performance", 5).await?;
+                query_times.push(start.elapsed());
+            }
+            let avg_query = query_times.iter().sum::<std::time::Duration>() / iterations as u32;
+            let min_query = query_times.iter().min().copied().unwrap_or_default();
+            let max_query = query_times.iter().max().copied().unwrap_or_default();
+
+            println!("\n  Query (vector, {iterations} iterations):");
+            println!("          avg: {avg_query:?}  min: {min_query:?}  max: {max_query:?}");
+
+            // Benchmark hybrid query
+            let mut hybrid_times = Vec::with_capacity(iterations);
+            for _ in 0..iterations {
+                let start = std::time::Instant::now();
+                let _ = index
+                    .query_hybrid("Rust programming performance", 5, 0.5)
+                    .await?;
+                hybrid_times.push(start.elapsed());
+            }
+            let avg_hybrid =
+                hybrid_times.iter().sum::<std::time::Duration>() / iterations as u32;
+            let min_hybrid = hybrid_times.iter().min().copied().unwrap_or_default();
+            let max_hybrid = hybrid_times.iter().max().copied().unwrap_or_default();
+
+            println!("\n  Query (hybrid, {iterations} iterations):");
+            println!("          avg: {avg_hybrid:?}  min: {min_hybrid:?}  max: {max_hybrid:?}");
+
+            // Benchmark BM25
+            let mut bm25_times = Vec::with_capacity(iterations);
+            let bm25_idx = {
+                let mut b = raven_search::Bm25Index::new();
+                let all_chunks: Vec<raven_core::Chunk> = (0..chunks)
+                    .map(|i| raven_core::Chunk::new(&format!("doc_{i}"), &format!("Rust programming document number {i}")))
+                    .collect();
+                b.add(&all_chunks);
+                b
+            };
+            for _ in 0..iterations {
+                let start = std::time::Instant::now();
+                let _ = bm25_idx.search("Rust programming", 5);
+                bm25_times.push(start.elapsed());
+            }
+            let avg_bm25 = bm25_times.iter().sum::<std::time::Duration>() / iterations as u32;
+
+            println!("\n  BM25 ({chunks} chunks, {iterations} iterations):");
+            println!("          avg: {avg_bm25:?}");
+            println!("\nBenchmark complete.");
         }
     }
 
