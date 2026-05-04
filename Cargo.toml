@@ -56,7 +56,7 @@ sha2 = "0.10"
 walkdir = "2.4"
 indicatif = "0.17"
 notify = "6.1"
-toml = "0.8"
+toml = "1.1"
 uuid = { version = "1.6", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 tokio-test = "0.4"
