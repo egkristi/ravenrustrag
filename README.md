@@ -386,6 +386,21 @@ cargo build --release
 cargo test
 ```
 
+## Contributing
+
+Contributions are welcome! Please follow these guidelines:
+
+1. **No direct commits to `main`.** All changes must go through a Pull Request.
+2. Fork the repository and create a feature branch (`feat/my-feature` or `fix/my-bug`).
+3. Ensure your code passes all checks before submitting:
+   ```bash
+   cargo fmt --all --check
+   cargo clippy --all-targets -- -D warnings
+   cargo test --all
+   ```
+4. Write clear commit messages using conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`.
+5. Open a PR against `main` with a description of your changes.
+
 ## License
 
 Dual licensed: [AGPLv3](LICENSES/AGPLv3.txt) + [Commercial](LICENSES/COMMERCIAL.txt). See [LICENSING.md](LICENSING.md) for details.

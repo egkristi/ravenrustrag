@@ -84,6 +84,7 @@ cargo fmt --check        # Format check
 ## Git Workflow
 
 - **Push to git for each completed working feature**
+- **No direct commits to `main` from external contributors.** All external changes must go through a Pull Request.
 - Commit messages: `feat: <description>`, `fix: <description>`, `refactor: <description>`
 - Always run `cargo test` before committing
 - Always run `cargo clippy` before pushing
