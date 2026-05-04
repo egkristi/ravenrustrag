@@ -9,7 +9,9 @@ use raven_core::{Document, SearchResult, ServerConfig};
 use raven_search::DocumentIndex;
 use raven_split::TextSplitter;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Instant;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
@@ -18,6 +20,28 @@ pub struct AppState {
     pub index: DocumentIndex,
     pub config: ServerConfig,
     pub splitter: TextSplitter,
+    pub metrics: Metrics,
+}
+
+/// Server metrics
+pub struct Metrics {
+    pub requests_total: AtomicU64,
+    pub queries_total: AtomicU64,
+    pub index_total: AtomicU64,
+    pub errors_total: AtomicU64,
+    pub started_at: Instant,
+}
+
+impl Default for Metrics {
+    fn default() -> Self {
+        Self {
+            requests_total: AtomicU64::new(0),
+            queries_total: AtomicU64::new(0),
+            index_total: AtomicU64::new(0),
+            errors_total: AtomicU64::new(0),
+            started_at: Instant::now(),
+        }
+    }
 }
 
 // --- Request/Response types ---
@@ -134,6 +158,9 @@ async fn query_handler(
     headers: HeaderMap,
     Json(req): Json<QueryRequest>,
 ) -> impl IntoResponse {
+    state.metrics.requests_total.fetch_add(1, Ordering::Relaxed);
+    state.metrics.queries_total.fetch_add(1, Ordering::Relaxed);
+
     if !check_auth(&headers, &state.config) {
         return (
             StatusCode::UNAUTHORIZED,
@@ -167,6 +194,9 @@ async fn prompt_handler(
     headers: HeaderMap,
     Json(req): Json<PromptRequest>,
 ) -> impl IntoResponse {
+    state.metrics.requests_total.fetch_add(1, Ordering::Relaxed);
+    state.metrics.queries_total.fetch_add(1, Ordering::Relaxed);
+
     if !check_auth(&headers, &state.config) {
         return (
             StatusCode::UNAUTHORIZED,
@@ -231,6 +261,9 @@ async fn index_handler(
     headers: HeaderMap,
     Json(req): Json<IndexRequest>,
 ) -> impl IntoResponse {
+    state.metrics.requests_total.fetch_add(1, Ordering::Relaxed);
+    state.metrics.index_total.fetch_add(1, Ordering::Relaxed);
+
     if !check_auth(&headers, &state.config) {
         return (
             StatusCode::UNAUTHORIZED,
@@ -365,12 +398,29 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/stats", get(stats))
+        .route("/metrics", get(metrics_handler))
         .route("/query", post(query_handler))
         .route("/prompt", post(prompt_handler))
         .route("/index", post(index_handler))
         .route("/openapi.json", get(openapi))
         .layer(cors)
+        .layer(axum::extract::DefaultBodyLimit::max(10 * 1024 * 1024)) // 10MB
         .with_state(state)
+}
+
+async fn metrics_handler(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    let uptime = state.metrics.started_at.elapsed().as_secs();
+    let chunks = state.index.count().await.unwrap_or(0);
+
+    Json(serde_json::json!({
+        "requests_total": state.metrics.requests_total.load(Ordering::Relaxed),
+        "queries_total": state.metrics.queries_total.load(Ordering::Relaxed),
+        "index_requests_total": state.metrics.index_total.load(Ordering::Relaxed),
+        "errors_total": state.metrics.errors_total.load(Ordering::Relaxed),
+        "uptime_seconds": uptime,
+        "chunks_total": chunks,
+        "version": env!("CARGO_PKG_VERSION"),
+    }))
 }
 
 pub async fn serve(state: Arc<AppState>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -379,6 +429,16 @@ pub async fn serve(state: Arc<AppState>) -> Result<(), Box<dyn std::error::Error
 
     info!("RavenRustRAG server listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
-    axum::serve(listener, router).await?;
+    axum::serve(listener, router)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
+    info!("Server shut down gracefully.");
     Ok(())
+}
+
+async fn shutdown_signal() {
+    tokio::signal::ctrl_c()
+        .await
+        .expect("Failed to install Ctrl+C handler");
+    info!("Received shutdown signal, shutting down...");
 }

@@ -437,13 +437,14 @@ async fn main() -> Result<()> {
             );
             println!("   Database: {}", db.display());
             println!("   Model: {} ({})", model, url);
-            println!("   Endpoints: /health /stats /query /prompt /index /openapi.json");
+            println!("   Endpoints: /health /stats /metrics /query /prompt /index /openapi.json");
             println!("   Press Ctrl+C to stop.\n");
 
             let state = Arc::new(AppState {
                 index,
                 config,
                 splitter: TextSplitter::new(512, 50),
+                metrics: raven_server::Metrics::default(),
             });
 
             raven_server::serve(state)
