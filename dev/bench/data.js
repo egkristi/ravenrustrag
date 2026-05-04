@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777932947304,
+  "lastUpdate": 1777933418742,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -431,6 +431,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 112240,
             "range": "± 459",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "88bc1c38a3656e4856f0959c11000b6a1c2a3db9",
+          "message": "test: add fuzz testing infrastructure (cargo-fuzz) closes #57\n\nAdded 6 fuzz targets in fuzz/ directory:\n- fuzz_text_splitter: various chunk sizes on arbitrary UTF-8\n- fuzz_markdown_loader: malformed markdown/frontmatter\n- fuzz_csv_loader: malformed CSV\n- fuzz_html_loader: malformed HTML with tags/scripts\n- fuzz_json_loader: malformed JSON and JSONL\n- fuzz_cosine_similarity: arbitrary f32 vectors\n\nUsage (requires nightly):\n  cargo +nightly fuzz run fuzz_text_splitter -- -max_total_time=60\n  cargo +nightly fuzz run fuzz_cosine_similarity -- -max_total_time=60\n\nWorkspace excludes fuzz/ to avoid MSRV conflicts with libfuzzer-sys.",
+          "timestamp": "2026-05-05T00:19:28+02:00",
+          "tree_id": "c892c4a5078b2fbdcdb848ca519851281084c0ff",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/88bc1c38a3656e4856f0959c11000b6a1c2a3db9"
+        },
+        "date": 1777933417716,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 99,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 547,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1086,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 54921,
+            "range": "± 599",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 583120,
+            "range": "± 9776",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 95352,
+            "range": "± 2836",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39338,
+            "range": "± 166",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 111572,
+            "range": "± 692",
             "unit": "ns/iter"
           }
         ]
