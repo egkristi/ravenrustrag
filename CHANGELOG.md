@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **CLI**: `raven ask` command for local LLM question-answering via Ollama (#63)
+- **Embed**: Generator trait and OllamaGenerator for LLM text generation with streaming
+- **CLI**: `raven completions` command for shell completion generation (bash, zsh, fish, elvish, PowerShell) (#62)
+- **Store**: Schema migration system with versioned upgrades (#60)
+- **Testing**: Property-based tests with proptest for core, split, and search crates (#58)
+- **Testing**: Stress tests for concurrent indexing and large document handling (#59)
+- **Fuzzing**: Fuzz targets for text splitter, all loaders, and cosine similarity (#57)
+
 ## [0.1.0-alpha.1] - 2026-05-04
 
 ### Added

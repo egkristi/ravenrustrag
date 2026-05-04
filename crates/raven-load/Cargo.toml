@@ -2,9 +2,16 @@
 name = "raven-load"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Document loaders for RavenRustRAG: txt, md, csv, json, html, pdf, docx"
+keywords = ["document-loader", "parser", "markdown", "pdf", "rag"]
+categories = ["text-processing", "parser-implementations"]
 
 [dependencies]
-raven-core = { path = "../raven-core" }
+raven-core = { path = "../raven-core", version = "0.1.0-alpha.1" }
 walkdir = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }

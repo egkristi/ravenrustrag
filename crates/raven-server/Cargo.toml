@@ -2,17 +2,24 @@
 name = "raven-server"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "HTTP API server for RavenRustRAG: Axum, auth, CORS, OpenAPI"
+keywords = ["http-server", "api", "axum", "rag", "openapi"]
+categories = ["web-programming::http-server"]
 
 [features]
 default = []
 otel = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp", "dep:tracing-opentelemetry"]
 
 [dependencies]
-raven-core = { path = "../raven-core" }
-raven-embed = { path = "../raven-embed" }
-raven-store = { path = "../raven-store" }
-raven-split = { path = "../raven-split" }
-raven-search = { path = "../raven-search" }
+raven-core = { path = "../raven-core", version = "0.1.0-alpha.1" }
+raven-embed = { path = "../raven-embed", version = "0.1.0-alpha.1" }
+raven-store = { path = "../raven-store", version = "0.1.0-alpha.1" }
+raven-split = { path = "../raven-split", version = "0.1.0-alpha.1" }
+raven-search = { path = "../raven-search", version = "0.1.0-alpha.1" }
 tokio = { workspace = true }
 axum = { workspace = true }
 tower = { workspace = true }
@@ -21,6 +28,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 subtle = "2.6.1"
+tokio-stream = "0.1"
+futures-util = "0.3"
 
 # OpenTelemetry (optional)
 opentelemetry = { version = "0.22", optional = true }
@@ -32,8 +41,8 @@ tracing-opentelemetry = { version = "0.23", optional = true }
 workspace = true
 
 [dev-dependencies]
-raven-embed = { path = "../raven-embed" }
-raven-store = { path = "../raven-store" }
+raven-embed = { path = "../raven-embed", version = "0.1.0-alpha.1" }
+raven-store = { path = "../raven-store", version = "0.1.0-alpha.1" }
 tower = { workspace = true, features = ["util"] }
 http-body-util = "0.1"
 hyper = "1"

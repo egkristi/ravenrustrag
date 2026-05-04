@@ -2,6 +2,13 @@
 name = "raven-core"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Core types for RavenRustRAG: Document, Chunk, SearchResult, Config, errors"
+keywords = ["rag", "retrieval", "document", "embedding", "search"]
+categories = ["text-processing", "database"]
 
 [dependencies]
 serde = { workspace = true }

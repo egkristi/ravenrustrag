@@ -2,13 +2,20 @@
 name = "raven-search"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Search pipeline for RavenRustRAG: vector, BM25 hybrid, knowledge graph, reranking"
+keywords = ["search", "bm25", "hybrid-search", "rag", "knowledge-graph"]
+categories = ["algorithms", "text-processing"]
 
 [dependencies]
-raven-core = { path = "../raven-core" }
-raven-embed = { path = "../raven-embed" }
-raven-store = { path = "../raven-store" }
-raven-split = { path = "../raven-split" }
-raven-load = { path = "../raven-load" }
+raven-core = { path = "../raven-core", version = "0.1.0-alpha.1" }
+raven-embed = { path = "../raven-embed", version = "0.1.0-alpha.1" }
+raven-store = { path = "../raven-store", version = "0.1.0-alpha.1" }
+raven-split = { path = "../raven-split", version = "0.1.0-alpha.1" }
+raven-load = { path = "../raven-load", version = "0.1.0-alpha.1" }
 tokio = { workspace = true }
 notify = { workspace = true }
 tracing = { workspace = true }

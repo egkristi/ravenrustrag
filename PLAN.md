@@ -1,6 +1,6 @@
 # RavenRustRAG — Implementation Plan
 
-> **Status:** v0.1.0-alpha — Phases 1–3 complete, Phase 4 in progress, 13 open issues  
+> **Status:** v0.1.0-alpha — Phases 1–3 complete, Phase 4 nearly complete, 6 open issues  
 > **Motto:** *Make it work, make it right, make it fast — in that order.*  
 > **Goal:** Functionally superior to the Python version (RavenRAG v0.7.0) with orders-of-magnitude better performance.
 
@@ -359,17 +359,17 @@ Features that make the Rust version **strictly better** than Python:
 - [x] GitHub Releases with pre-built binaries (linux, macos) — release.yml workflow
 - [ ] Homebrew tap formula — [#55](https://github.com/egkristi/ravenrustrag/issues/55)
 - [ ] AUR package — [#56](https://github.com/egkristi/ravenrustrag/issues/56)
-- [ ] Shell completions (bash, zsh, fish) — [#62](https://github.com/egkristi/ravenrustrag/issues/62)
+- [x] Shell completions (bash, zsh, fish) — [#62](https://github.com/egkristi/ravenrustrag/issues/62)
 
 ### 6.3 Quality
 - [ ] 80%+ test coverage — [#53](https://github.com/egkristi/ravenrustrag/issues/53)
-- [ ] Property-based testing (proptest) for splitters and search — [#58](https://github.com/egkristi/ravenrustrag/issues/58)
-- [ ] Fuzzing for parsers and input handling — [#57](https://github.com/egkristi/ravenrustrag/issues/57)
-- [ ] Concurrent stress tests — [#59](https://github.com/egkristi/ravenrustrag/issues/59)
-- [ ] 10k+ document scaling test — [#59](https://github.com/egkristi/ravenrustrag/issues/59)
+- [x] Property-based testing (proptest) for splitters and search — [#58](https://github.com/egkristi/ravenrustrag/issues/58)
+- [x] Fuzzing for parsers and input handling — [#57](https://github.com/egkristi/ravenrustrag/issues/57)
+- [x] Concurrent stress tests — [#59](https://github.com/egkristi/ravenrustrag/issues/59)
+- [x] 10k+ document scaling test — [#59](https://github.com/egkristi/ravenrustrag/issues/59)
 
 ### 6.4 Stability
-- [ ] SQLite schema versioning and automatic migrations — [#60](https://github.com/egkristi/ravenrustrag/issues/60)
+- [x] SQLite schema versioning and automatic migrations — [#60](https://github.com/egkristi/ravenrustrag/issues/60)
 - [ ] v1.0 stable release — [#61](https://github.com/egkristi/ravenrustrag/issues/61)
 
 ---
@@ -379,10 +379,10 @@ Features that make the Rust version **strictly better** than Python:
 Features planned for post-1.0 development:
 
 ### 5F.1 LLM Generation
-- [ ] Generator trait + Ollama/OpenAI backends — [#63](https://github.com/egkristi/ravenrustrag/issues/63)
-- [ ] `raven ask <question>` — full RAG pipeline with answer generation
+- [x] Generator trait + Ollama/OpenAI backends — [#63](https://github.com/egkristi/ravenrustrag/issues/63)
+- [x] `raven ask <question>` — full RAG pipeline with answer generation
 - [ ] `POST /ask` server endpoint with streaming SSE response
-- [ ] Configurable system prompts and temperature
+- [x] Configurable system prompts and temperature
 
 ### 5F.2 ONNX Runtime (when ort crate is compatible)
 - [ ] Local embedding without Ollama — [#43](https://github.com/egkristi/ravenrustrag/issues/43)
@@ -402,8 +402,6 @@ Features planned for post-1.0 development:
 
 1. **ONNX not functional** — Stub exists behind feature flag but `ort` crate has MSRV conflicts (requires reqwest 0.12+). [#43](https://github.com/egkristi/ravenrustrag/issues/43)
 2. **No ONNX cross-encoder** — Reranker trait exists, but only keyword-based. Blocked by #43. [#44](https://github.com/egkristi/ravenrustrag/issues/44)
-3. **No schema migrations** — Database schema changes require manual re-indexing. [#60](https://github.com/egkristi/ravenrustrag/issues/60)
-4. **No LLM generation** — System formats prompts but cannot call LLMs directly. [#63](https://github.com/egkristi/ravenrustrag/issues/63)
 
 ## 7.1 Open Issues
 
@@ -415,13 +413,7 @@ Features planned for post-1.0 development:
 | [#53](https://github.com/egkristi/ravenrustrag/issues/53) | 80%+ test coverage target | Medium | Open |
 | [#55](https://github.com/egkristi/ravenrustrag/issues/55) | Homebrew tap for macOS | Medium | Open |
 | [#56](https://github.com/egkristi/ravenrustrag/issues/56) | AUR package for Arch Linux | Low | Open |
-| [#57](https://github.com/egkristi/ravenrustrag/issues/57) | Fuzz testing (cargo-fuzz) | Medium | Open |
-| [#58](https://github.com/egkristi/ravenrustrag/issues/58) | Property-based testing (proptest) | Medium | Open |
-| [#59](https://github.com/egkristi/ravenrustrag/issues/59) | Concurrent stress tests + 10k scaling | Medium | Open |
-| [#60](https://github.com/egkristi/ravenrustrag/issues/60) | SQLite schema migrations | High | Open |
 | [#61](https://github.com/egkristi/ravenrustrag/issues/61) | v1.0 stable release | High | Open (meta) |
-| [#62](https://github.com/egkristi/ravenrustrag/issues/62) | Shell completions (bash/zsh/fish) | Low | Open |
-| [#63](https://github.com/egkristi/ravenrustrag/issues/63) | LLM generation integration | Medium | Open |
 
 ### Resolved Issues
 
@@ -450,6 +442,12 @@ Features planned for post-1.0 development:
 | [#50](https://github.com/egkristi/ravenrustrag/issues/50) | Migration guide from Python | Low | Resolved |
 | [#51](https://github.com/egkristi/ravenrustrag/issues/51) | Performance comparison docs | Low | Resolved |
 | [#54](https://github.com/egkristi/ravenrustrag/issues/54) | Static musl binary distribution | Low | Resolved |
+| [#57](https://github.com/egkristi/ravenrustrag/issues/57) | Fuzz testing (cargo-fuzz) | Medium | Resolved |
+| [#58](https://github.com/egkristi/ravenrustrag/issues/58) | Property-based testing (proptest) | Medium | Resolved |
+| [#59](https://github.com/egkristi/ravenrustrag/issues/59) | Concurrent stress tests + 10k scaling | Medium | Resolved |
+| [#60](https://github.com/egkristi/ravenrustrag/issues/60) | SQLite schema migrations | High | Resolved |
+| [#62](https://github.com/egkristi/ravenrustrag/issues/62) | Shell completions (bash/zsh/fish) | Low | Resolved |
+| [#63](https://github.com/egkristi/ravenrustrag/issues/63) | LLM generation integration | Medium | Resolved |
 
 ## 8. Build Instructions
 

@@ -2,9 +2,16 @@
 name = "raven-store"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Vector storage backends for RavenRustRAG: SQLite, memory, HNSW"
+keywords = ["vector-store", "sqlite", "hnsw", "rag", "similarity"]
+categories = ["database", "data-structures"]
 
 [dependencies]
-raven-core = { path = "../raven-core" }
+raven-core = { path = "../raven-core", version = "0.1.0-alpha.1" }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

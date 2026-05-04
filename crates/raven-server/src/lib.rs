@@ -198,6 +198,23 @@ pub struct PromptResponse {
 }
 
 #[derive(Deserialize)]
+pub struct AskRequest {
+    pub query: String,
+    #[serde(default = "default_top_k")]
+    pub top_k: usize,
+    #[serde(default)]
+    pub hybrid: bool,
+    #[serde(default = "default_alpha")]
+    pub alpha: f32,
+    /// LLM model to use (default: llama3)
+    pub model: Option<String>,
+    /// Temperature for generation (0.0 - 1.0)
+    pub temperature: Option<f32>,
+    /// Ollama base URL override
+    pub url: Option<String>,
+}
+
+#[derive(Deserialize)]
 pub struct IndexRequest {
     pub documents: Vec<IndexDocument>,
 }
@@ -462,6 +479,130 @@ async fn prompt_handler(
                 .into_response()
         }
     }
+}
+
+async fn ask_handler(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(mut req): Json<AskRequest>,
+) -> impl IntoResponse {
+    use axum::response::sse::{Event, KeepAlive, Sse};
+    use futures_util::stream;
+    use raven_embed::{create_generator, GeneratorConfig};
+
+    state.metrics.requests_total.fetch_add(1, Ordering::Relaxed);
+    state.metrics.queries_total.fetch_add(1, Ordering::Relaxed);
+
+    req.query = sanitize_input(&req.query);
+
+    if !check_auth(&headers, &state.config) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "Unauthorized"})),
+        )
+            .into_response();
+    }
+
+    if req.query.len() > state.config.max_query_length {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": format!("Query too long (max {} characters)", state.config.max_query_length)
+            })),
+        )
+            .into_response();
+    }
+
+    if req.query.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "Query must not be empty"})),
+        )
+            .into_response();
+    }
+
+    let top_k = req.top_k.clamp(1, 100);
+
+    // Retrieve context
+    let results = if req.hybrid {
+        state.index.query_hybrid(&req.query, top_k, req.alpha).await
+    } else {
+        state.index.query(&req.query, top_k).await
+    };
+
+    let results = match results {
+        Ok(r) => r,
+        Err(e) => {
+            error!("Ask retrieval failed: {e}");
+            state.metrics.errors_total.fetch_add(1, Ordering::Relaxed);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Internal server error"})),
+            )
+                .into_response();
+        }
+    };
+
+    // Build prompt
+    let context: String = results
+        .iter()
+        .enumerate()
+        .map(|(i, r)| {
+            let src = r.chunk.metadata.get("source").unwrap_or(&r.chunk.doc_id);
+            format!("[{}] Source: {}\n{}", i + 1, src, r.chunk.text)
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    let prompt = format!(
+        "Answer the following question using ONLY the provided context. If the context does not contain enough information, say so.\n\nContext:\n{context}\n\nQuestion: {}\n\nAnswer:",
+        req.query
+    );
+
+    // Create generator
+    let config = GeneratorConfig {
+        model: req.model.unwrap_or_else(|| "llama3".to_string()),
+        temperature: req.temperature.unwrap_or(0.7),
+        max_tokens: Some(2048),
+        system_prompt: Some(
+            "You are a helpful assistant that answers questions based on provided context."
+                .to_string(),
+        ),
+    };
+    let generator = create_generator("ollama", req.url.as_deref(), config);
+
+    // Generate via SSE streaming
+    let (tx, rx) = tokio::sync::mpsc::channel::<String>(64);
+
+    tokio::spawn(async move {
+        let tx_err = tx.clone();
+        let result = generator
+            .generate_stream(&prompt, &move |token: String| {
+                let _ = tx.try_send(token);
+            })
+            .await;
+
+        if let Err(e) = result {
+            let _ = tx_err.try_send(format!("\n\n[Error: {e}]"));
+        }
+        // tx/tx_err drop here, closing the stream
+    });
+
+    let rx_stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+    let event_stream = stream::unfold(rx_stream, |mut rx| async move {
+        use tokio_stream::StreamExt;
+        match rx.next().await {
+            Some(token) => {
+                let event = Event::default().data(token);
+                Some((Ok::<_, std::convert::Infallible>(event), rx))
+            }
+            None => None,
+        }
+    });
+
+    Sse::new(event_stream)
+        .keep_alive(KeepAlive::default())
+        .into_response()
 }
 
 async fn index_handler(
@@ -935,6 +1076,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/metrics", get(metrics_handler))
         .route("/query", post(query_handler))
         .route("/prompt", post(prompt_handler))
+        .route("/ask", post(ask_handler))
         .route("/index", post(index_handler))
         .route("/documents/:doc_id", delete(delete_handler))
         .route("/openapi.json", get(openapi))

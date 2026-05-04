@@ -2146,6 +2146,7 @@ name = "raven-server"
 version = "0.1.0-alpha.1"
 dependencies = [
  "axum 0.7.9",
+ "futures-util",
  "http-body-util",
  "hyper 1.9.0",
  "opentelemetry",
@@ -2160,6 +2161,7 @@ dependencies = [
  "serde_json",
  "subtle",
  "tokio",
+ "tokio-stream",
  "tower 0.4.13",
  "tower-http",
  "tracing",

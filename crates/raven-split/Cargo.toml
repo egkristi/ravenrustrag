@@ -2,9 +2,16 @@
 name = "raven-split"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Text splitting strategies for RavenRustRAG: character, token, sentence"
+keywords = ["text-splitting", "chunking", "tokenizer", "rag", "nlp"]
+categories = ["text-processing"]
 
 [dependencies]
-raven-core = { path = "../raven-core" }
+raven-core = { path = "../raven-core", version = "0.1.0-alpha.1" }
 
 [dev-dependencies]
 proptest = { workspace = true }

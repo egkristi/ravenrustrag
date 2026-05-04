@@ -7,6 +7,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- `raven ask` command for local LLM question-answering via Ollama (#63)
+- Generator trait and OllamaGenerator for LLM text generation with streaming
+- `raven completions` command for shell completion generation (bash, zsh, fish, elvish, PowerShell) (#62)
+- Schema migration system with versioned upgrades for SqliteStore (#60)
+- Property-based tests with proptest for core, split, and search crates (#58)
+- Stress tests for concurrent indexing and large document handling (#59)
+- Fuzz targets for text splitter, all loaders, and cosine similarity (#57)
 - mdBook + MkDocs documentation site
 - DashMap lock-free embedding cache (#47)
 - Memory-mapped I/O for SQLite (256 MB mmap) (#48)
