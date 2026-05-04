@@ -12,11 +12,12 @@ reqwest = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 async-trait = "0.1"
-ort = { version = "2.0.0-rc.10", optional = true, default-features = false, features = ["std", "download-binaries"] }
-ndarray = { version = "0.16", optional = true }
 
 [features]
-onnx = ["dep:ort", "dep:ndarray"]
+# ONNX support placeholder. Currently disabled due to reqwest version conflict
+# (ort crate requires reqwest 0.13, workspace uses 0.11). Enable when workspace
+# migrates to reqwest 0.12+. The OnnxEmbedder code is ready behind cfg(feature = "onnx").
+onnx = []
 
 [lints]
 workspace = true

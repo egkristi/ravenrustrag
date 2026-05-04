@@ -13,5 +13,12 @@ sha2 = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
 
+[dev-dependencies]
+criterion = { workspace = true }
+
 [lints]
 workspace = true
+
+[[bench]]
+name = "cosine_bench"
+harness = false
