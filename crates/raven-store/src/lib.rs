@@ -128,6 +128,9 @@ pub struct SqliteStore {
     dimension: usize,
 }
 
+/// Current schema version
+const SCHEMA_VERSION: i64 = 1;
+
 impl SqliteStore {
     #[allow(clippy::unused_async)]
     pub async fn new(path: impl AsRef<Path>, dimension: usize) -> Result<Self> {
@@ -144,59 +147,104 @@ impl SqliteStore {
         )
         .map_err(|e| RavenError::Store(format!("Failed to set PRAGMA: {e}")))?;
 
-        // Create tables
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS chunks (
-                id TEXT PRIMARY KEY,
-                doc_id TEXT NOT NULL,
-                text TEXT NOT NULL,
-                metadata TEXT NOT NULL DEFAULT '{}',
-                embedding BLOB NOT NULL
-            )",
-            [],
-        )
-        .map_err(|e| RavenError::Store(format!("Failed to create table: {e}")))?;
-
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON chunks(doc_id)",
-            [],
-        )
-        .map_err(|e| RavenError::Store(format!("Failed to create index: {e}")))?;
-
-        // Fingerprint table for incremental indexing
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS fingerprints (
-                path TEXT PRIMARY KEY,
-                content_hash TEXT NOT NULL,
-                modified INTEGER NOT NULL
-            )",
-            [],
-        )
-        .map_err(|e| RavenError::Store(format!("Failed to create fingerprints table: {e}")))?;
-
-        // BM25 term storage for persistent hybrid search
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS bm25_terms (
-                chunk_id TEXT PRIMARY KEY,
-                doc_id TEXT NOT NULL,
-                text TEXT NOT NULL,
-                terms TEXT NOT NULL,
-                doc_length REAL NOT NULL
-            )",
-            [],
-        )
-        .map_err(|e| RavenError::Store(format!("Failed to create bm25_terms table: {e}")))?;
-
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_bm25_doc_id ON bm25_terms(doc_id)",
-            [],
-        )
-        .map_err(|e| RavenError::Store(format!("Failed to create bm25 index: {e}")))?;
+        // Run schema migrations
+        Self::migrate(&conn)?;
 
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
             dimension,
         })
+    }
+
+    /// Run schema migrations from current version to latest
+    fn migrate(conn: &Connection) -> Result<()> {
+        // Create schema_version table if it doesn't exist
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS schema_version (
+                version INTEGER NOT NULL,
+                updated_at TEXT NOT NULL
+            )",
+            [],
+        )
+        .map_err(|e| RavenError::Store(format!("Failed to create schema_version table: {e}")))?;
+
+        let current_version: i64 = conn
+            .query_row(
+                "SELECT COALESCE(MAX(version), 0) FROM schema_version",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        if current_version < 1 {
+            Self::migrate_to_v1(conn)?;
+        }
+
+        // Future migrations:
+        // if current_version < 2 { Self::migrate_to_v2(conn)?; }
+
+        Ok(())
+    }
+
+    /// Migration to version 1: initial schema
+    fn migrate_to_v1(conn: &Connection) -> Result<()> {
+        tracing::info!("Running migration to schema version 1");
+
+        conn.execute_batch(
+            "BEGIN;
+
+            CREATE TABLE IF NOT EXISTS chunks (
+                id TEXT PRIMARY KEY,
+                doc_id TEXT NOT NULL,
+                text TEXT NOT NULL,
+                metadata TEXT NOT NULL DEFAULT '{}',
+                embedding BLOB NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON chunks(doc_id);
+
+            CREATE TABLE IF NOT EXISTS fingerprints (
+                path TEXT PRIMARY KEY,
+                content_hash TEXT NOT NULL,
+                modified INTEGER NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS bm25_terms (
+                chunk_id TEXT PRIMARY KEY,
+                doc_id TEXT NOT NULL,
+                text TEXT NOT NULL,
+                terms TEXT NOT NULL,
+                doc_length REAL NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_bm25_doc_id ON bm25_terms(doc_id);
+
+            COMMIT;",
+        )
+        .map_err(|e| RavenError::Store(format!("Migration v1 failed: {e}")))?;
+
+        // Record the migration
+        conn.execute(
+            "INSERT INTO schema_version (version, updated_at) VALUES (?1, datetime('now'))",
+            params![SCHEMA_VERSION],
+        )
+        .map_err(|e| RavenError::Store(format!("Failed to record schema version: {e}")))?;
+
+        tracing::info!("Migration to schema version 1 complete");
+        Ok(())
+    }
+
+    /// Get the current schema version of the database
+    pub async fn schema_version(&self) -> Result<i64> {
+        let conn = self.conn.lock().await;
+        let version: i64 = conn
+            .query_row(
+                "SELECT COALESCE(MAX(version), 0) FROM schema_version",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|e| RavenError::Store(format!("Failed to read schema version: {e}")))?;
+        Ok(version)
     }
 
     #[inline]

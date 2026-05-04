@@ -692,7 +692,8 @@ async fn main() -> Result<()> {
                 match SqliteStore::new(&db, 768).await {
                     Ok(store) => {
                         let count = store.count().await.unwrap_or(0);
-                        format!("ok ({count} chunks)")
+                        let version = store.schema_version().await.unwrap_or(0);
+                        format!("ok ({count} chunks, schema v{version})")
                     }
                     Err(e) => format!("error: {e}"),
                 }
