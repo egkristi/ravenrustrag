@@ -11,6 +11,7 @@ serde_json = { workspace = true }
 rusqlite = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+chrono = { workspace = true }
 ndarray = { workspace = true }
 async-trait = "0.1"
 

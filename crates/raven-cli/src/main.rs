@@ -378,13 +378,22 @@ async fn main() -> Result<()> {
             let store = make_store(&db).await?;
             let count = store.count().await?;
             println!("Exporting {} chunks from {}...", count, db.display());
-            // For export we read all chunks as documents
-            // This is a simplified export — exports a marker file
-            let marker =
-                raven_core::Document::new(format!("RavenRustRAG export: {} chunks", count))
-                    .with_metadata("db", db.to_string_lossy());
-            raven_load::export_jsonl(&[marker], &output)?;
-            println!("✓ Exported to {}", output.display());
+
+            let chunks = store.all().await?;
+            // Convert chunks to documents for JSONL export
+            let docs: Vec<raven_core::Document> = chunks
+                .into_iter()
+                .map(|c| {
+                    let mut doc = raven_core::Document::new(&c.text).with_id(&c.doc_id);
+                    for (k, v) in &c.metadata {
+                        doc = doc.with_metadata(k, v);
+                    }
+                    doc = doc.with_metadata("chunk_id", &c.id);
+                    doc
+                })
+                .collect();
+            let written = raven_load::export_jsonl(&docs, &output)?;
+            println!("✓ Exported {} documents to {}", written, output.display());
         }
 
         Commands::Import {

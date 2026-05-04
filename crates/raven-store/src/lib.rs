@@ -22,6 +22,18 @@ pub trait VectorStore: Send + Sync {
 
     /// Clear all data
     async fn clear(&self) -> Result<()>;
+
+    /// Get all chunks (for export)
+    async fn all(&self) -> Result<Vec<Chunk>>;
+
+    /// Check if a fingerprint exists and matches
+    async fn get_fingerprint(&self, path: &str) -> Result<Option<String>>;
+
+    /// Set fingerprint for a path
+    async fn set_fingerprint(&self, path: &str, hash: &str) -> Result<()>;
+
+    /// Delete fingerprint for a path
+    async fn delete_fingerprint(&self, path: &str) -> Result<()>;
 }
 
 /// SQLite-backed vector store with flat (brute-force) search
@@ -203,6 +215,77 @@ impl VectorStore for SqliteStore {
             .map_err(|e| RavenError::Store(format!("Clear failed: {}", e)))?;
         Ok(())
     }
+
+    async fn all(&self) -> Result<Vec<Chunk>> {
+        let conn = self.conn.lock().await;
+        let mut stmt = conn
+            .prepare("SELECT id, doc_id, text, metadata, embedding FROM chunks")
+            .map_err(|e| RavenError::Store(format!("Query prepare failed: {}", e)))?;
+
+        let chunks = stmt
+            .query_map([], |row| {
+                let id: String = row.get(0)?;
+                let doc_id: String = row.get(1)?;
+                let text: String = row.get(2)?;
+                let metadata_str: String = row.get(3)?;
+                let embedding_bytes: Vec<u8> = row.get(4)?;
+
+                let metadata = serde_json::from_str(&metadata_str).unwrap_or_default();
+                let embedding = embedding_bytes
+                    .chunks_exact(4)
+                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+                    .collect::<Vec<f32>>();
+
+                Ok(Chunk {
+                    id,
+                    doc_id,
+                    text,
+                    metadata,
+                    embedding: Some(embedding),
+                })
+            })
+            .map_err(|e| RavenError::Store(format!("Query failed: {}", e)))?;
+
+        let mut result = Vec::new();
+        for chunk in chunks {
+            result.push(chunk.map_err(|e| RavenError::Store(format!("Row error: {}", e)))?);
+        }
+        Ok(result)
+    }
+
+    async fn get_fingerprint(&self, path: &str) -> Result<Option<String>> {
+        let conn = self.conn.lock().await;
+        let result = conn.query_row(
+            "SELECT content_hash FROM fingerprints WHERE path = ?1",
+            [path],
+            |row| row.get::<_, String>(0),
+        );
+        match result {
+            Ok(hash) => Ok(Some(hash)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(RavenError::Store(format!(
+                "Fingerprint query failed: {}",
+                e
+            ))),
+        }
+    }
+
+    async fn set_fingerprint(&self, path: &str, hash: &str) -> Result<()> {
+        let conn = self.conn.lock().await;
+        conn.execute(
+            "INSERT OR REPLACE INTO fingerprints (path, content_hash, modified) VALUES (?1, ?2, ?3)",
+            rusqlite::params![path, hash, chrono::Utc::now().timestamp()],
+        )
+        .map_err(|e| RavenError::Store(format!("Fingerprint set failed: {}", e)))?;
+        Ok(())
+    }
+
+    async fn delete_fingerprint(&self, path: &str) -> Result<()> {
+        let conn = self.conn.lock().await;
+        conn.execute("DELETE FROM fingerprints WHERE path = ?1", [path])
+            .map_err(|e| RavenError::Store(format!("Fingerprint delete failed: {}", e)))?;
+        Ok(())
+    }
 }
 
 /// In-memory store for testing
@@ -268,6 +351,22 @@ impl VectorStore for MemoryStore {
 
     async fn clear(&self) -> Result<()> {
         self.chunks.lock().await.clear();
+        Ok(())
+    }
+
+    async fn all(&self) -> Result<Vec<Chunk>> {
+        Ok(self.chunks.lock().await.clone())
+    }
+
+    async fn get_fingerprint(&self, _path: &str) -> Result<Option<String>> {
+        Ok(None)
+    }
+
+    async fn set_fingerprint(&self, _path: &str, _hash: &str) -> Result<()> {
+        Ok(())
+    }
+
+    async fn delete_fingerprint(&self, _path: &str) -> Result<()> {
         Ok(())
     }
 }
