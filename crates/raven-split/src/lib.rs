@@ -49,12 +49,19 @@ impl Splitter for TextSplitter {
             if text.len() <= self.chunk_size {
                 let mut chunk = Chunk::new(&doc.id, &doc.text);
                 doc.metadata.clone_into(&mut chunk.metadata);
+                chunk
+                    .metadata
+                    .insert("chunk_index".to_string(), "0".to_string());
+                chunk
+                    .metadata
+                    .insert("source_id".to_string(), doc.id.clone());
                 chunks.push(chunk);
                 continue;
             }
 
             let step = self.chunk_size - self.chunk_overlap;
             let mut start = 0;
+            let mut chunk_index = 0usize;
 
             while start < text.len() {
                 let end = (start + self.chunk_size).min(text.len());
@@ -62,12 +69,19 @@ impl Splitter for TextSplitter {
 
                 let mut chunk = Chunk::new(&doc.id, chunk_text);
                 doc.metadata.clone_into(&mut chunk.metadata);
+                chunk
+                    .metadata
+                    .insert("chunk_index".to_string(), chunk_index.to_string());
+                chunk
+                    .metadata
+                    .insert("source_id".to_string(), doc.id.clone());
                 chunks.push(chunk);
 
                 if end == text.len() {
                     break;
                 }
                 start += step;
+                chunk_index += 1;
             }
         }
 
@@ -187,6 +201,9 @@ impl Splitter for TokenSplitter {
                 chunk
                     .metadata
                     .insert("chunk_index".to_string(), "0".to_string());
+                chunk
+                    .metadata
+                    .insert("source_id".to_string(), doc.id.clone());
                 chunks.push(chunk);
                 continue;
             }
@@ -198,6 +215,9 @@ impl Splitter for TokenSplitter {
                 chunk
                     .metadata
                     .insert("chunk_index".to_string(), i.to_string());
+                chunk
+                    .metadata
+                    .insert("source_id".to_string(), doc.id.clone());
                 chunks.push(chunk);
             }
         }
@@ -265,6 +285,12 @@ impl Splitter for SentenceSplitter {
             if doc.text.len() <= self.max_chars {
                 let mut chunk = Chunk::new(&doc.id, &doc.text);
                 doc.metadata.clone_into(&mut chunk.metadata);
+                chunk
+                    .metadata
+                    .insert("chunk_index".to_string(), "0".to_string());
+                chunk
+                    .metadata
+                    .insert("source_id".to_string(), doc.id.clone());
                 chunks.push(chunk);
                 continue;
             }
@@ -282,6 +308,9 @@ impl Splitter for SentenceSplitter {
                     chunk
                         .metadata
                         .insert("chunk_index".to_string(), chunk_index.to_string());
+                    chunk
+                        .metadata
+                        .insert("source_id".to_string(), doc.id.clone());
                     chunks.push(chunk);
                     chunk_index += 1;
 
@@ -303,6 +332,9 @@ impl Splitter for SentenceSplitter {
                 chunk
                     .metadata
                     .insert("chunk_index".to_string(), chunk_index.to_string());
+                chunk
+                    .metadata
+                    .insert("source_id".to_string(), doc.id.clone());
                 chunks.push(chunk);
             }
         }

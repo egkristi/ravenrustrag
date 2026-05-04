@@ -116,6 +116,8 @@ pub struct Config {
     pub store: StoreConfig,
     pub splitter: SplitterConfig,
     pub server: ServerConfig,
+    #[serde(default)]
+    pub context: ContextConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,6 +198,18 @@ fn default_max_query_length() -> usize {
     10_000
 }
 
+/// Context formatting configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextConfig {
+    pub template: Option<String>,
+}
+
+impl Default for ContextConfig {
+    fn default() -> Self {
+        Self { template: None }
+    }
+}
+
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
@@ -230,7 +244,20 @@ impl Config {
     /// Read config from a TOML file
     pub fn from_file(path: &Path) -> Result<Self> {
         let content = std::fs::read_to_string(path)?;
-        toml::from_str(&content).map_err(|e| RavenError::Config(format!("TOML parse error: {e}")))
+        let config: Self = toml::from_str(&content)
+            .map_err(|e| RavenError::Config(format!("TOML parse error: {e}")))?;
+
+        // Warn about unknown top-level keys
+        if let Ok(raw) = content.parse::<toml::Table>() {
+            let known_keys = ["embedder", "store", "splitter", "server", "context"];
+            for key in raw.keys() {
+                if !known_keys.contains(&key.as_str()) {
+                    tracing::warn!("Unknown config key: '{key}' (possible typo?)");
+                }
+            }
+        }
+
+        Ok(config)
     }
 
     /// Walk up from cwd looking for raven.toml

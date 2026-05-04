@@ -370,6 +370,64 @@ impl Embedder for DummyEmbedder {
     }
 }
 
+// =============================================================================
+// Backend auto-detection
+// =============================================================================
+
+/// Create an embedder from a config, auto-detecting the backend.
+///
+/// Supported URL schemes:
+/// - `ollama://model` or `ollama://host:port/model`
+/// - `openai://model` or `openai://host:port/model`
+/// - Plain URL with backend hint: backend="ollama" or backend="openai"
+pub fn create_embedder(
+    backend: &str,
+    model: &str,
+    url: Option<&str>,
+    api_key: Option<&str>,
+) -> Arc<dyn Embedder> {
+    match backend {
+        "openai" => {
+            let base_url = url.unwrap_or("https://api.openai.com/v1");
+            let mut embedder = OpenAIBackend::new(base_url, model);
+            if let Some(key) = api_key {
+                embedder = embedder.with_api_key(key);
+            }
+            Arc::new(embedder)
+        }
+        _ => {
+            // Default: Ollama
+            let base_url = url.unwrap_or("http://localhost:11434");
+            Arc::new(OllamaBackend::new(base_url, model))
+        }
+    }
+}
+
+/// Create a cached embedder from config
+pub fn create_cached_embedder(
+    backend: &str,
+    model: &str,
+    url: Option<&str>,
+    api_key: Option<&str>,
+    cache_size: usize,
+) -> Arc<dyn Embedder> {
+    match backend {
+        "openai" => {
+            let base_url = url.unwrap_or("https://api.openai.com/v1");
+            let mut embedder = OpenAIBackend::new(base_url, model);
+            if let Some(key) = api_key {
+                embedder = embedder.with_api_key(key);
+            }
+            Arc::new(CachedEmbedder::new(embedder, cache_size))
+        }
+        _ => {
+            let base_url = url.unwrap_or("http://localhost:11434");
+            let embedder = OllamaBackend::new(base_url, model);
+            Arc::new(CachedEmbedder::new(embedder, cache_size))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
