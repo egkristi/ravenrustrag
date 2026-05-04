@@ -23,3 +23,7 @@ raven.toml
 # Test artifacts
 test_output/
 temp/
+
+# Documentation build output
+site/
+book/

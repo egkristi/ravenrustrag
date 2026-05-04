@@ -1,0 +1,14 @@
+[book]
+title = "RavenRustRAG User Guide"
+authors = ["egkristi"]
+language = "en"
+multilingual = false
+src = "docs"
+
+[build]
+build-dir = "book"
+
+[output.html]
+default-theme = "rust"
+git-repository-url = "https://github.com/egkristi/ravenrustrag"
+edit-url-template = "https://github.com/egkristi/ravenrustrag/edit/main/docs/{path}"
