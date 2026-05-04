@@ -1,5 +1,9 @@
 # RavenRustRAG — AI Agent Instructions
 
+## Language
+
+All code, comments, documentation, commit messages, and plan files must be written in **English only**.
+
 ## Project Overview
 
 RavenRustRAG is a local-first RAG (Retrieval-Augmented Generation) engine written in Rust.

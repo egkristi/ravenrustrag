@@ -1,71 +1,71 @@
 # RavenRustRAG — Implementation Plan
 
-> **Status:** v0.1.0-alpha — Fase 1 komplett, Fase 2 nesten komplett, Fase 3 i gang  
+> **Status:** v0.1.0-alpha — Phase 1 complete, Phase 2 nearly complete, Phase 3 in progress  
 > **Motto:** *Make it work, make it right, make it fast — in that order.*  
-> **Mål:** Funksjonelt overlegen Python-versjonen (RavenRAG v0.7.0) med ordenstall bedre ytelse.
+> **Goal:** Functionally superior to the Python version (RavenRAG v0.7.0) with orders-of-magnitude better performance.
 
 ---
 
-## Referanse: RavenRAG v0.7.0 (Python)
+## Reference: RavenRAG v0.7.0 (Python)
 
-Komplett featureliste i Python-versjonen per 2026-05-04 (~4 200 linjer, 24 moduler):
+Complete feature list of the Python version as of 2026-05-04 (~4,200 lines, 24 modules):
 
-| Kategori | Python-features | Rust-status |
+| Category | Python Features | Rust Status |
 |---|---|---|
-| **Core** | Document, QueryResult (citation), DocumentIndex, async (aadd/aquery) | ✅ Fase 1 |
-| **Embedding** | sentence-transformers, Ollama, OpenAI, vLLM, custom protocol | 🟡 Kun Ollama |
+| **Core** | Document, QueryResult (citation), DocumentIndex, async (aadd/aquery) | ✅ Phase 1 |
+| **Embedding** | sentence-transformers, Ollama, OpenAI, vLLM, custom protocol | 🟡 Ollama only |
 | **Storage** | ChromaDB, FAISS, SQLite-vec, VectorStoreBackend protocol | ✅ SQLite + Memory |
 | **Splitting** | TextSplitter, TokenSplitter, SemanticSplitter | ✅ Text + Token + Sentence |
 | **Loaders** | .txt .md .pdf .docx .pptx .xlsx .csv .rtf .html + plugin system | ✅ txt,md,csv,json,jsonl,html |
 | **Search** | Vector, BM25 hybrid (RRF), cross-encoder reranking, streaming | ✅ Vector + BM25 hybrid (RRF) |
-| **Graph** | KnowledgeGraph, GraphRetriever, entity extraction, RRF fusion | ❌ Fase 3 |
+| **Graph** | KnowledgeGraph, GraphRetriever, entity extraction, RRF fusion | ❌ Phase 3 |
 | **Server** | HTTP (stdlib), auth, CORS, /metrics, /openapi.json, 7 endpoints | ✅ Axum, auth, CORS, /metrics |
 | **MCP** | stdio JSON-RPC, 3 tools (search, get_prompt, collection_info) | ✅ 4 tools |
 | **CLI** | 11 commands (index, query, prompt, serve, watch, info, export, import, doctor, mcp, benchmark) | ✅ 11 commands |
 | **Pipeline** | Pipeline class, run/query/stream, error strategies | ✅ DocumentIndex pipeline |
-| **Config** | TOML + pyproject.toml + env vars, auto-discovery | ✅ Basis |
+| **Config** | TOML + pyproject.toml + env vars, auto-discovery | ✅ Base |
 | **Cache** | Thread-safe LRU embedding cache | ✅ |
 | **Eval** | MRR, NDCG, Recall@k | ✅ MRR, NDCG, Recall@k, Precision@k |
 | **Watch** | File watcher with debounce + delete tracking | ✅ notify crate |
 | **Export** | JSONL backup/restore | ✅ export/import |
 | **Fingerprint** | SHA-256 incremental indexing | ✅ |
 | **Observability** | @timed decorator, /metrics, raven benchmark | ✅ tracing spans, /metrics |
-| **Multi-collection** | MultiCollectionRouter, cross-index query | ❌ Fase 3 |
-| **Parent-child** | query_parent() — search chunks, return parents | ❌ Fase 3 |
-| **Context** | ContextFormatter, templates, citations in prompts | ✅ Basis |
+| **Multi-collection** | MultiCollectionRouter, cross-index query | ❌ Phase 3 |
+| **Parent-child** | query_parent() — search chunks, return parents | ❌ Phase 3 |
+| **Context** | ContextFormatter, templates, citations in prompts | ✅ Base |
 | **Docker** | Multi-stage, model pre-download, non-root, healthcheck | ✅ Dockerfile |
 | **CI** | GitHub Actions, lint, test (75% coverage), container build | ✅ GitHub Actions |
 
-### Kjente svakheter i Python-versjonen
+### Known Weaknesses in the Python Version
 
-Disse skal **ikke** reproduseres i Rust:
+These must **not** be reproduced in Rust:
 
-1. **Ingen tråd-sikkerhet** — samtidige forespørsler kan korrumpere tilstand
-2. **Sync-first** — async er `asyncio.to_thread` wrappers, ikke ekte async
-3. **ChromaDB-lekkasje** — `query_parent()` bryter VectorStoreBackend-abstraksjonen
-4. **Minimal TOML-parser** — regex-basert, håndterer ikke arrays/escaped quotes
-5. **Ingen rate limiting** — server DoS-sårbar
-6. **Ingen request timeout** — treg query blokkerer tråd for alltid
-7. **BM25 ikke persistert** — gjenoppbygges i minne ved endring
-8. **Flat vektor-søk i SQLite-backend** — O(n), ingen indeks
-9. **Stor oppstartstid** — 2-5s pga Python import + model loading
-10. **Høyt minnebruk** — 200-500MB+ baseline
+1. **No thread safety** — concurrent requests can corrupt state
+2. **Sync-first** — async is `asyncio.to_thread` wrappers, not real async
+3. **ChromaDB leakage** — `query_parent()` breaks the VectorStoreBackend abstraction
+4. **Minimal TOML parser** — regex-based, does not handle arrays/escaped quotes
+5. **No rate limiting** — server is DoS-vulnerable
+6. **No request timeout** — slow query blocks thread forever
+7. **BM25 not persisted** — rebuilt in memory on change
+8. **Flat vector search in SQLite backend** — O(n), no index
+9. **Slow startup** — 2-5s due to Python import + model loading
+10. **High memory usage** — 200-500MB+ baseline
 
-### Rust-fordeler som gjør oss overlegne
+### Rust Advantages That Make Us Superior
 
-| Dimensjon | Python | Rust |
+| Dimension | Python | Rust |
 |---|---|---|
-| **Oppstart** | 2–5s | <50ms |
-| **Query-latens** | 50–200ms | 1–10ms (uten embedding) |
-| **Minne** | 200–500MB+ | 20–50MB |
-| **Deploy** | virtualenv + deps | Én statisk binær |
-| **Concurrency** | GIL-bundet | Lock-free reads, Tokio async |
-| **Sikkerhet** | Runtime exceptions | Compile-time guarantees |
-| **Tråd-sikkerhet** | Ingen | Send + Sync, Arc<RwLock> |
+| **Startup** | 2–5s | <50ms |
+| **Query latency** | 50–200ms | 1–10ms (without embedding) |
+| **Memory** | 200–500MB+ | 20–50MB |
+| **Deploy** | virtualenv + deps | Single static binary |
+| **Concurrency** | GIL-bound | Lock-free reads, Tokio async |
+| **Safety** | Runtime exceptions | Compile-time guarantees |
+| **Thread safety** | None | Send + Sync, Arc<RwLock> |
 
 ---
 
-## 1. Arkitektur
+## 1. Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -87,7 +87,7 @@ Disse skal **ikke** reproduseres i Rust:
 └──────────┴──────────┴───────────┴──────────┴─────────────────────┘
 ```
 
-## 2. Crate-struktur
+## 2. Crate Structure
 
 ```
 ravenrustrag/
@@ -109,19 +109,19 @@ ravenrustrag/
 
 ---
 
-## 3. Fase 1: Foundation ✅ KOMPLETT
+## 3. Phase 1: Foundation ✅ COMPLETE
 
 ### 3.1 raven-core ✅
-- [x] `Document` — med metadata, id (SHA-256 fallback)
+- [x] `Document` — with metadata, id (SHA-256 fallback)
 - [x] `Chunk` — doc_id, text, metadata, embedding
 - [x] `SearchResult` — chunk, score, distance, citation
-- [x] `RavenError` — thiserror-basert enum
-- [x] `Config` — TOML + env var støtte
+- [x] `RavenError` — thiserror-based enum
+- [x] `Config` — TOML + env var support
 - [x] Fingerprint (SHA-256 content hash)
 
 ### 3.2 raven-embed ✅
 - [x] `Embedder` trait (async)
-- [x] `OllamaBackend` — HTTP client til Ollama /api/embed
+- [x] `OllamaBackend` — HTTP client to Ollama /api/embed
 - [x] `EmbeddingCache` — LRU in-memory cache
 - [x] `CachedEmbedder` — transparent cache wrapper
 
@@ -130,11 +130,11 @@ ravenrustrag/
 - [x] `SqliteStore` — rusqlite + cosine similarity
 - [x] `MemoryStore` — for testing
 - [x] Metadata-filtering
-- [x] Fingerprint-tabell for inkrementell indeksering
+- [x] Fingerprint table for incremental indexing
 
 ### 3.4 raven-split ✅
 - [x] `Splitter` trait
-- [x] `TextSplitter` — character-basert med configurable overlap
+- [x] `TextSplitter` — character-based with configurable overlap
 - [x] `TokenSplitter` — word-boundary-aware splitting
 - [x] `SentenceSplitter` — sentence-boundary splitting
 
@@ -144,208 +144,208 @@ ravenrustrag/
 - [x] Recursive directory walking
 
 ### 3.6 raven-search ✅
-- [x] `DocumentIndex` — pipeline-orkestrator
+- [x] `DocumentIndex` — pipeline orchestrator
 - [x] Builder pattern
 - [x] `add_documents()` — split → embed → store
 - [x] `query()` — embed → search
-- [x] `query_for_prompt()` — LLM-klar kontekst med sitater
+- [x] `query_for_prompt()` — LLM-ready context with citations
 
 ### 3.7 raven-cli ✅
-- [x] `raven index <path>` — indekser med progress bar
-- [x] `raven query "tekst"` — søk med scoring
-- [x] `raven info` — statistikk
-- [x] `raven clear` — tøm indeks
+- [x] `raven index <path>` — index with progress bar
+- [x] `raven query "tekst"` — search with scoring
+- [x] `raven info` — statistics
+- [x] `raven clear` — clear index
 - [x] `raven serve` — placeholder
 
 ---
 
-## 4. Fase 2: Feature Parity med Python
+## 4. Phase 2: Feature Parity with Python
 
-**Mål:** Match alle features i RavenRAG v0.7.0, men med bedre design.
+**Goal:** Match alle features i RavenRAG v0.7.0, men med bedre design.
 
 ### 4.1 HTTP API Server (raven-server)
-- [x] Axum-basert server med Tokio
-- [x] `GET /health` — helsesjekk
-- [x] `GET /stats` — indeksstatistikk
-- [ ] `GET /collections` — liste collections
-- [x] `GET /metrics` — timing og cache stats
+- [x] Axum-based server with Tokio
+- [x] `GET /health` — health check
+- [x] `GET /stats` — index statistics
+- [ ] `GET /collections` — list collections
+- [x] `GET /metrics` — timing and cache stats
 - [x] `GET /openapi.json` — OpenAPI 3.0 schema
-- [x] `POST /query` — søk (top_k, where, rerank, hybrid, alpha)
-- [x] `POST /prompt` — LLM-ferdig prompt
-- [x] `POST /index` — legg til dokumenter
+- [x] `POST /query` — search (top_k, where, rerank, hybrid, alpha)
+- [x] `POST /prompt` — LLM-ready prompt
+- [x] `POST /index` — add documents
 - [x] Bearer token auth (via header + config/env)
-- [x] CORS-konfigurasjon (tower-http)
+- [x] CORS configuration (tower-http)
 - [x] Request size limit (10MB)
 - [ ] Request timeout (configurable)
-- [ ] Rate limiting (tower middleware) — **bedre enn Python**
+- [ ] Rate limiting (tower middleware) — **better than Python**
 - [x] Graceful shutdown
 
 ### 4.2 MCP Server (raven-mcp)
 - [x] JSON-RPC over stdio (MCP 2024-11-05)
-- [x] Tool: `search` — query med top_k
-- [x] Tool: `get_prompt` — søk + formater LLM prompt
-- [x] Tool: `collection_info` — indeksstatistikk
-- [x] Tool: `index_documents` — legg til dokumenter **ny vs Python**
-- [ ] Proper error codes og schema validation
+- [x] Tool: `search` — query with top_k
+- [x] Tool: `get_prompt` — search + format LLM prompt
+- [x] Tool: `collection_info` — index statistics
+- [x] Tool: `index_documents` — add documents **ny vs Python**
+- [ ] Proper error codes and schema validation
 
-### 4.3 Flere embedding-backends
-- [x] `OpenAIBackend` — OpenAI-kompatibel API (OpenAI, LM Studio, LocalAI, vLLM)
-- [ ] ONNX Runtime local embeddings — **bedre enn Python** (native, ingen Python-runtime)
-- [ ] Backend auto-detection basert på URL-scheme (`ollama://`, `openai://`, `onnx://`)
+### 4.3 Additional Embedding Backends
+- [x] `OpenAIBackend` — OpenAI-compatible API (OpenAI, LM Studio, LocalAI, vLLM)
+- [ ] ONNX Runtime local embeddings — **better than Python** (native, ingen Python-runtime)
+- [ ] Backend auto-detection based on URL scheme (`ollama://`, `openai://`, `onnx://`)
 
-### 4.4 Splitter-utvidelser
-- [x] `TokenSplitter` — tokenizer-bevisst splitting
+### 4.4 Splitter Extensions
+- [x] `TokenSplitter` — tokenizer-aware splitting
 - [x] `SentenceSplitter` — sentence-boundary splitting
 - [ ] `SemanticSplitter` — sentence-boundary + embedding cosine similarity
-- [ ] Metadata preservation (chunk_index, source_id) gjennom hele pipeline
+- [ ] Metadata preservation (chunk_index, source_id) through entire pipeline
 
-### 4.5 Fil-loadere
-- [x] Markdown med frontmatter-parsing (YAML metadata → doc metadata)
-- [ ] PDF loader (pdf-extract eller lopdf)
+### 4.5 File Loaders
+- [x] Markdown with frontmatter parsing (YAML metadata → doc metadata)
+- [ ] PDF loader (pdf-extract or lopdf)
 - [x] HTML loader (strip tags, remove scripts/styles)
 - [x] CSV loader (csv crate)
 - [x] JSON/JSONL loader
 - [ ] DOCX loader (docx-rs)
-- [x] Plugin-system: `register_loader` for egne filtyper
-- [x] Auto-detect filtype og velg loader
+- [x] Plugin system: `register_loader` for custom file types
+- [x] Auto-detect file type and select loader
 
 ### 4.6 Hybrid Search
-- [x] BM25-indeks (egenbygd Okapi BM25)
-- [x] `HybridSearcher` — vector + BM25 med Reciprocal Rank Fusion
-- [x] Configurable alpha (0.0 = ren BM25, 1.0 = ren vektor)
-- [ ] Metadata-filtering på begge signaler
+- [x] BM25 index (custom Okapi BM25)
+- [x] `HybridSearcher` — vector + BM25 with Reciprocal Rank Fusion
+- [x] Configurable alpha (0.0 = pure BM25, 1.0 = pure vector)
+- [ ] Metadata filtering on both signals
 
 ### 4.7 Cross-encoder Reranking
-- [ ] ONNX-basert cross-encoder (lokal, ingen Python) — **bedre enn Python**
-- [ ] Rerank trait med pluggbare backends
+- [ ] ONNX-based cross-encoder (local, no Python) — **better than Python**
+- [ ] Rerank trait with pluggable backends
 - [ ] Fetch 4x → rerank → return top_k
 
 ### 4.8 Watch Mode
-- [x] `notify` crate for filsystem-events
-- [x] Debounce med konfigurerbar ventetid
-- [x] Sletting-støtte (fjern dokumenter når filer slettes)
+- [x] `notify` crate for filesystem events
+- [x] Debounce with configurable delay
+- [x] Delete support (remove documents when files are deleted)
 - [x] Extension-filtering
 - [x] CLI: `raven watch ./docs --extensions "md,txt"`
 
 ### 4.9 Export/Import
-- [x] JSONL eksport (`raven export -o backup.jsonl`)
+- [x] JSONL export (`raven export -o backup.jsonl`)
 - [x] JSONL import (`raven import backup.jsonl`)
-- [x] Skip invalid/empty rows ved import
-- [ ] Streaming I/O for store filer — **bedre enn Python** (ikke last alt i minne)
+- [x] Skip invalid/empty rows on import
+- [ ] Streaming I/O for store filer — **better than Python** (ikke last alt i minne)
 
 ### 4.10 Context Formatting
-- [x] `ContextFormatter` med templates ({context}, {query}, {sources})
-- [x] Citation-insetting i formattert output
-- [ ] Konfiguerbare templates via raven.toml
+- [x] `ContextFormatter` with templates ({context}, {query}, {sources})
+- [x] Citation insertion in formatted output
+- [ ] Configurable templates via raven.toml
 
-### 4.11 CLI-utvidelser
+### 4.11 CLI Extensions
 - [x] `raven serve` — start HTTP server
-- [x] `raven prompt "tekst"` — formattert LLM-prompt
+- [x] `raven prompt "tekst"` — formatted LLM prompt
 - [x] `raven watch <path>` — auto-reindex
 - [x] `raven export` / `raven import` — JSONL backup/restore
-- [x] `raven doctor` — diagnostikk (sjekk Ollama, db, config)
+- [x] `raven doctor` — diagnostics (check Ollama, db, config)
 - [x] `raven mcp` — start MCP server
-- [ ] `raven benchmark` — ytelsesmåling (Criterion-basert) — **bedre enn Python**
-- [x] `--hybrid`, `--verbose` flagg på query
+- [ ] `raven benchmark` — performance measurement (Criterion-based) — **better than Python**
+- [x] `--hybrid`, `--verbose` flags on query
 
-### 4.12 Konfigurasjon
-- [x] `raven.toml` auto-discovery (gå opp fra cwd)
+### 4.12 Configuration
+- [x] `raven.toml` auto-discovery (walk up from cwd)
 - [x] Env var overrides (RAVEN_DB, RAVEN_MODEL, RAVEN_API_KEY, etc.)
-- [ ] Ukjent-nøkkel varsling (typo-beskyttelse)
-- [ ] Full config validering ved oppstart
+- [ ] Unknown key warnings (typo protection)
+- [ ] Full config validation at startup
 
 ### 4.13 Docker & CI
 - [x] Multi-stage Dockerfile (builder → debian-slim)
-- [ ] Statisk binær (`musl` target) — **bedre enn Python** (~15MB vs ~1.5GB image)
+- [ ] Static binary (`musl` target) — **better than Python** (~15MB vs ~1.5GB image)
 - [x] GitHub Actions: test, lint (clippy), format (rustfmt), release
-- [ ] Container build og push til GHCR
+- [ ] Container build and push to GHCR
 - [ ] Cross-compile for linux/amd64 og linux/arm64
 
 ---
 
-## 5. Fase 3: Rust-Overlegenhet
+## 5. Phase 3: Rust Superiority
 
-Features som gjør Rust-versjonen **strengt bedre** enn Python:
+Features that make the Rust version **strictly better** than Python:
 
-### 5.1 Avansert Retrieval
-- [ ] Parent-child retrieval (`query_parent()` — via VectorStore trait, ingen abstraksjonsbrudd)
+### 5.1 Advanced Retrieval
+- [ ] Parent-child retrieval (`query_parent()` — via VectorStore trait, no abstraction leaks)
 - [ ] Multi-collection routing (`MultiCollectionRouter`)
 - [ ] Streaming results (`query_stream()` — async Stream trait)
-- [ ] Multi-query expansion (omskriv spørring til flere varianter)
+- [ ] Multi-query expansion (rewrite query into multiple variants)
 
 ### 5.2 Knowledge Graph
-- [ ] Entity extraction (NER via ONNX eller regex-heuristikk)
-- [ ] In-memory graph med JSON persistence
-- [ ] Graph traversal (BFS med max_hops)
-- [ ] `GraphRetriever` — RRF-fusjon mellom graf og vektor
-- [ ] `raven graph build` / `raven graph query` CLI-kommandoer
+- [ ] Entity extraction (NER via ONNX or regex heuristics)
+- [ ] In-memory graph with JSON persistence
+- [ ] Graph traversal (BFS with max_hops)
+- [ ] `GraphRetriever` — RRF fusion between graph and vector
+- [ ] `raven graph build` / `raven graph query` CLI commands
 
 ### 5.3 Eval & Benchmarking
-- [x] `evaluate()` — MRR, NDCG, Recall@k, Precision@k mot ground truth
-- [ ] Criterion-baserte micro-benchmarks
-- [ ] `raven benchmark` med detaljert rapport (index speed, query latens, minne)
-- [ ] CI-drevet ytelsesregresjon
+- [x] `evaluate()` — MRR, NDCG, Recall@k, Precision@k against ground truth
+- [ ] Criterion-based micro-benchmarks
+- [ ] `raven benchmark` with detailed report (index speed, query latency, memory)
+- [ ] CI-driven performance regression
 
 ### 5.4 Observability
-- [x] Tracing med `tracing` crate (strukturert logging)
-- [x] Timing-spans for alle pipeline-steg
+- [x] Tracing with `tracing` crate (structured logging)
+- [x] Timing spans for all pipeline steps
 - [x] `/metrics` endpoint med request counters
-- [ ] OpenTelemetry-eksport (valgfri feature)
+- [ ] OpenTelemetry export (optional feature)
 
 ### 5.5 HNSW Vector Search
-- [ ] Erstatt flat brute-force med HNSW (instant-distance eller usearch)
-- [ ] O(log n) søk i stedet for O(n)
-- [ ] Skalerbart til millioner av dokumenter — **mye bedre enn Python**
+- [ ] Replace flat brute-force with HNSW (instant-distance eller usearch)
+- [ ] O(log n) search instead of O(n)
+- [ ] Scalable to millions of documents — **much better than Python**
 
-### 5.6 Ytelsesfordeler
-- [ ] SIMD-akselerert cosine similarity (via ndarray eller manuell)
-- [ ] Lock-free concurrent reads (Arc<RwLock> eller dashmap)
-- [ ] Zero-copy deserialisering der mulig
-- [ ] Memory-mapped SQLite for stor skala
-- [ ] Batch embedding med parallelisme
+### 5.6 Performance Advantages
+- [ ] SIMD-accelerated cosine similarity (via ndarray or manual)
+- [ ] Lock-free concurrent reads (Arc<RwLock> or dashmap)
+- [ ] Zero-copy deserialization where possible
+- [ ] Memory-mapped SQLite for large scale
+- [ ] Batch embedding with parallelism
 
 ---
 
-## 6. Fase 4: Polish & Release
+## 6. Phase 4: Polish & Release
 
-### 6.1 Dokumentasjon
-- [ ] rustdoc for alle public items
-- [ ] mdBook brukerguide
-- [ ] Migreringsguide fra Python RavenRAG
-- [ ] Ytelsessammenligninger vs Python-versjonen
-- [ ] Troubleshooting-seksjon
+### 6.1 Documentation
+- [ ] rustdoc for all public items
+- [ ] mdBook user guide
+- [ ] Migration guide from Python RavenRAG
+- [ ] Performance comparisons vs Python version
+- [ ] Troubleshooting section
 
-### 6.2 Publisering
+### 6.2 Publishing
 - [ ] crates.io publish
 - [ ] `cargo install ravenrustrag`
-- [ ] GitHub Releases med pre-built binaries (linux, macos, windows)
+- [ ] GitHub Releases with pre-built binaries (linux, macos, windows)
 - [ ] Homebrew formula
 - [ ] AUR package
 
-### 6.3 Kvalitet
-- [ ] 80%+ testdekning
-- [ ] Property-based testing (proptest) for splitters og search
-- [ ] Fuzzing for parsere og input-håndtering
-- [ ] Concurrent stress-tester
-- [ ] 10k+ dokument skaleringstest
+### 6.3 Quality
+- [ ] 80%+ test coverage
+- [ ] Property-based testing (proptest) for splitters and search
+- [ ] Fuzzing for parsers and input handling
+- [ ] Concurrent stress tests
+- [ ] 10k+ document scaling test
 
 ---
 
-## 7. Kjente begrensninger (nåværende)
+## 7. Known Limitations (Current)
 
-1. **Flat vektor-søk** — O(n) brute-force. Tilstrekkelig for <10k dokumenter. HNSW i Fase 3.
-2. **Kun Ollama + OpenAI embedder** — ONNX lokal inferens kommer i Fase 3.
-3. **BM25 ikke persistert** — gjenoppbygges i minne fra VectorStore ved hybrid søk.
-4. **Ingen cross-encoder reranking** — Krever ONNX runtime, planlagt Fase 3.
+1. **Flat vector search** — O(n) brute-force. Sufficient for <10k documents. HNSW in Phase 3.
+2. **Ollama + OpenAI embedder only** — ONNX local inference coming in Phase 3.
+3. **BM25 not persisted** — rebuilt in memory from VectorStore during hybrid search.
+4. **No cross-encoder reranking** — Requires ONNX runtime, planned for Phase 3.
 
-## 8. Bygginstruksjoner
+## 8. Build Instructions
 
 ```bash
 # Clone
 git clone https://github.com/egkristi/ravenrustrag.git
 cd ravenrustrag
 
-# Forutsetninger
+# Prerequisites
 # macOS: xcode-select --install
 # Ubuntu: sudo apt install build-essential pkg-config
 # Rust: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -356,7 +356,7 @@ cargo build --release
 # Test
 cargo test
 
-# Kjør CLI
+# Run CLI
 ./target/release/raven index ./docs --db ./raven.db
 ./target/release/raven query "What is RAG?"
 
@@ -366,5 +366,5 @@ raven index ./docs --url http://localhost:11434 --model nomic-embed-text
 
 ---
 
-**Sist oppdatert:** 2026-05-04  
-**Neste milepæl:** Fase 2 — feature parity med Python v0.7.0
+**Last updated:** 2026-05-04  
+**Next milestone:** Phase 3 — Rust superiority features
