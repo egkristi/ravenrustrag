@@ -1,6 +1,6 @@
 # RavenRustRAG — Implementation Plan
 
-> **Status:** v0.1.0-alpha — Phase 1 complete, Phase 2 complete, Phase 3 nearly complete  
+> **Status:** v0.1.0-alpha — Phase 1 complete, Phase 2 complete, Phase 3 complete, Phase 4 in progress  
 > **Motto:** *Make it work, make it right, make it fast — in that order.*  
 > **Goal:** Functionally superior to the Python version (RavenRAG v0.7.0) with orders-of-magnitude better performance.
 
@@ -18,7 +18,7 @@ Complete feature list of the Python version as of 2026-05-04 (~4,200 lines, 24 m
 | **Splitting** | TextSplitter, TokenSplitter, SemanticSplitter | ✅ Text + Token + Sentence + Semantic |
 | **Loaders** | .txt .md .pdf .docx .pptx .xlsx .csv .rtf .html + plugin system | ✅ txt,md,csv,json,jsonl,html,pdf,docx |
 | **Search** | Vector, BM25 hybrid (RRF), cross-encoder reranking, streaming | ✅ Vector + BM25 hybrid (RRF) + HNSW + streaming |
-| **Graph** | KnowledgeGraph, GraphRetriever, entity extraction, RRF fusion | ✅ Complete (CLI pending [#45](https://github.com/egkristi/ravenrustrag/issues/45)) |
+| **Graph** | KnowledgeGraph, GraphRetriever, entity extraction, RRF fusion | ✅ Complete |
 | **Server** | HTTP (stdlib), auth, CORS, /metrics, /openapi.json, 7 endpoints | ✅ Axum, 9 endpoints, full OpenAPI 3.0 |
 | **MCP** | stdio JSON-RPC, 3 tools (search, get_prompt, collection_info) | ✅ 4 tools |
 | **CLI** | 11 commands (index, query, prompt, serve, watch, info, export, import, doctor, mcp, benchmark) | ✅ 12 commands |
@@ -190,7 +190,7 @@ ravenrustrag/
 
 ### 4.3 Additional Embedding Backends
 - [x] `OpenAIBackend` — OpenAI-compatible API (OpenAI, LM Studio, LocalAI, vLLM)
-- [ ] ONNX Runtime local embeddings — **better than Python** (native, no Python runtime) — [#43](https://github.com/egkristi/ravenrustrag/issues/43)
+- [ ] ONNX Runtime local embeddings — deferred (ort crate MSRV conflict) — [#43](https://github.com/egkristi/ravenrustrag/issues/43)
 - [x] Backend auto-detection via `create_embedder()` / `create_cached_embedder()` factory functions
 
 ### 4.4 Splitter Extensions
@@ -217,7 +217,7 @@ ravenrustrag/
 - [x] BM25 persistence in SQLite -- [#37](https://github.com/egkristi/ravenrustrag/issues/37)
 
 ### 4.7 Cross-encoder Reranking
-- [ ] ONNX-based cross-encoder (local, no Python) — **better than Python** — [#44](https://github.com/egkristi/ravenrustrag/issues/44)
+- [ ] ONNX-based cross-encoder (local, no Python) — deferred (blocked by #43) — [#44](https://github.com/egkristi/ravenrustrag/issues/44)
 - [x] Rerank trait with pluggable backends (`Reranker` trait + `KeywordReranker`)
 - [x] Fetch 4x → rerank → return top_k (`rerank()` function in raven-search/src/rerank.rs)
 
@@ -257,7 +257,7 @@ ravenrustrag/
 
 ### 4.13 Docker & CI
 - [x] Multi-stage Dockerfile (builder → debian-slim)
-- [ ] Static binary (`musl` target) for direct download — [#54](https://github.com/egkristi/ravenrustrag/issues/54)
+- [x] Static binary (`musl` target) for direct download — [#54](https://github.com/egkristi/ravenrustrag/issues/54)
 - [x] GitHub Actions: test, lint (clippy), format (rustfmt), release
 - [x] Container build and push to GHCR
 - [x] Cross-compile for linux/amd64, linux/amd64-musl, linux/arm64 -- [#40](https://github.com/egkristi/ravenrustrag/issues/40)
@@ -302,13 +302,13 @@ Features that make the Rust version **strictly better** than Python:
 - [x] In-memory graph with JSON persistence (`KnowledgeGraph`)
 - [x] Graph traversal (BFS with max_hops)
 - [x] `GraphRetriever` — RRF fusion between graph and vector
-- [ ] `raven graph build` / `raven graph query` CLI commands — [#45](https://github.com/egkristi/ravenrustrag/issues/45)
+- [x] `raven graph build` / `raven graph query` CLI commands — [#45](https://github.com/egkristi/ravenrustrag/issues/45)
 
 ### 5.3 Eval & Benchmarking
 - [x] `evaluate()` — MRR, NDCG, Recall@k, Precision@k against ground truth
 - [x] Criterion-based micro-benchmarks (crates/raven-search/benches/)
 - [x] `raven benchmark` with detailed report (index speed, query latency, BM25)
-- [ ] CI-driven performance regression — [#46](https://github.com/egkristi/ravenrustrag/issues/46)
+- [x] CI-driven performance regression — [#46](https://github.com/egkristi/ravenrustrag/issues/46)
 
 ### 5.4 Observability
 - [x] Tracing with `tracing` crate (structured logging)
@@ -323,8 +323,8 @@ Features that make the Rust version **strictly better** than Python:
 
 ### 5.6 Performance Advantages
 - [x] SIMD-friendly cosine similarity (auto-vectorized loop in raven-core)
-- [ ] Lock-free concurrent reads (dashmap) — [#47](https://github.com/egkristi/ravenrustrag/issues/47)
-- [ ] Zero-copy deserialization + memory-mapped SQLite — [#48](https://github.com/egkristi/ravenrustrag/issues/48)
+- [x] Lock-free concurrent reads (DashMap + AtomicU64) — [#47](https://github.com/egkristi/ravenrustrag/issues/47)
+- [x] Zero-copy memory-mapped SQLite (PRAGMA mmap_size=256MB) — [#48](https://github.com/egkristi/ravenrustrag/issues/48)
 - [x] Batch embedding with parallelism (semaphore-limited concurrency)
 
 ---
@@ -333,10 +333,10 @@ Features that make the Rust version **strictly better** than Python:
 
 ### 6.1 Documentation
 - [x] rustdoc for all public items (crate-level docs + key types)
-- [ ] mdBook user guide — [#49](https://github.com/egkristi/ravenrustrag/issues/49)
-- [ ] Migration guide from Python RavenRAG — [#50](https://github.com/egkristi/ravenrustrag/issues/50)
-- [ ] Performance comparisons vs Python version — [#51](https://github.com/egkristi/ravenrustrag/issues/51)
-- [ ] Troubleshooting section — [#49](https://github.com/egkristi/ravenrustrag/issues/49)
+- [x] mdBook + MkDocs user guide (17 pages, GitHub Pages deployment) — [#49](https://github.com/egkristi/ravenrustrag/issues/49)
+- [x] Migration guide from Python RavenRAG — [#50](https://github.com/egkristi/ravenrustrag/issues/50)
+- [x] Performance comparisons vs Python version — [#51](https://github.com/egkristi/ravenrustrag/issues/51)
+- [x] Troubleshooting section — [#49](https://github.com/egkristi/ravenrustrag/issues/49)
 
 #### Measured Performance (Apple Silicon, release build)
 
@@ -351,12 +351,12 @@ Features that make the Rust version **strictly better** than Python:
 | Index 10 docs | 41 µs |
 | Release binary size | 8.7 MB |
 | Lines of Rust | ~9,100 |
-| Tests | 122 |
+| Tests | 123 |
 
 ### 6.2 Publishing
 - [ ] crates.io publish — [#52](https://github.com/egkristi/ravenrustrag/issues/52)
 - [ ] `cargo install ravenrustrag` — [#52](https://github.com/egkristi/ravenrustrag/issues/52)
-- [ ] GitHub Releases with pre-built binaries (linux, macos, windows) — [#52](https://github.com/egkristi/ravenrustrag/issues/52)
+- [x] GitHub Releases with pre-built binaries (linux, macos) — release.yml workflow
 - [ ] Homebrew formula — [#52](https://github.com/egkristi/ravenrustrag/issues/52)
 - [ ] AUR package — [#52](https://github.com/egkristi/ravenrustrag/issues/52)
 
@@ -371,26 +371,17 @@ Features that make the Rust version **strictly better** than Python:
 
 ## 7. Known Limitations (Current)
 
-1. **ONNX not functional** — Stub exists behind feature flag but `ort` crate has MSRV conflicts. [#43](https://github.com/egkristi/ravenrustrag/issues/43)
-2. **No ONNX cross-encoder** — Reranker trait exists, but only keyword-based. [#44](https://github.com/egkristi/ravenrustrag/issues/44)
-3. **No graph CLI** — KnowledgeGraph module complete, but no CLI exposure. [#45](https://github.com/egkristi/ravenrustrag/issues/45)
+1. **ONNX not functional** — Stub exists behind feature flag but `ort` crate has MSRV conflicts (requires reqwest 0.12+). [#43](https://github.com/egkristi/ravenrustrag/issues/43)
+2. **No ONNX cross-encoder** — Reranker trait exists, but only keyword-based. Blocked by #43. [#44](https://github.com/egkristi/ravenrustrag/issues/44)
 
 ## 7.1 Open Issues
 
 | Issue | Title | Priority | Status |
 |---|---|---|---|
-| [#43](https://github.com/egkristi/ravenrustrag/issues/43) | ONNX Runtime embedding backend | High | Open |
-| [#44](https://github.com/egkristi/ravenrustrag/issues/44) | ONNX cross-encoder reranking | Medium | Open (blocked by #43) |
-| [#45](https://github.com/egkristi/ravenrustrag/issues/45) | Knowledge Graph CLI commands | Medium | Open |
-| [#46](https://github.com/egkristi/ravenrustrag/issues/46) | CI-driven performance regression | Low | Open |
-| [#47](https://github.com/egkristi/ravenrustrag/issues/47) | Lock-free concurrent reads (DashMap) | Low | Open |
-| [#48](https://github.com/egkristi/ravenrustrag/issues/48) | Zero-copy deserialization + mmap SQLite | Low | Open |
-| [#49](https://github.com/egkristi/ravenrustrag/issues/49) | mdBook user guide | Medium | Open |
-| [#50](https://github.com/egkristi/ravenrustrag/issues/50) | Migration guide from Python | Low | Open |
-| [#51](https://github.com/egkristi/ravenrustrag/issues/51) | Performance comparison docs | Low | Open |
+| [#43](https://github.com/egkristi/ravenrustrag/issues/43) | ONNX Runtime embedding backend | High | Deferred (MSRV conflict) |
+| [#44](https://github.com/egkristi/ravenrustrag/issues/44) | ONNX cross-encoder reranking | Medium | Deferred (blocked by #43) |
 | [#52](https://github.com/egkristi/ravenrustrag/issues/52) | Publish to crates.io + package managers | High | Open |
 | [#53](https://github.com/egkristi/ravenrustrag/issues/53) | Testing: coverage, proptest, fuzz, stress | Medium | Open |
-| [#54](https://github.com/egkristi/ravenrustrag/issues/54) | Static musl binary distribution | Low | Open |
 
 ### Resolved Issues
 
@@ -411,6 +402,14 @@ Features that make the Rust version **strictly better** than Python:
 | [#38](https://github.com/egkristi/ravenrustrag/issues/38) | Add input sanitization for queries | Medium | Resolved |
 | [#39](https://github.com/egkristi/ravenrustrag/issues/39) | Expand test coverage across crates | Medium | Resolved |
 | [#40](https://github.com/egkristi/ravenrustrag/issues/40) | Musl static binary and arm64 CI | Low | Resolved |
+| [#45](https://github.com/egkristi/ravenrustrag/issues/45) | Knowledge Graph CLI commands | Medium | Resolved |
+| [#46](https://github.com/egkristi/ravenrustrag/issues/46) | CI-driven performance regression | Low | Resolved |
+| [#47](https://github.com/egkristi/ravenrustrag/issues/47) | Lock-free concurrent reads (DashMap) | Low | Resolved |
+| [#48](https://github.com/egkristi/ravenrustrag/issues/48) | Zero-copy deserialization + mmap SQLite | Low | Resolved |
+| [#49](https://github.com/egkristi/ravenrustrag/issues/49) | mdBook + MkDocs user guide | Medium | Resolved |
+| [#50](https://github.com/egkristi/ravenrustrag/issues/50) | Migration guide from Python | Low | Resolved |
+| [#51](https://github.com/egkristi/ravenrustrag/issues/51) | Performance comparison docs | Low | Resolved |
+| [#54](https://github.com/egkristi/ravenrustrag/issues/54) | Static musl binary distribution | Low | Resolved |
 
 ## 8. Build Instructions
 
@@ -441,4 +440,4 @@ raven index ./docs --url http://localhost:11434 --model nomic-embed-text
 ---
 
 **Last updated:** 2026-05-04  
-**Next milestone:** Phase 3 — Rust superiority features
+**Next milestone:** Phase 4 completion — crates.io publish (#52) and comprehensive testing (#53)
