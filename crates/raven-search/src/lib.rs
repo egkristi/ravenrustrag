@@ -95,13 +95,38 @@ impl DocumentIndex {
         info!("Split into {} chunks", texts.len());
 
         // Embed in batches
-        let mut all_embeddings = Vec::with_capacity(texts.len());
-
         info!(num_chunks = texts.len(), "Embedding chunks");
-        for batch in texts.chunks(self.embed_batch_size) {
-            let embeddings = self.embedder.embed(batch).await?;
-            all_embeddings.extend(embeddings);
-        }
+
+        // Embed in parallel batches (up to 4 concurrent batches)
+        let all_embeddings = if texts.len() <= self.embed_batch_size {
+            self.embedder.embed(&texts).await?
+        } else {
+            let batches: Vec<Vec<String>> = texts
+                .chunks(self.embed_batch_size)
+                .map(|b| b.to_vec())
+                .collect();
+
+            let mut handles = Vec::with_capacity(batches.len());
+            let semaphore = Arc::new(tokio::sync::Semaphore::new(4));
+
+            for batch in batches {
+                let embedder = Arc::clone(&self.embedder);
+                let sem = Arc::clone(&semaphore);
+                handles.push(tokio::spawn(async move {
+                    let _permit = sem.acquire().await.unwrap();
+                    embedder.embed(&batch).await
+                }));
+            }
+
+            let mut all = Vec::with_capacity(texts.len());
+            for handle in handles {
+                let batch_result = handle
+                    .await
+                    .map_err(|e| raven_core::RavenError::Embed(format!("Task join error: {e}")))?;
+                all.extend(batch_result?);
+            }
+            all
+        };
 
         // Attach embeddings to chunks
         let embedded_chunks: Vec<Chunk> = chunks
