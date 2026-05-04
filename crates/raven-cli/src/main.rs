@@ -32,6 +32,10 @@ struct Cli {
     /// Output as JSON (for scripting)
     #[arg(long, global = true)]
     json: bool,
+
+    /// Log format: text or json (for containers/K8s)
+    #[arg(long, global = true, default_value = "text")]
+    log_format: String,
 }
 
 #[derive(Subcommand)]
@@ -139,12 +143,12 @@ enum Commands {
 
     /// Start API server
     Serve {
-        /// Host
-        #[arg(long, default_value = "127.0.0.1")]
+        /// Host to bind to
+        #[arg(long, default_value = "127.0.0.1", env = "RAVEN_HOST")]
         host: String,
 
         /// Port
-        #[arg(short, long, default_value_t = 8484)]
+        #[arg(short, long, default_value_t = 8484, env = "RAVEN_PORT")]
         port: u16,
 
         /// Database path
@@ -337,10 +341,21 @@ async fn main() -> Result<()> {
         tracing::Level::INFO
     };
 
-    tracing_subscriber::fmt()
-        .with_max_level(log_level)
-        .with_target(false)
-        .init();
+    let log_format = std::env::var("RAVEN_LOG_FORMAT")
+        .unwrap_or_else(|_| cli.log_format.clone());
+
+    if log_format == "json" {
+        tracing_subscriber::fmt()
+            .json()
+            .with_max_level(log_level)
+            .with_target(false)
+            .init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_max_level(log_level)
+            .with_target(false)
+            .init();
+    }
 
     match cli.command {
         Commands::Index {

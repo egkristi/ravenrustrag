@@ -52,8 +52,12 @@ COPY --from=builder /app/target/release/raven /raven
 VOLUME /data
 
 ENV RAVEN_DB=/data/raven.db
+ENV RAVEN_HOST=0.0.0.0
+ENV RAVEN_LOG_FORMAT=json
 
 EXPOSE 8484
 
+USER 65534:65534
+
 ENTRYPOINT ["/raven"]
-CMD ["serve", "--host", "0.0.0.0"]
+CMD ["serve"]

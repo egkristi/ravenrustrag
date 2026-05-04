@@ -228,6 +228,17 @@ pub struct HealthResponse {
     pub version: String,
 }
 
+#[derive(Serialize)]
+pub struct ReadyResponse {
+    pub status: String,
+    pub checks: ReadyChecks,
+}
+
+#[derive(Serialize)]
+pub struct ReadyChecks {
+    pub database: bool,
+}
+
 // --- Handlers ---
 
 async fn health() -> Json<HealthResponse> {
@@ -235,6 +246,23 @@ async fn health() -> Json<HealthResponse> {
         status: "ok".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
     })
+}
+
+async fn readiness(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let db_ok = state.index.count().await.is_ok();
+    let status = if db_ok { "ready" } else { "not_ready" };
+    let code = if db_ok {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
+    (
+        code,
+        Json(ReadyResponse {
+            status: status.to_string(),
+            checks: ReadyChecks { database: db_ok },
+        }),
+    )
 }
 
 async fn stats(State(state): State<Arc<AppState>>, headers: HeaderMap) -> impl IntoResponse {
@@ -872,6 +900,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
 
     Router::new()
         .route("/health", get(health))
+        .route("/ready", get(readiness))
         .route("/stats", get(stats))
         .route("/collections", get(collections_handler))
         .route("/metrics", get(metrics_handler))
@@ -949,9 +978,27 @@ pub async fn serve(state: Arc<AppState>) -> Result<(), Box<dyn std::error::Error
 }
 
 async fn shutdown_signal() {
-    tokio::signal::ctrl_c()
-        .await
-        .expect("Failed to install Ctrl+C handler");
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("Failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        () = ctrl_c => {},
+        () = terminate => {},
+    }
     info!("Received shutdown signal, shutting down...");
 }
 
