@@ -51,7 +51,7 @@ These must **not** be reproduced in Rust:
 9. **Slow startup** — 2-5s due to Python import + model loading
 10. **High memory usage** — 200-500MB+ baseline
 
-### Rust Advantages That Make Us Superior
+### Rust Advantages That Make RavenRustRAG Superior
 
 | Dimension | Python | Rust |
 |---|---|---|

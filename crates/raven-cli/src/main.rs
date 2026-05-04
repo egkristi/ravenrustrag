@@ -1,5 +1,6 @@
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
 use raven_core::ServerConfig;
 use raven_embed::Embedder;
 use raven_load::Loader;
@@ -287,6 +288,13 @@ enum Commands {
     Graph {
         #[command(subcommand)]
         action: GraphAction,
+    },
+
+    /// Generate shell completions
+    Completions {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: Shell,
     },
 }
 
@@ -948,6 +956,11 @@ async fn main() -> Result<()> {
                 }
             }
         },
+
+        Commands::Completions { shell } => {
+            let mut cmd = Cli::command();
+            clap_complete::generate(shell, &mut cmd, "raven", &mut std::io::stdout());
+        }
     }
 
     Ok(())
