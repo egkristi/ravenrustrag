@@ -1,3 +1,7 @@
+//! Vector store backends for RavenRustRAG.
+//!
+//! Provides the `VectorStore` trait and implementations: SQLite (persistent) and Memory (testing).
+
 use async_trait::async_trait;
 use raven_core::{Chunk, RavenError, Result, SearchResult};
 use rusqlite::{params, Connection};

@@ -1,3 +1,7 @@
+//! Document loaders and JSONL export/import for RavenRustRAG.
+//!
+//! Supports txt, md, csv, json, jsonl, html formats with a plugin system for custom loaders.
+
 use raven_core::{Document, Result};
 use std::collections::HashMap;
 use std::path::Path;

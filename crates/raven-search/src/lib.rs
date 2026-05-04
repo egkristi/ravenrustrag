@@ -1,3 +1,8 @@
+//! Search pipeline and retrieval orchestrator for RavenRustRAG.
+//!
+//! Provides `DocumentIndex` (split, embed, store, search), hybrid BM25+vector search,
+//! parent-child retrieval, multi-collection routing, and evaluation metrics.
+
 use raven_core::{Chunk, Document, Result, SearchResult};
 use raven_embed::Embedder;
 use raven_split::Splitter;

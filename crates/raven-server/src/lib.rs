@@ -1,3 +1,7 @@
+//! Axum HTTP API server for RavenRustRAG.
+//!
+//! Provides REST endpoints for querying, indexing, and managing the document index.
+
 use axum::{
     extract::{Json, State},
     http::{HeaderMap, HeaderValue, Method, StatusCode},

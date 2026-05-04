@@ -1,3 +1,7 @@
+//! Embedding backends for RavenRustRAG.
+//!
+//! Provides the `Embedder` trait and implementations: Ollama, OpenAI, Cached, and Dummy.
+
 use async_trait::async_trait;
 use raven_core::{RavenError, Result};
 use serde::{Deserialize, Serialize};

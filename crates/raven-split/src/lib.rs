@@ -1,3 +1,7 @@
+//! Text splitting strategies for RavenRustRAG.
+//!
+//! Provides the `Splitter` trait and implementations: Text, Token, and Sentence splitters.
+
 use raven_core::{Chunk, Document};
 
 /// Text splitting strategy

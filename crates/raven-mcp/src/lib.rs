@@ -1,3 +1,7 @@
+//! MCP (Model Context Protocol) server for RavenRustRAG.
+//!
+//! Provides a stdio JSON-RPC server for AI assistants to search and index documents.
+
 use raven_core::Document;
 use raven_search::DocumentIndex;
 use raven_split::TextSplitter;

@@ -1,3 +1,7 @@
+//! Core types and configuration for RavenRustRAG.
+//!
+//! Provides `Document`, `Chunk`, `SearchResult`, `Config`, `RavenError`, and fingerprinting.
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -14,6 +18,7 @@ pub struct Document {
 }
 
 impl Document {
+    /// Create a new document with auto-generated UUID and given text.
     pub fn new(text: impl Into<String>) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
@@ -22,11 +27,13 @@ impl Document {
         }
     }
 
+    /// Add a metadata key-value pair (builder pattern).
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
     }
 
+    /// Override the auto-generated ID.
     pub fn with_id(mut self, id: impl Into<String>) -> Self {
         self.id = id.into();
         self
@@ -333,7 +340,7 @@ impl Config {
     }
 }
 
-/// Compute content fingerprint
+/// Compute SHA-256 content hash for incremental indexing and deduplication.
 pub fn fingerprint(text: &str) -> String {
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
