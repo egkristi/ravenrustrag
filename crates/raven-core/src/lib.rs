@@ -384,6 +384,49 @@ pub fn fingerprint(text: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
+/// SIMD-friendly cosine similarity between two f32 slices.
+///
+/// Written in a loop structure that LLVM auto-vectorizes to SIMD instructions
+/// (SSE/AVX on x86, NEON on ARM). Uses chunks_exact for safe vectorization hint.
+#[inline]
+pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
+    debug_assert_eq!(a.len(), b.len(), "vectors must have equal length");
+    let n = a.len().min(b.len());
+    if n == 0 {
+        return 0.0;
+    }
+
+    let mut dot = 0.0_f32;
+    let mut norm_a = 0.0_f32;
+    let mut norm_b = 0.0_f32;
+
+    // chunks_exact(4) enables LLVM auto-vectorization
+    let a_chunks = a[..n].chunks_exact(4);
+    let b_chunks = b[..n].chunks_exact(4);
+    let a_rem = a_chunks.remainder();
+    let b_rem = b_chunks.remainder();
+
+    for (ac, bc) in a_chunks.zip(b_chunks) {
+        dot += ac[0] * bc[0] + ac[1] * bc[1] + ac[2] * bc[2] + ac[3] * bc[3];
+        norm_a += ac[0] * ac[0] + ac[1] * ac[1] + ac[2] * ac[2] + ac[3] * ac[3];
+        norm_b += bc[0] * bc[0] + bc[1] * bc[1] + bc[2] * bc[2] + bc[3] * bc[3];
+    }
+
+    // Handle remainder
+    for (ai, bi) in a_rem.iter().zip(b_rem.iter()) {
+        dot += ai * bi;
+        norm_a += ai * ai;
+        norm_b += bi * bi;
+    }
+
+    let denom = norm_a.sqrt() * norm_b.sqrt();
+    if denom == 0.0 {
+        0.0
+    } else {
+        dot / denom
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -512,5 +555,37 @@ store_batch_size = 50
     fn test_document_with_id() {
         let doc = Document::new("text").with_id("custom-id");
         assert_eq!(doc.id, "custom-id");
+    }
+
+    #[test]
+    fn test_cosine_similarity_identical() {
+        let a = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        assert!((cosine_similarity(&a, &a) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_cosine_similarity_orthogonal() {
+        let a = vec![1.0, 0.0, 0.0, 0.0];
+        let b = vec![0.0, 1.0, 0.0, 0.0];
+        assert!(cosine_similarity(&a, &b).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_cosine_similarity_opposite() {
+        let a = vec![1.0, 2.0, 3.0];
+        let b = vec![-1.0, -2.0, -3.0];
+        assert!((cosine_similarity(&a, &b) + 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_cosine_similarity_zero() {
+        let a = vec![0.0, 0.0, 0.0];
+        let b = vec![1.0, 2.0, 3.0];
+        assert_eq!(cosine_similarity(&a, &b), 0.0);
+    }
+
+    #[test]
+    fn test_cosine_similarity_empty() {
+        assert_eq!(cosine_similarity(&[], &[]), 0.0);
     }
 }

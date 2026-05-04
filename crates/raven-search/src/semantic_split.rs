@@ -100,7 +100,7 @@ impl SemanticSplitter {
         let mut current_len = sentences[0].len();
 
         for i in 1..sentences.len() {
-            let sim = cosine_similarity(&embeddings[i - 1], &embeddings[i]);
+            let sim = raven_core::cosine_similarity(&embeddings[i - 1], &embeddings[i]);
             let would_exceed = current_len + sentences[i].len() + 1 > self.max_chunk_chars;
 
             if sim < self.threshold || would_exceed {
@@ -121,14 +121,7 @@ impl SemanticSplitter {
 }
 
 fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
-    let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
-    let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-
-    if norm_a == 0.0 || norm_b == 0.0 {
-        return 0.0;
-    }
-    dot / (norm_a * norm_b)
+    raven_core::cosine_similarity(a, b)
 }
 
 /// Simple sentence splitter (extracted from raven-split logic)

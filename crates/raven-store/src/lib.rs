@@ -198,16 +198,9 @@ impl SqliteStore {
         })
     }
 
+    #[inline]
     fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-        let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
-        let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
-        let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-
-        if norm_a == 0.0 || norm_b == 0.0 {
-            return 0.0;
-        }
-
-        dot / (norm_a * norm_b)
+        raven_core::cosine_similarity(a, b)
     }
 }
 
@@ -771,20 +764,7 @@ pub mod hnsw {
     impl instant_distance::Point for HnswPoint {
         fn distance(&self, other: &Self) -> f32 {
             // instant-distance expects distance (lower = closer), not similarity
-            // Use 1.0 - cosine_similarity as distance
-            let dot: f32 = self
-                .embedding
-                .iter()
-                .zip(other.embedding.iter())
-                .map(|(a, b)| a * b)
-                .sum();
-            let norm_a: f32 = self.embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-            let norm_b: f32 = other.embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-
-            if norm_a == 0.0 || norm_b == 0.0 {
-                return 1.0;
-            }
-            1.0 - dot / (norm_a * norm_b)
+            1.0 - raven_core::cosine_similarity(&self.embedding, &other.embedding)
         }
     }
 
