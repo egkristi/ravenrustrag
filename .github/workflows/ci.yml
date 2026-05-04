@@ -95,8 +95,9 @@ jobs:
           output-file-path: bench-output.txt
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: false
+          skip-fetch-gh-pages: true
           alert-threshold: '150%'
-          comment-on-alert: true
+          comment-on-alert: false
           fail-on-alert: false
 
   build-release:
