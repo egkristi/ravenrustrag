@@ -654,4 +654,121 @@ mod tests {
         assert_eq!(imported[0].text, "First doc");
         assert_eq!(imported[1].text, "Second doc");
     }
+
+    #[test]
+    fn test_load_json_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file = temp_dir.path().join("test.json");
+        std::fs::write(&file, r#"{"key": "value", "number": 42}"#).unwrap();
+
+        let doc = Loader::from_file(&file).unwrap();
+        assert!(doc.text.contains("key"));
+        assert!(doc.text.contains("value"));
+        assert_eq!(doc.metadata.get("format"), Some(&"json".to_string()));
+    }
+
+    #[test]
+    fn test_load_jsonl_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file = temp_dir.path().join("test.jsonl");
+        std::fs::write(&file, "{\"a\":1}\n{\"b\":2}\n").unwrap();
+
+        let doc = Loader::from_file(&file).unwrap();
+        assert!(doc.text.contains("\"a\""));
+        assert!(doc.text.contains("\"b\""));
+    }
+
+    #[test]
+    fn test_load_html_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file = temp_dir.path().join("test.html");
+        std::fs::write(
+            &file,
+            "<html><head><style>body{}</style></head><body><p>Hello World</p></body></html>",
+        )
+        .unwrap();
+
+        let doc = Loader::from_file(&file).unwrap();
+        assert!(doc.text.contains("Hello World"));
+        assert!(!doc.text.contains("<p>"));
+        assert!(!doc.text.contains("body{}"));
+    }
+
+    #[test]
+    fn test_load_directory_with_extension_filter() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("a.txt"), "text").unwrap();
+        std::fs::write(temp_dir.path().join("b.md"), "markdown").unwrap();
+        std::fs::write(temp_dir.path().join("c.log"), "log").unwrap();
+
+        let exts: Vec<&str> = vec!["txt", "md"];
+        let docs = Loader::from_directory(temp_dir.path(), Some(&exts)).unwrap();
+        assert_eq!(docs.len(), 2);
+    }
+
+    #[test]
+    fn test_load_nonexistent_file() {
+        let result = Loader::from_file(std::path::Path::new("/nonexistent/path.txt"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_empty_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file = temp_dir.path().join("empty.txt");
+        std::fs::write(&file, "").unwrap();
+
+        let doc = Loader::from_file(&file).unwrap();
+        assert_eq!(doc.text, "");
+    }
+
+    #[test]
+    fn test_export_empty_docs() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file = temp_dir.path().join("empty.jsonl");
+
+        let count = export_jsonl(&[], &file).unwrap();
+        assert_eq!(count, 0);
+
+        let imported = import_jsonl(&file).unwrap();
+        assert_eq!(imported.len(), 0);
+    }
+
+    #[test]
+    fn test_load_markdown_no_frontmatter() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file = temp_dir.path().join("plain.md");
+        std::fs::write(&file, "# Title\n\nJust markdown without frontmatter.").unwrap();
+
+        let doc = Loader::from_file(&file).unwrap();
+        assert!(doc.text.contains("# Title"));
+        assert!(!doc.metadata.contains_key("title"));
+    }
+
+    #[test]
+    fn test_strip_html_complex() {
+        let html = "<div class='wrapper'><h1>Header</h1><ul><li>Item 1</li><li>Item 2</li></ul><style>.x{}</style></div>";
+        let text = strip_html_tags(html);
+        assert!(text.contains("Header"));
+        assert!(text.contains("Item 1"));
+        assert!(text.contains("Item 2"));
+        assert!(!text.contains(".x{}"));
+    }
+
+    #[test]
+    fn test_document_metadata_preserved_in_export() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file = temp_dir.path().join("meta.jsonl");
+
+        let docs = vec![Document::new("test")
+            .with_metadata("source", "file.txt")
+            .with_metadata("custom_key", "custom_val")];
+
+        export_jsonl(&docs, &file).unwrap();
+        let imported = import_jsonl(&file).unwrap();
+        assert_eq!(
+            imported[0].metadata.get("custom_key"),
+            Some(&"custom_val".to_string())
+        );
+    }
 }

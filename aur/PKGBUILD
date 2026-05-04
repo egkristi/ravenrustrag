@@ -1,0 +1,48 @@
+# Maintainer: Erling Kristiansen <egkristi@github>
+pkgname=ravenrustrag
+pkgver=0.1.0_alpha.1
+pkgrel=1
+pkgdesc="Local-first RAG engine - fast, safe retrieval-augmented generation in Rust"
+arch=('x86_64' 'aarch64')
+url="https://egkristi.github.io/ravenrustrag/"
+license=('AGPL-3.0-or-later')
+depends=('gcc-libs')
+makedepends=('rust' 'cargo')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/egkristi/ravenrustrag/archive/refs/tags/v${pkgver//_/-}.tar.gz")
+sha256sums=('SKIP')
+
+prepare() {
+  cd "$pkgname-${pkgver//_/-}"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "$pkgname-${pkgver//_/-}"
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  cargo build --frozen --release -p raven-cli
+}
+
+check() {
+  cd "$pkgname-${pkgver//_/-}"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo test --frozen --release -p raven-cli
+}
+
+package() {
+  cd "$pkgname-${pkgver//_/-}"
+  install -Dm755 "target/release/raven" "$pkgdir/usr/bin/raven"
+
+  # Install shell completions
+  install -d "$pkgdir/usr/share/bash-completion/completions"
+  install -d "$pkgdir/usr/share/zsh/site-functions"
+  install -d "$pkgdir/usr/share/fish/vendor_completions.d"
+
+  ./target/release/raven completions bash > "$pkgdir/usr/share/bash-completion/completions/raven"
+  ./target/release/raven completions zsh > "$pkgdir/usr/share/zsh/site-functions/_raven"
+  ./target/release/raven completions fish > "$pkgdir/usr/share/fish/vendor_completions.d/raven.fish"
+
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

@@ -788,6 +788,160 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].chunk.text, "hello");
     }
+
+    #[tokio::test]
+    async fn test_memory_store_multiple_docs() {
+        let store = MemoryStore::new();
+
+        let chunks = vec![
+            Chunk::new("doc1", "first").with_embedding(vec![1.0, 0.0]),
+            Chunk::new("doc2", "second").with_embedding(vec![0.0, 1.0]),
+            Chunk::new("doc3", "third").with_embedding(vec![0.7, 0.7]),
+        ];
+
+        store.add(&chunks).await.unwrap();
+        assert_eq!(store.count().await.unwrap(), 3);
+
+        // Delete only doc1
+        store.delete("doc1").await.unwrap();
+        assert_eq!(store.count().await.unwrap(), 2);
+
+        // doc2 and doc3 should still be searchable
+        let results = store.search(&[0.0, 1.0], 10).await.unwrap();
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].chunk.text, "second");
+    }
+
+    #[tokio::test]
+    async fn test_memory_store_clear() {
+        let store = MemoryStore::new();
+        store
+            .add(&[Chunk::new("d", "text").with_embedding(vec![1.0])])
+            .await
+            .unwrap();
+        assert_eq!(store.count().await.unwrap(), 1);
+        store.clear().await.unwrap();
+        assert_eq!(store.count().await.unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_memory_store_empty_search() {
+        let store = MemoryStore::new();
+        let results = store.search(&[1.0, 0.0], 5).await.unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_store_persistence() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("persist.db");
+
+        // Add data
+        {
+            let store = SqliteStore::new(&db_path, 3).await.unwrap();
+            store
+                .add(&[Chunk::new("doc1", "persistent data").with_embedding(vec![1.0, 0.0, 0.0])])
+                .await
+                .unwrap();
+        }
+
+        // Reopen and verify
+        {
+            let store = SqliteStore::new(&db_path, 3).await.unwrap();
+            assert_eq!(store.count().await.unwrap(), 1);
+            let results = store.search(&[1.0, 0.0, 0.0], 1).await.unwrap();
+            assert_eq!(results[0].chunk.text, "persistent data");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_store_delete() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("del.db");
+
+        let store = SqliteStore::new(&db_path, 3).await.unwrap();
+        store
+            .add(&[
+                Chunk::new("doc1", "a").with_embedding(vec![1.0, 0.0, 0.0]),
+                Chunk::new("doc2", "b").with_embedding(vec![0.0, 1.0, 0.0]),
+            ])
+            .await
+            .unwrap();
+
+        store.delete("doc1").await.unwrap();
+        assert_eq!(store.count().await.unwrap(), 1);
+
+        let results = store.search(&[1.0, 0.0, 0.0], 10).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].chunk.doc_id, "doc2");
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_fingerprint() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("fp.db");
+
+        let store = SqliteStore::new(&db_path, 3).await.unwrap();
+
+        // No fingerprint initially
+        let fp = store.get_fingerprint("file1.txt").await.unwrap();
+        assert!(fp.is_none());
+
+        // Store and retrieve
+        store.set_fingerprint("file1.txt", "abc123").await.unwrap();
+        let fp = store.get_fingerprint("file1.txt").await.unwrap();
+        assert_eq!(fp, Some("abc123".to_string()));
+
+        // Update
+        store.set_fingerprint("file1.txt", "def456").await.unwrap();
+        let fp = store.get_fingerprint("file1.txt").await.unwrap();
+        assert_eq!(fp, Some("def456".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_metadata_filter_multiple_keys() {
+        let store = MemoryStore::new();
+
+        let mut c1 = Chunk::new("d1", "match both").with_embedding(vec![1.0, 0.0]);
+        c1.metadata.insert("lang".to_string(), "en".to_string());
+        c1.metadata
+            .insert("type".to_string(), "article".to_string());
+
+        let mut c2 = Chunk::new("d2", "match one").with_embedding(vec![0.9, 0.1]);
+        c2.metadata.insert("lang".to_string(), "en".to_string());
+        c2.metadata.insert("type".to_string(), "note".to_string());
+
+        store.add(&[c1, c2]).await.unwrap();
+
+        let filter = MetadataFilter::new()
+            .with("lang", "en")
+            .with("type", "article");
+        let results = store
+            .search_filtered(&[1.0, 0.0], 10, &filter)
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].chunk.text, "match both");
+    }
+
+    #[tokio::test]
+    async fn test_search_top_k_limit() {
+        let store = MemoryStore::new();
+        let chunks: Vec<Chunk> = (0..20)
+            .map(|i| {
+                Chunk::new(format!("doc{i}"), format!("text {i}"))
+                    .with_embedding(vec![1.0 - i as f32 * 0.01, i as f32 * 0.01])
+            })
+            .collect();
+        store.add(&chunks).await.unwrap();
+
+        let results = store.search(&[1.0, 0.0], 5).await.unwrap();
+        assert_eq!(results.len(), 5);
+        // Should be sorted by score descending
+        for i in 0..results.len() - 1 {
+            assert!(results[i].score >= results[i + 1].score);
+        }
+    }
 }
 
 // =============================================================================

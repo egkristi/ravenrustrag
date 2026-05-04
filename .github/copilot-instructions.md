@@ -96,6 +96,7 @@ cargo fmt --check        # Format check
 - Always run `cargo test` before committing
 - Always run `cargo clippy` before pushing
 - Format: `git add -A && git commit -m "<message>" && git push`
+- **After every push**: Check GitHub Actions at https://github.com/egkristi/ravenrustrag/actions for pipeline failures. If any workflow (CI, Docker, CodeQL) fails, diagnose the error and create a GitHub Issue at https://github.com/egkristi/ravenrustrag/issues describing the problem and proposed fix.
 
 ## File Formats Supported
 

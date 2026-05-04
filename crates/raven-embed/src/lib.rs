@@ -726,4 +726,82 @@ mod tests {
         assert_eq!(r1, r2);
         assert_eq!(r1[0].len(), 10);
     }
+
+    #[tokio::test]
+    async fn test_dummy_embedder_different_inputs() {
+        let embedder = DummyEmbedder::new(8);
+        let r1 = embedder.embed(&["hello".to_string()]).await.unwrap();
+        let r2 = embedder.embed(&["world".to_string()]).await.unwrap();
+        // Different inputs should produce different embeddings
+        assert_ne!(r1[0], r2[0]);
+    }
+
+    #[tokio::test]
+    async fn test_dummy_embedder_batch() {
+        let embedder = DummyEmbedder::new(4);
+        let texts: Vec<String> = (0..10).map(|i| format!("text {i}")).collect();
+        let results = embedder.embed(&texts).await.unwrap();
+        assert_eq!(results.len(), 10);
+        for emb in &results {
+            assert_eq!(emb.len(), 4);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_cached_embedder_empty_input() {
+        let embedder = DummyEmbedder::default();
+        let cached = CachedEmbedder::new(embedder, 100);
+        let result = cached.embed(&[]).await.unwrap();
+        assert_eq!(result.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_embedding_cache_direct() {
+        let cache = EmbeddingCache::new(10);
+        assert_eq!(cache.get("hello").await, None);
+        cache.set("hello".to_string(), vec![1.0, 2.0, 3.0]).await;
+        assert_eq!(cache.get("hello").await, Some(vec![1.0, 2.0, 3.0]));
+        let (hits, misses, size) = cache.stats().await;
+        assert_eq!(hits, 1);
+        assert_eq!(misses, 1);
+        assert_eq!(size, 1);
+    }
+
+    #[test]
+    fn test_generator_config_default() {
+        let config = GeneratorConfig::default();
+        assert_eq!(config.model, "llama3");
+        assert!((config.temperature - 0.7).abs() < f32::EPSILON);
+        assert_eq!(config.max_tokens, Some(2048));
+        assert!(config.system_prompt.is_none());
+    }
+
+    #[test]
+    fn test_create_generator_default() {
+        let config = GeneratorConfig::default();
+        let gen = create_generator("ollama", None, config);
+        assert_eq!(gen.model_name(), "llama3");
+    }
+
+    #[test]
+    fn test_create_generator_custom_url() {
+        let config = GeneratorConfig {
+            model: "mistral".to_string(),
+            ..Default::default()
+        };
+        let gen = create_generator("ollama", Some("http://custom:11434"), config);
+        assert_eq!(gen.model_name(), "mistral");
+    }
+
+    #[test]
+    fn test_create_embedder_factory() {
+        let embedder = create_embedder("ollama", "nomic-embed-text", None, None);
+        assert_eq!(embedder.model_name(), "nomic-embed-text");
+    }
+
+    #[test]
+    fn test_create_cached_embedder_factory() {
+        let cached = create_cached_embedder("ollama", "nomic-embed-text", None, None, 50);
+        assert_eq!(cached.model_name(), "nomic-embed-text");
+    }
 }
