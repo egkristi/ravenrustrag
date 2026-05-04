@@ -25,29 +25,29 @@ const MCP_TOOL_NOT_FOUND: i32 = -32002;
 // --- JSON-RPC types ---
 
 #[derive(Deserialize)]
-struct JsonRpcRequest {
+pub struct JsonRpcRequest {
     #[allow(dead_code)]
-    jsonrpc: String,
-    id: Option<Value>,
-    method: String,
+    pub jsonrpc: String,
+    pub id: Option<Value>,
+    pub method: String,
     #[serde(default)]
-    params: Value,
+    pub params: Value,
 }
 
 #[derive(Serialize)]
-struct JsonRpcResponse {
-    jsonrpc: String,
-    id: Value,
+pub struct JsonRpcResponse {
+    pub jsonrpc: String,
+    pub id: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
-    result: Option<Value>,
+    pub result: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<JsonRpcError>,
+    pub error: Option<JsonRpcError>,
 }
 
 #[derive(Serialize)]
-struct JsonRpcError {
-    code: i32,
-    message: String,
+pub struct JsonRpcError {
+    pub code: i32,
+    pub message: String,
 }
 
 impl JsonRpcResponse {
@@ -144,7 +144,8 @@ impl McpServer {
         Self { index, splitter }
     }
 
-    async fn handle_request(&self, req: JsonRpcRequest) -> Option<JsonRpcResponse> {
+    /// Handle a single JSON-RPC request. Returns None for notifications.
+    pub async fn handle_request(&self, req: JsonRpcRequest) -> Option<JsonRpcResponse> {
         let id = req.id.clone().unwrap_or(Value::Null);
 
         match req.method.as_str() {
@@ -379,5 +380,208 @@ impl McpServer {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use raven_embed::DummyEmbedder;
+    use raven_search::DocumentIndex;
+    use raven_store::MemoryStore;
+
+    fn test_server() -> McpServer {
+        let store = Arc::new(MemoryStore::new());
+        let embedder = Arc::new(DummyEmbedder::new(3));
+        let index = Arc::new(DocumentIndex::new(store, embedder));
+        let splitter = TextSplitter::new(200, 20);
+        McpServer::new(index, splitter)
+    }
+
+    fn make_request(method: &str, params: Value) -> JsonRpcRequest {
+        JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: Some(Value::from(1)),
+            method: method.to_string(),
+            params,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_initialize() {
+        let server = test_server();
+        let req = make_request("initialize", Value::Object(serde_json::Map::default()));
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+        let result = resp.result.unwrap();
+        assert_eq!(result["protocolVersion"], MCP_PROTOCOL_VERSION);
+        assert_eq!(result["serverInfo"]["name"], "ravenrustrag");
+    }
+
+    #[tokio::test]
+    async fn test_tools_list() {
+        let server = test_server();
+        let req = make_request("tools/list", Value::Object(serde_json::Map::default()));
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+        let tools = resp.result.unwrap();
+        assert!(tools["tools"].is_array());
+        assert_eq!(tools["tools"].as_array().unwrap().len(), 4);
+    }
+
+    #[tokio::test]
+    async fn test_unknown_method() {
+        let server = test_server();
+        let req = make_request("nonexistent", Value::Object(serde_json::Map::default()));
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_some());
+        assert_eq!(resp.error.unwrap().code, JSONRPC_METHOD_NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_notification_no_response() {
+        let server = test_server();
+        let req = make_request(
+            "notifications/initialized",
+            Value::Object(serde_json::Map::default()),
+        );
+        let resp = server.handle_request(req).await;
+        assert!(resp.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_search_empty_query() {
+        let server = test_server();
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({"name": "search", "arguments": {"query": ""}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_some());
+        assert_eq!(resp.error.unwrap().code, JSONRPC_INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn test_search_query_too_long() {
+        let server = test_server();
+        let long_query = "a".repeat(10_001);
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({"name": "search", "arguments": {"query": long_query}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_some());
+        assert_eq!(resp.error.unwrap().code, JSONRPC_INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn test_search_invalid_top_k() {
+        let server = test_server();
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({"name": "search", "arguments": {"query": "test", "top_k": 0}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_some());
+        assert_eq!(resp.error.unwrap().code, JSONRPC_INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn test_search_success() {
+        let server = test_server();
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({"name": "search", "arguments": {"query": "test", "top_k": 5}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+        let result = resp.result.unwrap();
+        assert!(result["content"].is_array());
+    }
+
+    #[tokio::test]
+    async fn test_collection_info() {
+        let server = test_server();
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({"name": "collection_info", "arguments": {}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+        let text = resp.result.unwrap()["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(text.contains("0 chunks"));
+    }
+
+    #[tokio::test]
+    async fn test_index_documents() {
+        let server = test_server();
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({
+                "name": "index_documents",
+                "arguments": {
+                    "documents": [
+                        {"text": "Rust is fast"},
+                        {"text": "Python is slow"}
+                    ]
+                }
+            }),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+        let text = resp.result.unwrap()["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(text.contains("Indexed 2 documents"));
+    }
+
+    #[tokio::test]
+    async fn test_index_too_many_documents() {
+        let server = test_server();
+        let docs: Vec<Value> = (0..101)
+            .map(|i| serde_json::json!({"text": format!("doc {i}")}))
+            .collect();
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({
+                "name": "index_documents",
+                "arguments": { "documents": docs }
+            }),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_some());
+        assert_eq!(resp.error.unwrap().code, JSONRPC_INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn test_unknown_tool() {
+        let server = test_server();
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({"name": "nonexistent_tool", "arguments": {}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_some());
+        assert_eq!(resp.error.unwrap().code, MCP_TOOL_NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_get_prompt() {
+        let server = test_server();
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({"name": "get_prompt", "arguments": {"query": "What is RAG?"}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+        let text = resp.result.unwrap()["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(text.contains("What is RAG?"));
     }
 }

@@ -3,11 +3,11 @@
 //! Provides REST endpoints for querying, indexing, and managing the document index.
 
 use axum::{
-    extract::{Json, State},
+    extract::{Json, Path as AxumPath, State},
     http::{HeaderMap, HeaderValue, Method, StatusCode},
     middleware::{self, Next},
     response::IntoResponse,
-    routing::{get, post},
+    routing::{delete, get, post},
     Router,
 };
 use raven_core::{Document, SearchResult, ServerConfig};
@@ -469,31 +469,128 @@ async fn index_handler(
     }
 }
 
+async fn delete_handler(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    AxumPath(doc_id): AxumPath<String>,
+) -> impl IntoResponse {
+    state.metrics.requests_total.fetch_add(1, Ordering::Relaxed);
+
+    if !check_auth(&headers, &state.config) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "Unauthorized"})),
+        )
+            .into_response();
+    }
+
+    if doc_id.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "Document ID must not be empty"})),
+        )
+            .into_response();
+    }
+
+    match state.index.delete(&doc_id).await {
+        Ok(()) => Json(serde_json::json!({
+            "deleted": doc_id,
+            "message": format!("Deleted document {doc_id}")
+        }))
+        .into_response(),
+        Err(e) => {
+            error!("Delete failed: {e}");
+            state.metrics.errors_total.fetch_add(1, Ordering::Relaxed);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Internal server error"})),
+            )
+                .into_response()
+        }
+    }
+}
+
 async fn openapi() -> impl IntoResponse {
     let schema = serde_json::json!({
         "openapi": "3.0.3",
         "info": {
             "title": "RavenRustRAG API",
             "version": env!("CARGO_PKG_VERSION"),
-            "description": "Fearlessly fast local-first RAG engine"
+            "description": "Local-first RAG engine. Retrieval-Augmented Generation with vector + BM25 hybrid search."
+        },
+        "servers": [
+            { "url": "http://localhost:8484", "description": "Local development" }
+        ],
+        "components": {
+            "securitySchemes": {
+                "bearerAuth": {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "description": "API key via Authorization: Bearer <token>. Only required when RAVEN_API_KEY is set."
+                }
+            },
+            "schemas": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "error": { "type": "string" }
+                    }
+                },
+                "SearchResult": {
+                    "type": "object",
+                    "properties": {
+                        "text": { "type": "string" },
+                        "score": { "type": "number" },
+                        "distance": { "type": "number" },
+                        "doc_id": { "type": "string" },
+                        "metadata": { "type": "object", "additionalProperties": { "type": "string" } }
+                    }
+                }
+            }
         },
         "paths": {
             "/health": {
                 "get": {
                     "summary": "Health check",
-                    "responses": { "200": { "description": "OK" } }
+                    "responses": {
+                        "200": {
+                            "description": "Server is healthy",
+                            "content": { "application/json": { "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "status": { "type": "string" },
+                                    "version": { "type": "string" }
+                                }
+                            }}}
+                        }
+                    }
                 }
             },
             "/stats": {
                 "get": {
                     "summary": "Index statistics",
-                    "responses": { "200": { "description": "Stats" } }
+                    "security": [{ "bearerAuth": [] }],
+                    "responses": {
+                        "200": {
+                            "description": "Stats",
+                            "content": { "application/json": { "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "documents": { "type": "integer" },
+                                    "status": { "type": "string" }
+                                }
+                            }}}
+                        },
+                        "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+                    }
                 }
             },
             "/query": {
                 "post": {
                     "summary": "Search documents",
+                    "security": [{ "bearerAuth": [] }],
                     "requestBody": {
+                        "required": true,
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -509,19 +606,175 @@ async fn openapi() -> impl IntoResponse {
                             }
                         }
                     },
-                    "responses": { "200": { "description": "Results" } }
+                    "responses": {
+                        "200": {
+                            "description": "Search results",
+                            "content": { "application/json": { "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "results": { "type": "array", "items": { "$ref": "#/components/schemas/SearchResult" } },
+                                    "count": { "type": "integer" }
+                                }
+                            }}}
+                        },
+                        "400": { "description": "Invalid request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+                        "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+                        "429": { "description": "Rate limit exceeded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+                    }
                 }
             },
             "/prompt": {
                 "post": {
-                    "summary": "LLM-ready prompt",
-                    "responses": { "200": { "description": "Formatted prompt" } }
+                    "summary": "LLM-ready prompt with context",
+                    "security": [{ "bearerAuth": [] }],
+                    "requestBody": {
+                        "required": true,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["query"],
+                                    "properties": {
+                                        "query": { "type": "string" },
+                                        "top_k": { "type": "integer", "default": 5 },
+                                        "template": { "type": "string", "description": "Custom prompt template with {context}, {query}, {sources} placeholders" },
+                                        "hybrid": { "type": "boolean", "default": false },
+                                        "alpha": { "type": "number", "default": 0.5 }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "Formatted prompt",
+                            "content": { "application/json": { "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "prompt": { "type": "string" },
+                                    "sources": { "type": "array", "items": { "type": "string" } }
+                                }
+                            }}}
+                        },
+                        "400": { "description": "Invalid request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+                        "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+                    }
                 }
             },
             "/index": {
                 "post": {
-                    "summary": "Add documents",
-                    "responses": { "200": { "description": "Indexed count" } }
+                    "summary": "Add documents to the index",
+                    "security": [{ "bearerAuth": [] }],
+                    "requestBody": {
+                        "required": true,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["documents"],
+                                    "properties": {
+                                        "documents": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "required": ["text"],
+                                                "properties": {
+                                                    "text": { "type": "string" },
+                                                    "metadata": { "type": "object", "additionalProperties": { "type": "string" } },
+                                                    "id": { "type": "string" }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "Indexed count",
+                            "content": { "application/json": { "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "indexed": { "type": "integer" },
+                                    "message": { "type": "string" }
+                                }
+                            }}}
+                        },
+                        "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+                    }
+                }
+            },
+            "/documents/{doc_id}": {
+                "delete": {
+                    "summary": "Delete a document and its chunks",
+                    "security": [{ "bearerAuth": [] }],
+                    "parameters": [{
+                        "name": "doc_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": { "type": "string" }
+                    }],
+                    "responses": {
+                        "200": {
+                            "description": "Document deleted",
+                            "content": { "application/json": { "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "deleted": { "type": "string" },
+                                    "message": { "type": "string" }
+                                }
+                            }}}
+                        },
+                        "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+                    }
+                }
+            },
+            "/collections": {
+                "get": {
+                    "summary": "List collections",
+                    "responses": {
+                        "200": {
+                            "description": "Collection list",
+                            "content": { "application/json": { "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "collections": { "type": "array", "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": { "type": "string" },
+                                            "chunks": { "type": "integer" },
+                                            "embedder": { "type": "string" }
+                                        }
+                                    }}
+                                }
+                            }}}
+                        }
+                    }
+                }
+            },
+            "/metrics": {
+                "get": {
+                    "summary": "Server metrics",
+                    "security": [{ "bearerAuth": [] }],
+                    "responses": {
+                        "200": {
+                            "description": "Metrics",
+                            "content": { "application/json": { "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "requests_total": { "type": "integer" },
+                                    "queries_total": { "type": "integer" },
+                                    "index_requests_total": { "type": "integer" },
+                                    "errors_total": { "type": "integer" },
+                                    "uptime_seconds": { "type": "integer" },
+                                    "chunks_total": { "type": "integer" },
+                                    "version": { "type": "string" }
+                                }
+                            }}}
+                        },
+                        "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+                    }
                 }
             }
         }
@@ -598,6 +851,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/query", post(query_handler))
         .route("/prompt", post(prompt_handler))
         .route("/index", post(index_handler))
+        .route("/documents/:doc_id", delete(delete_handler))
         .route("/openapi.json", get(openapi))
         .layer(middleware::from_fn_with_state(
             state.clone(),
@@ -672,4 +926,368 @@ async fn shutdown_signal() {
         .await
         .expect("Failed to install Ctrl+C handler");
     info!("Received shutdown signal, shutting down...");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use http_body_util::BodyExt;
+    use hyper::Request;
+    use raven_embed::DummyEmbedder;
+    use raven_search::DocumentIndex;
+    use raven_store::MemoryStore;
+    use tower::ServiceExt;
+
+    fn test_state(api_key: Option<&str>) -> Arc<AppState> {
+        let store = Arc::new(MemoryStore::new());
+        let embedder = Arc::new(DummyEmbedder::new(3));
+        let index = DocumentIndex::new(store, embedder);
+        let mut config = ServerConfig::default();
+        config.api_key = api_key.map(String::from);
+        let splitter = TextSplitter::new(200, 20);
+        Arc::new(AppState::new(index, config, splitter))
+    }
+
+    async fn response_json(response: axum::response::Response) -> serde_json::Value {
+        let body = response.into_body();
+        let bytes = body.collect().await.unwrap().to_bytes();
+        serde_json::from_slice(&bytes).unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_health() {
+        let state = test_state(None);
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .uri("/health")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert_eq!(json["status"], "ok");
+        assert!(json["version"].is_string());
+    }
+
+    #[tokio::test]
+    async fn test_stats_no_auth_required() {
+        let state = test_state(None);
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .uri("/stats")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert_eq!(json["documents"], 0);
+    }
+
+    #[tokio::test]
+    async fn test_stats_requires_auth() {
+        let state = test_state(Some("secret-key"));
+        let app = build_router(state);
+
+        // Without auth
+        let req = Request::builder()
+            .uri("/stats")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_stats_with_valid_auth() {
+        let state = test_state(Some("secret-key"));
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .uri("/stats")
+            .header("authorization", "Bearer secret-key")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_stats_with_wrong_auth() {
+        let state = test_state(Some("secret-key"));
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .uri("/stats")
+            .header("authorization", "Bearer wrong-key")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_query_empty_rejected() {
+        let state = test_state(None);
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .method("POST")
+            .uri("/query")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"query": ""}"#))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_query_too_long_rejected() {
+        let state = test_state(None);
+        let app = build_router(state);
+
+        let long_query = "a".repeat(10_001);
+        let body = serde_json::json!({"query": long_query}).to_string();
+
+        let req = Request::builder()
+            .method("POST")
+            .uri("/query")
+            .header("content-type", "application/json")
+            .body(Body::from(body))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_query_success() {
+        let state = test_state(None);
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .method("POST")
+            .uri("/query")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"query": "test", "top_k": 5}"#))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert_eq!(json["count"], 0);
+        assert!(json["results"].is_array());
+    }
+
+    #[tokio::test]
+    async fn test_index_and_query() {
+        let state = test_state(None);
+
+        // Index a document
+        let app = build_router(state.clone());
+        let body = serde_json::json!({
+            "documents": [{"text": "Rust is a systems programming language."}]
+        });
+        let req = Request::builder()
+            .method("POST")
+            .uri("/index")
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert_eq!(json["indexed"], 1);
+
+        // Query for it
+        let app = build_router(state);
+        let req = Request::builder()
+            .method("POST")
+            .uri("/query")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"query": "Rust programming"}"#))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert!(json["count"].as_u64().unwrap() > 0);
+    }
+
+    #[tokio::test]
+    async fn test_prompt_endpoint() {
+        let state = test_state(None);
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .method("POST")
+            .uri("/prompt")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"query": "What is RAG?"}"#))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert!(json["prompt"].is_string());
+        assert!(json["sources"].is_array());
+    }
+
+    #[tokio::test]
+    async fn test_index_empty_documents() {
+        let state = test_state(None);
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .method("POST")
+            .uri("/index")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"documents": []}"#))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert_eq!(json["indexed"], 0);
+    }
+
+    #[tokio::test]
+    async fn test_openapi_schema() {
+        let state = test_state(None);
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .uri("/openapi.json")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert_eq!(json["openapi"], "3.0.3");
+        assert!(json["paths"]["/query"].is_object());
+        assert!(json["paths"]["/documents/{doc_id}"].is_object());
+        assert!(json["components"]["securitySchemes"]["bearerAuth"].is_object());
+    }
+
+    #[tokio::test]
+    async fn test_collections_endpoint() {
+        let state = test_state(None);
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .uri("/collections")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert!(json["collections"].is_array());
+    }
+
+    #[tokio::test]
+    async fn test_metrics_endpoint() {
+        let state = test_state(None);
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .uri("/metrics")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert!(json["uptime_seconds"].is_number());
+        assert!(json["version"].is_string());
+    }
+
+    #[tokio::test]
+    async fn test_delete_endpoint() {
+        let state = test_state(None);
+
+        // Index a document first
+        let app = build_router(state.clone());
+        let body = serde_json::json!({
+            "documents": [{"text": "Test document", "id": "test-doc-1"}]
+        });
+        let req = Request::builder()
+            .method("POST")
+            .uri("/index")
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        // Delete it
+        let app = build_router(state.clone());
+        let req = Request::builder()
+            .method("DELETE")
+            .uri("/documents/test-doc-1")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert_eq!(json["deleted"], "test-doc-1");
+    }
+
+    #[tokio::test]
+    async fn test_delete_requires_auth() {
+        let state = test_state(Some("secret"));
+        let app = build_router(state);
+
+        let req = Request::builder()
+            .method("DELETE")
+            .uri("/documents/some-doc")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_hybrid_query() {
+        let state = test_state(None);
+
+        // Index documents
+        let app = build_router(state.clone());
+        let body = serde_json::json!({
+            "documents": [
+                {"text": "Rust is a systems programming language"},
+                {"text": "Python is used for machine learning"}
+            ]
+        });
+        let req = Request::builder()
+            .method("POST")
+            .uri("/index")
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        // Hybrid query
+        let app = build_router(state);
+        let req = Request::builder()
+            .method("POST")
+            .uri("/query")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"query": "Rust programming", "hybrid": true, "alpha": 0.5}"#,
+            ))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        assert!(json["count"].as_u64().unwrap() > 0);
+    }
 }

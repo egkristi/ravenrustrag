@@ -20,3 +20,10 @@ subtle = "2.6.1"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+raven-embed = { path = "../raven-embed" }
+raven-store = { path = "../raven-store" }
+tower = { workspace = true, features = ["util"] }
+http-body-util = "0.1"
+hyper = "1"

@@ -27,6 +27,10 @@ struct Cli {
     /// Enable verbose logging
     #[arg(short, long, global = true)]
     verbose: bool,
+
+    /// Output as JSON (for scripting)
+    #[arg(long, global = true)]
+    json: bool,
 }
 
 #[derive(Subcommand)]
@@ -426,22 +430,47 @@ async fn main() -> Result<()> {
             };
 
             let mode = if hybrid { "hybrid" } else { "vector" };
-            println!("\n🐦‍⬛ Results for: \"{query}\" ({mode})\n");
 
-            if results.is_empty() {
-                println!("No results found.");
+            if cli.json {
+                let items: Vec<serde_json::Value> = results
+                    .iter()
+                    .map(|r| {
+                        serde_json::json!({
+                            "text": r.chunk.text,
+                            "score": r.score,
+                            "distance": r.distance,
+                            "doc_id": r.chunk.doc_id,
+                            "metadata": r.chunk.metadata,
+                        })
+                    })
+                    .collect();
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "query": query,
+                        "mode": mode,
+                        "count": results.len(),
+                        "results": items,
+                    }))?
+                );
             } else {
-                for (i, result) in results.iter().enumerate() {
-                    let source = result
-                        .chunk
-                        .metadata
-                        .get("source")
-                        .cloned()
-                        .unwrap_or_else(|| "unknown".to_string());
-                    println!("[{}] (score: {:.4})", i + 1, result.score);
-                    println!("    Source: {source}");
-                    let preview: String = result.chunk.text.chars().take(200).collect();
-                    println!("    {preview}\n");
+                println!("\nResults for: \"{query}\" ({mode})\n");
+
+                if results.is_empty() {
+                    println!("No results found.");
+                } else {
+                    for (i, result) in results.iter().enumerate() {
+                        let source = result
+                            .chunk
+                            .metadata
+                            .get("source")
+                            .cloned()
+                            .unwrap_or_else(|| "unknown".to_string());
+                        println!("[{}] (score: {:.4})", i + 1, result.score);
+                        println!("    Source: {source}");
+                        let preview: String = result.chunk.text.chars().take(200).collect();
+                        println!("    {preview}\n");
+                    }
                 }
             }
         }
@@ -466,9 +495,20 @@ async fn main() -> Result<()> {
             let store = make_store(&db).await?;
             let count = store.count().await?;
 
-            println!("🐦‍⬛ RavenRustRAG Index Info\n");
-            println!("  Database: {}", db.display());
-            println!("  Chunks:   {count}");
+            if cli.json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "database": db.display().to_string(),
+                        "chunks": count,
+                        "version": env!("CARGO_PKG_VERSION"),
+                    }))?
+                );
+            } else {
+                println!("RavenRustRAG Index Info\n");
+                println!("  Database: {}", db.display());
+                println!("  Chunks:   {count}");
+            }
         }
 
         Commands::Serve {
@@ -584,37 +624,47 @@ async fn main() -> Result<()> {
         }
 
         Commands::Doctor { url, db } => {
-            println!("🐦‍⬛ RavenRustRAG Doctor\n");
-
-            // Check database
-            print!("  Database ({})... ", db.display());
-            if db.exists() {
+            let db_status = if db.exists() {
                 match SqliteStore::new(&db, 768).await {
                     Ok(store) => {
                         let count = store.count().await.unwrap_or(0);
-                        println!("✓ OK ({count} chunks)");
+                        format!("ok ({count} chunks)")
                     }
-                    Err(e) => println!("✗ Error: {e}"),
+                    Err(e) => format!("error: {e}"),
                 }
             } else {
-                println!("⚠ Not found (will be created on first index)");
-            }
+                "not found".to_string()
+            };
 
-            // Check Ollama
-            print!("  Ollama ({url})... ");
             let client = reqwest::Client::new();
-            match client
+            let ollama_status = match client
                 .get(format!("{url}/api/tags"))
                 .timeout(std::time::Duration::from_secs(3))
                 .send()
                 .await
             {
-                Ok(resp) if resp.status().is_success() => println!("✓ OK"),
-                Ok(resp) => println!("⚠ Status: {}", resp.status()),
-                Err(e) => println!("✗ Not reachable: {e}"),
-            }
+                Ok(resp) if resp.status().is_success() => "ok".to_string(),
+                Ok(resp) => format!("status: {}", resp.status()),
+                Err(e) => format!("unreachable: {e}"),
+            };
 
-            println!("\n  Version: {}", env!("CARGO_PKG_VERSION"));
+            if cli.json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "version": env!("CARGO_PKG_VERSION"),
+                        "database": { "path": db.display().to_string(), "status": db_status },
+                        "ollama": { "url": url, "status": ollama_status },
+                    }))?
+                );
+            } else {
+                println!("RavenRustRAG Doctor\n");
+                print!("  Database ({})... ", db.display());
+                println!("{db_status}");
+                print!("  Ollama ({url})... ");
+                println!("{ollama_status}");
+                println!("\n  Version: {}", env!("CARGO_PKG_VERSION"));
+            }
         }
 
         Commands::Watch {
@@ -655,7 +705,6 @@ async fn main() -> Result<()> {
             let embedder = Arc::new(DummyEmbedder::new(128));
             let splitter = TextSplitter::new(200, 20);
 
-            // Generate test documents
             let docs: Vec<raven_core::Document> = (0..num_docs)
                 .map(|i| {
                     raven_core::Document::new(format!(
@@ -665,7 +714,6 @@ async fn main() -> Result<()> {
                 })
                 .collect();
 
-            // Benchmark indexing
             let store = Arc::new(MemoryStore::new());
             let index = DocumentIndex::new(store, embedder);
 
@@ -674,11 +722,13 @@ async fn main() -> Result<()> {
             let index_time = start.elapsed();
             let chunks = index.count().await?;
 
-            println!("  Index:  {num_docs} docs -> {chunks} chunks in {index_time:?}");
-            println!(
-                "          {:.1} docs/sec",
-                num_docs as f64 / index_time.as_secs_f64()
-            );
+            if !cli.json {
+                println!("  Index:  {num_docs} docs -> {chunks} chunks in {index_time:?}");
+                println!(
+                    "          {:.1} docs/sec",
+                    num_docs as f64 / index_time.as_secs_f64()
+                );
+            }
 
             // Benchmark vector query
             let mut query_times = Vec::with_capacity(iterations);
@@ -691,8 +741,10 @@ async fn main() -> Result<()> {
             let min_query = query_times.iter().min().copied().unwrap_or_default();
             let max_query = query_times.iter().max().copied().unwrap_or_default();
 
-            println!("\n  Query (vector, {iterations} iterations):");
-            println!("          avg: {avg_query:?}  min: {min_query:?}  max: {max_query:?}");
+            if !cli.json {
+                println!("\n  Query (vector, {iterations} iterations):");
+                println!("          avg: {avg_query:?}  min: {min_query:?}  max: {max_query:?}");
+            }
 
             // Benchmark hybrid query
             let mut hybrid_times = Vec::with_capacity(iterations);
@@ -707,8 +759,10 @@ async fn main() -> Result<()> {
             let min_hybrid = hybrid_times.iter().min().copied().unwrap_or_default();
             let max_hybrid = hybrid_times.iter().max().copied().unwrap_or_default();
 
-            println!("\n  Query (hybrid, {iterations} iterations):");
-            println!("          avg: {avg_hybrid:?}  min: {min_hybrid:?}  max: {max_hybrid:?}");
+            if !cli.json {
+                println!("\n  Query (hybrid, {iterations} iterations):");
+                println!("          avg: {avg_hybrid:?}  min: {min_hybrid:?}  max: {max_hybrid:?}");
+            }
 
             // Benchmark BM25
             let mut bm25_times = Vec::with_capacity(iterations);
@@ -732,9 +786,29 @@ async fn main() -> Result<()> {
             }
             let avg_bm25 = bm25_times.iter().sum::<std::time::Duration>() / iterations as u32;
 
-            println!("\n  BM25 ({chunks} chunks, {iterations} iterations):");
-            println!("          avg: {avg_bm25:?}");
-            println!("\nBenchmark complete.");
+            if cli.json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "num_docs": num_docs,
+                        "chunks": chunks,
+                        "iterations": iterations,
+                        "index_ms": index_time.as_millis(),
+                        "docs_per_sec": num_docs as f64 / index_time.as_secs_f64(),
+                        "query_vector_avg_us": avg_query.as_micros(),
+                        "query_vector_min_us": min_query.as_micros(),
+                        "query_vector_max_us": max_query.as_micros(),
+                        "query_hybrid_avg_us": avg_hybrid.as_micros(),
+                        "query_hybrid_min_us": min_hybrid.as_micros(),
+                        "query_hybrid_max_us": max_hybrid.as_micros(),
+                        "bm25_avg_us": avg_bm25.as_micros(),
+                    }))?
+                );
+            } else {
+                println!("\n  BM25 ({chunks} chunks, {iterations} iterations):");
+                println!("          avg: {avg_bm25:?}");
+                println!("\nBenchmark complete.");
+            }
         }
     }
 

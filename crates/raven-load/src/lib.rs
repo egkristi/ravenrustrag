@@ -85,6 +85,8 @@ impl Loader {
             ".json" => Self::load_json(path),
             ".jsonl" | ".ndjson" => Self::load_jsonl(path),
             ".html" | ".htm" => Self::load_html(path),
+            #[cfg(feature = "pdf")]
+            ".pdf" => Self::load_pdf(path),
             _ => Self::load_text(path), // Fallback: plain text
         }
     }
@@ -309,6 +311,31 @@ impl Loader {
             .with_metadata("source", path.to_string_lossy())
             .with_metadata("filename", file_name)
             .with_metadata("format", "html"))
+    }
+
+    #[cfg(feature = "pdf")]
+    fn load_pdf(path: &Path) -> Result<Document> {
+        let bytes = std::fs::read(path)?;
+        let file_name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        let text = pdf_extract::extract_text_from_mem(&bytes)
+            .map_err(|e| raven_core::RavenError::Load(format!("PDF extraction failed: {e}")))?;
+
+        let text = text.trim().to_string();
+        if text.is_empty() {
+            return Err(raven_core::RavenError::Load(
+                "PDF contains no extractable text".to_string(),
+            ));
+        }
+
+        Ok(Document::new(text)
+            .with_metadata("source", path.to_string_lossy())
+            .with_metadata("filename", file_name)
+            .with_metadata("format", "pdf"))
     }
 }
 

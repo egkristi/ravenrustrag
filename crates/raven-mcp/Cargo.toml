@@ -14,3 +14,7 @@ tracing = { workspace = true }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+raven-embed = { path = "../raven-embed" }
+raven-store = { path = "../raven-store" }

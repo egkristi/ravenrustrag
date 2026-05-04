@@ -52,6 +52,15 @@ impl SqliteStore {
         let conn = Connection::open(path)
             .map_err(|e| RavenError::Store(format!("Failed to open SQLite: {e}")))?;
 
+        // Enable WAL mode for concurrent read performance
+        conn.execute_batch(
+            "PRAGMA journal_mode=WAL;
+             PRAGMA synchronous=NORMAL;
+             PRAGMA cache_size=-64000;
+             PRAGMA busy_timeout=5000;",
+        )
+        .map_err(|e| RavenError::Store(format!("Failed to set PRAGMA: {e}")))?;
+
         // Create tables
         conn.execute(
             "CREATE TABLE IF NOT EXISTS chunks (

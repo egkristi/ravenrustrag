@@ -40,7 +40,7 @@ RavenRAG (Python) proved the concept. RavenRustRAG delivers on the promise.
 | **Reranking** *(planned)* | ONNX-based cross-encoder (no Python runtime needed) | Native, not sentence-transformers |
 | **Semantic chunking** *(planned)* | Sentence-boundary + embedding similarity splitting | Parity |
 | **Flexible splitting** | Character, token-aware, and semantic strategies | Parity |
-| **File loaders** | txt, md, html, csv, json, jsonl + plugin system | pdf, docx planned |
+| **File loaders** | txt, md, html, csv, json, jsonl, pdf + plugin system | pdf via feature flag |
 | **Metadata filtering** | Filter search results by arbitrary metadata | Parity |
 | **Parent-child** | Search chunks, return full parent documents | Clean trait-based (no abstraction leak) |
 | **Context formatting** | LLM-ready prompt generation with citations | Parity |
@@ -261,12 +261,13 @@ CLI flags override env vars. Env vars override config file. Config file override
 |--------|------|-------------|
 | GET | `/health` | Health check |
 | GET | `/stats` | Index statistics |
-
+| GET | `/collections` | List collections |
 | GET | `/metrics` | Timing and cache statistics |
 | GET | `/openapi.json` | OpenAPI 3.0 schema |
 | POST | `/query` | Semantic/hybrid search |
 | POST | `/prompt` | LLM-ready formatted prompt |
 | POST | `/index` | Add documents |
+| DELETE | `/documents/{doc_id}` | Delete a document |
 
 ```bash
 # Search

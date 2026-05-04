@@ -1,6 +1,6 @@
 # RavenRustRAG — Implementation Plan
 
-> **Status:** v0.1.0-alpha — Phase 1 complete, Phase 2 mostly complete, Phase 3 in progress  
+> **Status:** v0.1.0-alpha — Phase 1 complete, Phase 2 complete, Phase 3 in progress  
 > **Motto:** *Make it work, make it right, make it fast — in that order.*  
 > **Goal:** Functionally superior to the Python version (RavenRAG v0.7.0) with orders-of-magnitude better performance.
 
@@ -16,10 +16,10 @@ Complete feature list of the Python version as of 2026-05-04 (~4,200 lines, 24 m
 | **Embedding** | sentence-transformers, Ollama, OpenAI, vLLM, custom protocol | ✅ Ollama + OpenAI + auto-detect |
 | **Storage** | ChromaDB, FAISS, SQLite-vec, VectorStoreBackend protocol | ✅ SQLite + Memory |
 | **Splitting** | TextSplitter, TokenSplitter, SemanticSplitter | ✅ Text + Token + Sentence |
-| **Loaders** | .txt .md .pdf .docx .pptx .xlsx .csv .rtf .html + plugin system | ✅ txt,md,csv,json,jsonl,html |
+| **Loaders** | .txt .md .pdf .docx .pptx .xlsx .csv .rtf .html + plugin system | ✅ txt,md,csv,json,jsonl,html,pdf |
 | **Search** | Vector, BM25 hybrid (RRF), cross-encoder reranking, streaming | ✅ Vector + BM25 hybrid (RRF) + streaming |
 | **Graph** | KnowledgeGraph, GraphRetriever, entity extraction, RRF fusion | ❌ Phase 3 |
-| **Server** | HTTP (stdlib), auth, CORS, /metrics, /openapi.json, 7 endpoints | ✅ Axum, auth, CORS, /metrics |
+| **Server** | HTTP (stdlib), auth, CORS, /metrics, /openapi.json, 7 endpoints | ✅ Axum, 9 endpoints, full OpenAPI 3.0 |
 | **MCP** | stdio JSON-RPC, 3 tools (search, get_prompt, collection_info) | ✅ 4 tools |
 | **CLI** | 11 commands (index, query, prompt, serve, watch, info, export, import, doctor, mcp, benchmark) | ✅ 12 commands |
 | **Pipeline** | Pipeline class, run/query/stream, error strategies | ✅ DocumentIndex pipeline |
@@ -201,7 +201,7 @@ ravenrustrag/
 
 ### 4.5 File Loaders
 - [x] Markdown with frontmatter parsing (YAML metadata → doc metadata)
-- [ ] PDF loader (pdf-extract or lopdf)
+- [x] PDF loader (pdf-extract, behind `pdf` feature flag)
 - [x] HTML loader (strip tags, remove scripts/styles)
 - [x] CSV loader (csv crate)
 - [x] JSON/JSONL loader
@@ -360,7 +360,17 @@ Features that make the Rust version **strictly better** than Python:
 2. **Ollama + OpenAI embedder only** — ONNX local inference coming in Phase 3.
 3. **BM25 not persisted** — rebuilt in memory from VectorStore during hybrid search.
 4. **No cross-encoder reranking** — Requires ONNX runtime, planned for Phase 3.
-5. **Security hardening in progress** — See [issues #1–#10](https://github.com/egkristi/ravenrustrag/issues) for tracked findings.
+
+## 7.1 Open Issues
+
+| Issue | Title | Priority | Status |
+|---|---|---|---|
+| [#11](https://github.com/egkristi/ravenrustrag/issues/11) | DELETE /documents/{doc_id} endpoint | High | Resolved |
+| [#12](https://github.com/egkristi/ravenrustrag/issues/12) | Server and MCP integration tests | High | Resolved |
+| [#13](https://github.com/egkristi/ravenrustrag/issues/13) | CLI --json output flag | Medium | Resolved |
+| [#14](https://github.com/egkristi/ravenrustrag/issues/14) | SQLite WAL mode optimization | Medium | Resolved |
+| [#15](https://github.com/egkristi/ravenrustrag/issues/15) | Complete OpenAPI 3.0 schema | Medium | Resolved |
+| [#16](https://github.com/egkristi/ravenrustrag/issues/16) | PDF file loader support | Low | Resolved |
 
 ## 8. Build Instructions
 
