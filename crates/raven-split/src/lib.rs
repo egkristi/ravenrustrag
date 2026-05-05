@@ -82,6 +82,11 @@ impl Splitter for TextSplitter {
                     break;
                 }
                 let chunk_text = &text[start..end];
+                // Skip empty chunks (can happen with multi-byte boundary adjustments)
+                if chunk_text.is_empty() || chunk_text.trim().is_empty() {
+                    start += step.max(1);
+                    continue;
+                }
 
                 let mut chunk = Chunk::new(&doc.id, chunk_text);
                 doc.metadata.clone_into(&mut chunk.metadata);
