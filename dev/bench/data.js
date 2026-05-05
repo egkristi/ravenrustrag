@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777995765735,
+  "lastUpdate": 1778005404667,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -2015,6 +2015,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 117198,
             "range": "± 907",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "56d72d5ed02fb0784d53e14e79824964ad69f0b4",
+          "message": "fix: add missing mut on ONNX session builder variable",
+          "timestamp": "2026-05-05T20:17:45+02:00",
+          "tree_id": "773ffc92b0e6101215b1239e90cb9444e16aa2d4",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/56d72d5ed02fb0784d53e14e79824964ad69f0b4"
+        },
+        "date": 1778005403702,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 100,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 557,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1105,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 54435,
+            "range": "± 281",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 576269,
+            "range": "± 2758",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 95995,
+            "range": "± 400",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39575,
+            "range": "± 159",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 114840,
+            "range": "± 1655",
             "unit": "ns/iter"
           }
         ]
