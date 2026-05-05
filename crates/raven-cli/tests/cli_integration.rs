@@ -335,3 +335,55 @@ fn test_full_roundtrip() {
         "export should contain documents"
     );
 }
+
+// ---------------------------------------------------------------------------
+// diff command
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_diff_empty_db() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let docs = dir.path().join("docs");
+    std::fs::create_dir(&docs).expect("mkdir");
+    std::fs::write(docs.join("a.txt"), "hello").expect("write");
+
+    let db = dir.path().join("diff.db");
+
+    raven()
+        .args([
+            "diff",
+            docs.to_str().expect("p"),
+            "--db",
+            db.to_str().expect("d"),
+            "--extensions",
+            "txt",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("+").or(predicate::str::contains("new")));
+}
+
+#[test]
+fn test_diff_no_changes() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let docs = dir.path().join("docs");
+    std::fs::create_dir(&docs).expect("mkdir");
+    std::fs::write(docs.join("a.txt"), "hello").expect("write");
+
+    let db = dir.path().join("diff2.db");
+    let db_str = db.to_str().expect("d");
+    let docs_str = docs.to_str().expect("p");
+
+    // Index first
+    raven()
+        .args(["index", docs_str, "--db", db_str, "--extensions", "txt"])
+        .assert()
+        .success();
+
+    // Then diff should show no changes
+    raven()
+        .args(["diff", docs_str, "--db", db_str, "--extensions", "txt"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("No changes"));
+}

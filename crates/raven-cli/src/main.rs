@@ -357,6 +357,20 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
+
+    /// Show files changed since last index
+    Diff {
+        /// Path to documents
+        path: PathBuf,
+
+        /// Database path
+        #[arg(short, long, default_value = "./raven.db")]
+        db: PathBuf,
+
+        /// File extensions to check (comma-separated)
+        #[arg(long, default_value = "txt,md,csv,json,html,pdf,docx")]
+        extensions: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1336,6 +1350,76 @@ rate_limit_per_second = 100
 
             std::fs::write(&output, config)?;
             println!("Created {}", output.display());
+        }
+
+        Commands::Diff {
+            path,
+            db,
+            extensions,
+        } => {
+            use colored::Colorize;
+
+            let store = make_store(&db, 128).await?;
+            let stored = store.all_fingerprints().await?;
+            let exts: Vec<&str> = extensions.split(',').map(str::trim).collect();
+
+            let mut new_files = Vec::new();
+            let mut modified_files = Vec::new();
+            let mut seen_paths = std::collections::HashSet::new();
+
+            if path.is_dir() {
+                for entry in walkdir::WalkDir::new(&path)
+                    .into_iter()
+                    .filter_map(std::result::Result::ok)
+                    .filter(|e| e.file_type().is_file())
+                {
+                    let file_path = entry.path();
+                    let ext = file_path.extension().and_then(|e| e.to_str()).unwrap_or("");
+                    if !exts.contains(&ext) {
+                        continue;
+                    }
+
+                    let key = file_path.to_string_lossy().to_string();
+                    seen_paths.insert(key.clone());
+
+                    let Ok(content) = std::fs::read_to_string(file_path) else {
+                        continue;
+                    };
+                    let hash = raven_core::fingerprint(&content);
+
+                    match stored.get(&key) {
+                        None => new_files.push(key),
+                        Some(stored_hash) if stored_hash != &hash => {
+                            modified_files.push(key);
+                        }
+                        _ => {} // unchanged
+                    }
+                }
+            }
+
+            // Deleted files: in stored but not seen
+            let deleted_files: Vec<&String> =
+                stored.keys().filter(|k| !seen_paths.contains(*k)).collect();
+
+            if new_files.is_empty() && modified_files.is_empty() && deleted_files.is_empty() {
+                println!("{}", "No changes detected.".green());
+            } else {
+                for f in &new_files {
+                    println!("  {} {f}", "+".green().bold());
+                }
+                for f in &modified_files {
+                    println!("  {} {f}", "~".yellow().bold());
+                }
+                for f in &deleted_files {
+                    println!("  {} {f}", "-".red().bold());
+                }
+                println!(
+                    "\n{} new, {} modified, {} deleted",
+                    new_files.len().to_string().green(),
+                    modified_files.len().to_string().yellow(),
+                    deleted_files.len().to_string().red(),
+                );
+            }
         }
     }
 

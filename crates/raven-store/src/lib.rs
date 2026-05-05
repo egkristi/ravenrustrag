@@ -98,6 +98,11 @@ pub trait VectorStore: Send + Sync {
     /// Delete fingerprint for a path
     async fn delete_fingerprint(&self, path: &str) -> Result<()>;
 
+    /// List all stored fingerprints (path → hash)
+    async fn all_fingerprints(&self) -> Result<HashMap<String, String>> {
+        Ok(HashMap::new())
+    }
+
     /// Save BM25 term data for a chunk (for persistent BM25 index)
     async fn save_bm25_terms(
         &self,
@@ -635,6 +640,27 @@ impl VectorStore for SqliteStore {
         conn.execute("DELETE FROM fingerprints WHERE path = ?1", [path])
             .map_err(|e| RavenError::Store(format!("Fingerprint delete failed: {e}")))?;
         Ok(())
+    }
+
+    async fn all_fingerprints(&self) -> Result<HashMap<String, String>> {
+        let conn = self.read_conn.lock().await;
+        let mut stmt = conn
+            .prepare("SELECT path, content_hash FROM fingerprints")
+            .map_err(|e| RavenError::Store(format!("Fingerprint list failed: {e}")))?;
+        let rows = stmt
+            .query_map([], |row| {
+                let path: String = row.get(0)?;
+                let hash: String = row.get(1)?;
+                Ok((path, hash))
+            })
+            .map_err(|e| RavenError::Store(format!("Fingerprint list failed: {e}")))?;
+        let mut map = HashMap::new();
+        for row in rows {
+            let (path, hash) =
+                row.map_err(|e| RavenError::Store(format!("Fingerprint row failed: {e}")))?;
+            map.insert(path, hash);
+        }
+        Ok(map)
     }
 
     async fn save_bm25_terms(
