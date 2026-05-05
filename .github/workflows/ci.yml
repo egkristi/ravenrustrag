@@ -68,6 +68,27 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --all
 
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+      - name: Generate coverage
+        run: cargo tarpaulin --out xml --skip-clean --exclude-files "crates/raven-cli/*" "benches/*" "fuzz/*"
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: cobertura.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
   msrv:
     name: MSRV (1.86)
     runs-on: ubuntu-latest

@@ -8,6 +8,8 @@ Sub-millisecond vector search. Single static binary. No Python. No virtual envir
 
 [![Rust](https://img.shields.io/badge/rust-1.86%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSE)
+[![CI](https://github.com/egkristi/ravenrustrag/actions/workflows/ci.yml/badge.svg)](https://github.com/egkristi/ravenrustrag/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/egkristi/ravenrustrag/graph/badge.svg)](https://codecov.io/gh/egkristi/ravenrustrag)
 [![Docs](https://img.shields.io/badge/docs-egkristi.github.io-blueviolet)](https://egkristi.github.io/ravenrustrag/)
 
 ## Features
@@ -21,7 +23,7 @@ Sub-millisecond vector search. Single static binary. No Python. No virtual envir
 | **Pluggable storage** | SQLite with WAL + mmap (default), in-memory, or custom backend |
 | **Hybrid search** | Dense vectors + BM25 keyword matching with Reciprocal Rank Fusion |
 | **HNSW search** | O(log n) approximate nearest neighbor via `instant-distance` |
-| **Reranking** | Keyword reranker + trait for custom backends (ONNX planned) |
+| **Reranking** | Keyword reranker + ONNX cross-encoder backend (behind `onnx` feature) |
 | **Knowledge graph** | Entity extraction + graph traversal + graph-vector fusion |
 | **Semantic chunking** | Sentence-boundary + embedding cosine similarity splitting |
 | **Flexible splitting** | Character, token-aware, and semantic strategies |
