@@ -284,6 +284,10 @@ enum Commands {
         /// Embedding model
         #[arg(short, long, default_value = "nomic-embed-text")]
         model: String,
+
+        /// Filter tools by name (comma-separated, e.g. "search,get_prompt")
+        #[arg(short, long)]
+        filter: Option<String>,
     },
 
     /// Run diagnostics
@@ -1027,6 +1031,7 @@ async fn main() -> Result<()> {
             backend,
             url,
             model,
+            filter,
         } => {
             let (eff_backend, eff_url, eff_model, eff_db) =
                 resolve_params(&backend, &url, &model, &db, &cfg);
@@ -1035,7 +1040,14 @@ async fn main() -> Result<()> {
             let index = Arc::new(DocumentIndex::new(store, embedder));
             let splitter = TextSplitter::new(512, 50);
 
-            let server = McpServer::new(index, splitter);
+            let tool_filter: Option<Vec<String>> = filter.map(|f| {
+                f.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            });
+
+            let server = McpServer::new(index, splitter).with_tool_filter(tool_filter);
             server
                 .run_stdio()
                 .await

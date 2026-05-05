@@ -182,11 +182,24 @@ fn tool_definitions() -> Value {
 pub struct McpServer {
     index: Arc<DocumentIndex>,
     splitter: TextSplitter,
+    tool_filter: Option<Vec<String>>,
 }
 
 impl McpServer {
     pub fn new(index: Arc<DocumentIndex>, splitter: TextSplitter) -> Self {
-        Self { index, splitter }
+        Self {
+            index,
+            splitter,
+            tool_filter: None,
+        }
+    }
+
+    /// Restrict which tools are exposed. Only tools whose names appear in the
+    /// filter list will be advertised and callable.
+    #[must_use]
+    pub fn with_tool_filter(mut self, filter: Option<Vec<String>>) -> Self {
+        self.tool_filter = filter;
+        self
     }
 
     /// Handle a single JSON-RPC request. Returns None for notifications.
@@ -210,7 +223,10 @@ impl McpServer {
                 }),
             )),
             "notifications/initialized" => None, // No response for notifications
-            "tools/list" => Some(JsonRpcResponse::success(id, tool_definitions())),
+            "tools/list" => Some(JsonRpcResponse::success(
+                id,
+                self.filtered_tool_definitions(),
+            )),
             "tools/call" => Some(self.handle_tool_call(id, req.params).await),
             "resources/list" => Some(self.handle_resources_list(id).await),
             "resources/read" => Some(self.handle_resources_read(id, req.params).await),
@@ -224,8 +240,38 @@ impl McpServer {
         }
     }
 
+    fn filtered_tool_definitions(&self) -> Value {
+        let mut defs = tool_definitions();
+        if let Some(filter) = &self.tool_filter {
+            if let Some(tools) = defs.get_mut("tools").and_then(|t| t.as_array_mut()) {
+                tools.retain(|tool| {
+                    tool.get("name")
+                        .and_then(|n| n.as_str())
+                        .is_some_and(|name| filter.iter().any(|f| f == name))
+                });
+            }
+        }
+        defs
+    }
+
+    fn is_tool_allowed(&self, name: &str) -> bool {
+        match &self.tool_filter {
+            None => true,
+            Some(filter) => filter.iter().any(|f| f == name),
+        }
+    }
+
     async fn handle_tool_call(&self, id: Value, params: Value) -> JsonRpcResponse {
         let tool_name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
+
+        if !self.is_tool_allowed(tool_name) {
+            return JsonRpcResponse::error(
+                id,
+                MCP_TOOL_NOT_FOUND,
+                format!("Tool not available: {tool_name}"),
+            );
+        }
+
         let arguments = params
             .get("arguments")
             .cloned()
@@ -967,5 +1013,40 @@ mod tests {
         );
         let resp = server.handle_request(req).await.unwrap();
         assert!(resp.error.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_tool_filter_restricts_list() {
+        let store = Arc::new(MemoryStore::new());
+        let embedder = Arc::new(DummyEmbedder::new(3));
+        let index = Arc::new(DocumentIndex::new(store, embedder));
+        let splitter = TextSplitter::new(200, 20);
+        let server =
+            McpServer::new(index, splitter).with_tool_filter(Some(vec!["search".to_string()]));
+
+        let req = make_request("tools/list", Value::Object(serde_json::Map::default()));
+        let resp = server.handle_request(req).await.unwrap();
+        let tools = resp.result.unwrap();
+        let arr = tools["tools"].as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0]["name"], "search");
+    }
+
+    #[tokio::test]
+    async fn test_tool_filter_blocks_call() {
+        let store = Arc::new(MemoryStore::new());
+        let embedder = Arc::new(DummyEmbedder::new(3));
+        let index = Arc::new(DocumentIndex::new(store, embedder));
+        let splitter = TextSplitter::new(200, 20);
+        let server =
+            McpServer::new(index, splitter).with_tool_filter(Some(vec!["search".to_string()]));
+
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({"name": "collection_info", "arguments": {}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_some());
+        assert_eq!(resp.error.unwrap().code, MCP_TOOL_NOT_FOUND);
     }
 }
