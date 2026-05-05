@@ -3,7 +3,6 @@
 //! Provides the `Embedder` trait and implementations: Ollama, OpenAI, Cached, and Dummy.
 
 use async_trait::async_trait;
-use dashmap::DashMap;
 use raven_core::{RavenError, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -222,25 +221,25 @@ impl Embedder for OpenAIBackend {
 // =============================================================================
 
 pub struct EmbeddingCache {
-    cache: Arc<DashMap<String, Vec<f32>>>,
-    max_size: usize,
+    cache: moka::sync::Cache<String, Vec<f32>>,
     hits: AtomicU64,
     misses: AtomicU64,
+    size: AtomicU64,
 }
 
 impl EmbeddingCache {
     pub fn new(max_size: usize) -> Self {
         Self {
-            cache: Arc::new(DashMap::with_capacity(max_size)),
-            max_size,
+            cache: moka::sync::Cache::new(max_size as u64),
             hits: AtomicU64::new(0),
             misses: AtomicU64::new(0),
+            size: AtomicU64::new(0),
         }
     }
 
     #[allow(clippy::unused_async)]
     pub async fn get(&self, text: &str) -> Option<Vec<f32>> {
-        let result = self.cache.get(text).map(|v| v.value().clone());
+        let result = self.cache.get(text);
         if result.is_some() {
             self.hits.fetch_add(1, Ordering::Relaxed);
         } else {
@@ -251,13 +250,8 @@ impl EmbeddingCache {
 
     #[allow(clippy::unused_async)]
     pub async fn set(&self, text: String, embedding: Vec<f32>) {
-        if self.cache.len() >= self.max_size && !self.cache.contains_key(&text) {
-            // Evict one entry (random due to DashMap iteration order)
-            if let Some(entry) = self.cache.iter().next() {
-                let key = entry.key().clone();
-                drop(entry);
-                self.cache.remove(&key);
-            }
+        if self.cache.get(&text).is_none() {
+            self.size.fetch_add(1, Ordering::Relaxed);
         }
         self.cache.insert(text, embedding);
     }
@@ -266,7 +260,7 @@ impl EmbeddingCache {
     pub async fn stats(&self) -> (u64, u64, usize) {
         let hits = self.hits.load(Ordering::Relaxed);
         let misses = self.misses.load(Ordering::Relaxed);
-        let size = self.cache.len();
+        let size = self.size.load(Ordering::Relaxed) as usize;
         (hits, misses, size)
     }
 }
