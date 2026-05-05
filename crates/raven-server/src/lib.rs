@@ -3,7 +3,10 @@
 //! Provides REST endpoints for querying, indexing, and managing the document index.
 
 use axum::{
-    extract::{Json, Path as AxumPath, State},
+    extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        Json, Path as AxumPath, State,
+    },
     http::{HeaderMap, HeaderValue, Method, StatusCode},
     middleware::{self, Next},
     response::IntoResponse,
@@ -158,7 +161,7 @@ pub struct QueryResponse {
     pub count: usize,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct ResultItem {
     pub text: String,
     pub score: f32,
@@ -1062,6 +1065,143 @@ fn build_cors_layer(config: &ServerConfig) -> CorsLayer {
     }
 }
 
+// =============================================================================
+// WebSocket endpoint
+// =============================================================================
+
+/// WebSocket message types (client → server)
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type")]
+enum WsRequest {
+    #[serde(rename = "search")]
+    Search {
+        query: String,
+        #[serde(default = "default_top_k")]
+        top_k: usize,
+    },
+    #[serde(rename = "prompt")]
+    Prompt {
+        query: String,
+        #[serde(default = "default_top_k")]
+        top_k: usize,
+    },
+    #[serde(rename = "ping")]
+    Ping,
+}
+
+/// WebSocket message types (server → client)
+#[derive(Debug, Serialize)]
+#[serde(tag = "type")]
+enum WsResponse {
+    #[serde(rename = "result")]
+    Result { data: ResultItem },
+    #[serde(rename = "done")]
+    Done { count: usize },
+    #[serde(rename = "prompt")]
+    PromptResult { text: String, sources: usize },
+    #[serde(rename = "pong")]
+    Pong,
+    #[serde(rename = "error")]
+    Error { message: String },
+}
+
+async fn ws_handler(ws: WebSocketUpgrade, State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    ws.on_upgrade(|socket| handle_ws(socket, state))
+}
+
+async fn handle_ws(mut socket: WebSocket, state: Arc<AppState>) {
+    while let Some(msg) = socket.recv().await {
+        let msg = match msg {
+            Ok(Message::Text(text)) => text,
+            Ok(Message::Close(_)) | Err(_) => break,
+            Ok(_) => continue,
+        };
+
+        let request: WsRequest = match serde_json::from_str(&msg) {
+            Ok(req) => req,
+            Err(e) => {
+                let resp = WsResponse::Error {
+                    message: format!("Invalid JSON: {e}"),
+                };
+                if socket
+                    .send(Message::Text(
+                        serde_json::to_string(&resp).unwrap_or_default(),
+                    ))
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+                continue;
+            }
+        };
+
+        match request {
+            WsRequest::Ping => {
+                let resp = serde_json::to_string(&WsResponse::Pong).unwrap_or_default();
+                if socket.send(Message::Text(resp)).await.is_err() {
+                    break;
+                }
+            }
+            WsRequest::Search { query, top_k } => {
+                let top_k = top_k.clamp(1, 100);
+                match state.index.query(&query, top_k).await {
+                    Ok(results) => {
+                        let count = results.len();
+                        for r in results {
+                            let item: ResultItem = r.into();
+                            let resp = WsResponse::Result { data: item };
+                            let json = serde_json::to_string(&resp).unwrap_or_default();
+                            if socket.send(Message::Text(json)).await.is_err() {
+                                return;
+                            }
+                        }
+                        let done =
+                            serde_json::to_string(&WsResponse::Done { count }).unwrap_or_default();
+                        if socket.send(Message::Text(done)).await.is_err() {
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        let resp = WsResponse::Error {
+                            message: format!("Search failed: {e}"),
+                        };
+                        let json = serde_json::to_string(&resp).unwrap_or_default();
+                        if socket.send(Message::Text(json)).await.is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+            WsRequest::Prompt { query, top_k } => {
+                let top_k = top_k.clamp(1, 100);
+                match state.index.query_for_prompt(&query, top_k).await {
+                    Ok(prompt) => {
+                        let sources = prompt.matches("[Source").count();
+                        let resp = WsResponse::PromptResult {
+                            text: prompt,
+                            sources,
+                        };
+                        let json = serde_json::to_string(&resp).unwrap_or_default();
+                        if socket.send(Message::Text(json)).await.is_err() {
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        let resp = WsResponse::Error {
+                            message: format!("Prompt failed: {e}"),
+                        };
+                        let json = serde_json::to_string(&resp).unwrap_or_default();
+                        if socket.send(Message::Text(json)).await.is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub fn build_router(state: Arc<AppState>) -> Router {
     let cors = build_cors_layer(&state.config);
 
@@ -1080,6 +1220,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/index", post(index_handler))
         .route("/documents/:doc_id", delete(delete_handler))
         .route("/openapi.json", get(openapi))
+        .route("/ws", get(ws_handler))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             rate_limit_middleware,
