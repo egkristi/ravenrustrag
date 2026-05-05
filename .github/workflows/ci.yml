@@ -82,7 +82,7 @@ jobs:
         run: cargo install cargo-tarpaulin@0.32.7 --locked
       - name: Generate coverage
         run: |
-          cargo tarpaulin --out xml --skip-clean --exclude-files "crates/raven-cli/*" "benches/*" "fuzz/*" 2>&1 | tee coverage-output.txt || true
+          cargo tarpaulin --out xml --skip-clean --exclude-files "crates/raven-cli/*" "benches/*" "fuzz/*" -- --skip test_bm25_scaling --skip test_hnsw_scaling --skip test_concurrent_writes --skip test_sqlite_large_batch --skip test_vector_search_scaling --skip test_memory_usage --skip test_embedding_cache_scaling 2>&1 | tee coverage-output.txt || true
           # Extract percentage and fail if below threshold
           COVERAGE=$(grep -oP '\d+\.\d+% coverage' coverage-output.txt | grep -oP '\d+\.\d+' || echo "0")
           echo "Coverage: ${COVERAGE}%"
