@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json
+
+PackageIdentifier: egkristi.raven
+PackageVersion: 1.0.0
+MinimumOSVersion: 10.0.17763.0
+InstallerType: portable
+InstallModes:
+  - silent
+UpgradeBehavior: install
+Commands:
+  - raven
+ReleaseDate: 2026-05-04
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/egkristi/ravenrustrag/releases/download/v1.0.0/raven-windows-amd64.exe
+    InstallerSha256: 0237B58136863707975E5CFD4E33EAF53036EEFC7C72734222A7821EE0507D96
+  - Architecture: arm64
+    InstallerUrl: https://github.com/egkristi/ravenrustrag/releases/download/v1.0.0/raven-windows-arm64.exe
+    InstallerSha256: 7BD29FCF68478E3BC3A6A4A464E26B71AF27F184A39ECCA79BB4A13B367E72D5
+ManifestType: installer
+ManifestVersion: 1.9.0

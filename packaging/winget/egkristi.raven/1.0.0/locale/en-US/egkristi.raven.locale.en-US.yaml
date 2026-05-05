@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.9.0.schema.json
+
+PackageIdentifier: egkristi.raven
+PackageVersion: 1.0.0
+PackageLocale: en-US
+Publisher: egkristi
+PublisherUrl: https://github.com/egkristi
+PublisherSupportUrl: https://github.com/egkristi/ravenrustrag/issues
+PackageName: RavenRustRAG
+PackageUrl: https://github.com/egkristi/ravenrustrag
+License: Proprietary
+LicenseUrl: https://github.com/egkristi/ravenrustrag/blob/main/LICENSE
+ShortDescription: High-performance local-first Retrieval-Augmented Generation (RAG) engine in Rust
+Description: RavenRustRAG is a fast, lightweight RAG engine that indexes documents, splits text, embeds with Ollama/OpenAI, and answers queries with citations. Supports CLI, REST API, and MCP server modes.
+Moniker: raven
+Tags:
+  - rag
+  - vector-search
+  - embeddings
+  - ai
+  - mcp
+  - cli
+  - rust
+  - local-first
+ReleaseNotes: |
+  Initial release of RavenRustRAG v1.0.0 with:
+  - Vector similarity search with SQLite/ChromaDB storage
+  - Document splitting and multiple file loaders (PDF, DOCX, TXT, CSV, etc.)
+  - Ollama and OpenAI embedding backends
+  - REST API server with streaming and OpenAPI docs
+  - MCP server for AI assistant integration
+  - CLI with indexing, querying, and server modes
+  - Docker images for all platforms
+  - Multi-platform binaries (Windows, macOS, Linux)
+ReleaseNotesUrl: https://github.com/egkristi/ravenrustrag/releases/tag/v1.0.0
+ManifestType: defaultLocale
+ManifestVersion: 1.9.0
