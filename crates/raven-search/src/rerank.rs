@@ -123,7 +123,7 @@ mod onnx_reranker {
                 raven_core::RavenError::Embed(format!("ONNX reranker session builder error: {e}"))
             })?;
 
-            let builder = if num_threads > 0 {
+            let mut builder = if num_threads > 0 {
                 builder.with_intra_threads(num_threads).map_err(|e| {
                     raven_core::RavenError::Embed(format!("ONNX reranker thread config error: {e}"))
                 })?
