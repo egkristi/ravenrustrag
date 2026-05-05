@@ -136,10 +136,13 @@ pub struct Bm25TermData {
 
 /// SQLite-backed vector store with flat (brute-force) search.
 /// Uses separate read/write connections for WAL-mode concurrency.
+/// When the `hnsw` feature is enabled, an in-memory HNSW index accelerates search to O(log n).
 pub struct SqliteStore {
     write_conn: Arc<Mutex<Connection>>,
     read_conn: Arc<Mutex<Connection>>,
     dimension: usize,
+    #[cfg(feature = "hnsw")]
+    hnsw_index: Arc<Mutex<hnsw::HnswIndex>>,
 }
 
 /// Current schema version
@@ -186,6 +189,8 @@ impl SqliteStore {
             write_conn: Arc::new(Mutex::new(write_conn)),
             read_conn: Arc::new(Mutex::new(read_conn)),
             dimension,
+            #[cfg(feature = "hnsw")]
+            hnsw_index: Arc::new(Mutex::new(hnsw::HnswIndex::new())),
         })
     }
 
@@ -284,50 +289,78 @@ impl SqliteStore {
     fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
         raven_core::cosine_similarity(a, b)
     }
+
+    /// Rebuild the in-memory HNSW index from all stored chunks.
+    #[cfg(feature = "hnsw")]
+    pub async fn rebuild_hnsw(&self) -> Result<()> {
+        let chunks = self.all().await?;
+        let mut index = self.hnsw_index.lock().await;
+        index.build(chunks);
+        tracing::info!("HNSW index rebuilt with {} points", index.len());
+        Ok(())
+    }
 }
 
 #[async_trait]
 impl VectorStore for SqliteStore {
     async fn add(&self, chunks: &[Chunk]) -> Result<()> {
-        let conn = self.write_conn.lock().await;
-        let tx = conn
-            .unchecked_transaction()
-            .map_err(|e| RavenError::Store(format!("Transaction failed: {e}")))?;
+        {
+            let conn = self.write_conn.lock().await;
+            let tx = conn
+                .unchecked_transaction()
+                .map_err(|e| RavenError::Store(format!("Transaction failed: {e}")))?;
 
-        for chunk in chunks {
-            let embedding = chunk
-                .embedding
-                .as_ref()
-                .ok_or_else(|| RavenError::Store("Chunk missing embedding".to_string()))?;
+            for chunk in chunks {
+                let embedding = chunk
+                    .embedding
+                    .as_ref()
+                    .ok_or_else(|| RavenError::Store("Chunk missing embedding".to_string()))?;
 
-            if embedding.len() != self.dimension {
-                return Err(RavenError::Store(format!(
-                    "Embedding dimension mismatch: expected {}, got {}",
-                    self.dimension,
-                    embedding.len()
-                )));
+                if embedding.len() != self.dimension {
+                    return Err(RavenError::Store(format!(
+                        "Embedding dimension mismatch: expected {}, got {}",
+                        self.dimension,
+                        embedding.len()
+                    )));
+                }
+
+                let embedding_bytes = embedding
+                    .iter()
+                    .flat_map(|f| f.to_le_bytes())
+                    .collect::<Vec<_>>();
+                let metadata = serde_json::to_string(&chunk.metadata).map_err(RavenError::Serde)?;
+
+                tx.execute(
+                    "INSERT OR REPLACE INTO chunks (id, doc_id, text, metadata, embedding) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    params![&chunk.id, &chunk.doc_id, &chunk.text, metadata, embedding_bytes],
+                )
+                .map_err(|e| RavenError::Store(format!("Insert failed: {e}")))?;
             }
 
-            let embedding_bytes = embedding
-                .iter()
-                .flat_map(|f| f.to_le_bytes())
-                .collect::<Vec<_>>();
-            let metadata = serde_json::to_string(&chunk.metadata).map_err(RavenError::Serde)?;
-
-            tx.execute(
-                "INSERT OR REPLACE INTO chunks (id, doc_id, text, metadata, embedding) VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![&chunk.id, &chunk.doc_id, &chunk.text, metadata, embedding_bytes],
-            )
-            .map_err(|e| RavenError::Store(format!("Insert failed: {e}")))?;
+            tx.commit()
+                .map_err(|e| RavenError::Store(format!("Commit failed: {e}")))?;
         }
 
-        tx.commit()
-            .map_err(|e| RavenError::Store(format!("Commit failed: {e}")))?;
+        // Rebuild HNSW index after adding chunks (conn/tx are dropped)
+        #[cfg(feature = "hnsw")]
+        {
+            self.rebuild_hnsw().await?;
+        }
 
         Ok(())
     }
 
     async fn search(&self, query: &[f32], top_k: usize) -> Result<Vec<SearchResult>> {
+        // Use HNSW index if it's been built
+        #[cfg(feature = "hnsw")]
+        {
+            let index = self.hnsw_index.lock().await;
+            if !index.is_empty() {
+                return Ok(index.search(query, top_k));
+            }
+        }
+
+        // Fallback: brute-force scan
         let conn = self.read_conn.lock().await;
 
         let mut stmt = conn
@@ -457,9 +490,17 @@ impl VectorStore for SqliteStore {
     }
 
     async fn delete(&self, doc_id: &str) -> Result<()> {
-        let conn = self.write_conn.lock().await;
-        conn.execute("DELETE FROM chunks WHERE doc_id = ?1", [doc_id])
-            .map_err(|e| RavenError::Store(format!("Delete failed: {e}")))?;
+        {
+            let conn = self.write_conn.lock().await;
+            conn.execute("DELETE FROM chunks WHERE doc_id = ?1", [doc_id])
+                .map_err(|e| RavenError::Store(format!("Delete failed: {e}")))?;
+        }
+
+        #[cfg(feature = "hnsw")]
+        {
+            self.rebuild_hnsw().await?;
+        }
+
         Ok(())
     }
 
@@ -472,9 +513,18 @@ impl VectorStore for SqliteStore {
     }
 
     async fn clear(&self) -> Result<()> {
-        let conn = self.write_conn.lock().await;
-        conn.execute("DELETE FROM chunks", [])
-            .map_err(|e| RavenError::Store(format!("Clear failed: {e}")))?;
+        {
+            let conn = self.write_conn.lock().await;
+            conn.execute("DELETE FROM chunks", [])
+                .map_err(|e| RavenError::Store(format!("Clear failed: {e}")))?;
+        }
+
+        #[cfg(feature = "hnsw")]
+        {
+            let mut index = self.hnsw_index.lock().await;
+            *index = hnsw::HnswIndex::new();
+        }
+
         Ok(())
     }
 
