@@ -134,9 +134,11 @@ pub struct Bm25TermData {
     pub doc_length: f32,
 }
 
-/// SQLite-backed vector store with flat (brute-force) search
+/// SQLite-backed vector store with flat (brute-force) search.
+/// Uses separate read/write connections for WAL-mode concurrency.
 pub struct SqliteStore {
-    conn: Arc<Mutex<Connection>>,
+    write_conn: Arc<Mutex<Connection>>,
+    read_conn: Arc<Mutex<Connection>>,
     dimension: usize,
 }
 
@@ -146,24 +148,43 @@ const SCHEMA_VERSION: i64 = 1;
 impl SqliteStore {
     #[allow(clippy::unused_async)]
     pub async fn new(path: impl AsRef<Path>, dimension: usize) -> Result<Self> {
-        let conn = Connection::open(path)
-            .map_err(|e| RavenError::Store(format!("Failed to open SQLite: {e}")))?;
+        let path = path.as_ref();
+        let write_conn = Connection::open(path)
+            .map_err(|e| RavenError::Store(format!("Failed to open SQLite (write): {e}")))?;
 
         // Enable WAL mode for concurrent read performance
-        conn.execute_batch(
-            "PRAGMA journal_mode=WAL;
+        write_conn
+            .execute_batch(
+                "PRAGMA journal_mode=WAL;
              PRAGMA synchronous=NORMAL;
              PRAGMA cache_size=-64000;
              PRAGMA busy_timeout=5000;
              PRAGMA mmap_size=268435456;",
-        )
-        .map_err(|e| RavenError::Store(format!("Failed to set PRAGMA: {e}")))?;
+            )
+            .map_err(|e| RavenError::Store(format!("Failed to set PRAGMA: {e}")))?;
 
-        // Run schema migrations
-        Self::migrate(&conn)?;
+        // Run schema migrations on the write connection
+        Self::migrate(&write_conn)?;
+
+        // Open a separate read connection
+        let read_conn = Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+                | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
+                | rusqlite::OpenFlags::SQLITE_OPEN_URI,
+        )
+        .map_err(|e| RavenError::Store(format!("Failed to open SQLite (read): {e}")))?;
+
+        read_conn
+            .execute_batch(
+                "PRAGMA cache_size=-64000;
+             PRAGMA mmap_size=268435456;",
+            )
+            .map_err(|e| RavenError::Store(format!("Failed to set read PRAGMA: {e}")))?;
 
         Ok(Self {
-            conn: Arc::new(Mutex::new(conn)),
+            write_conn: Arc::new(Mutex::new(write_conn)),
+            read_conn: Arc::new(Mutex::new(read_conn)),
             dimension,
         })
     }
@@ -248,7 +269,7 @@ impl SqliteStore {
 
     /// Get the current schema version of the database
     pub async fn schema_version(&self) -> Result<i64> {
-        let conn = self.conn.lock().await;
+        let conn = self.read_conn.lock().await;
         let version: i64 = conn
             .query_row(
                 "SELECT COALESCE(MAX(version), 0) FROM schema_version",
@@ -268,7 +289,7 @@ impl SqliteStore {
 #[async_trait]
 impl VectorStore for SqliteStore {
     async fn add(&self, chunks: &[Chunk]) -> Result<()> {
-        let conn = self.conn.lock().await;
+        let conn = self.write_conn.lock().await;
         let tx = conn
             .unchecked_transaction()
             .map_err(|e| RavenError::Store(format!("Transaction failed: {e}")))?;
@@ -307,7 +328,7 @@ impl VectorStore for SqliteStore {
     }
 
     async fn search(&self, query: &[f32], top_k: usize) -> Result<Vec<SearchResult>> {
-        let conn = self.conn.lock().await;
+        let conn = self.read_conn.lock().await;
 
         let mut stmt = conn
             .prepare("SELECT id, doc_id, text, metadata, embedding FROM chunks")
@@ -374,7 +395,7 @@ impl VectorStore for SqliteStore {
             return self.search(query, top_k).await;
         }
 
-        let conn = self.conn.lock().await;
+        let conn = self.read_conn.lock().await;
 
         let mut stmt = conn
             .prepare("SELECT id, doc_id, text, metadata, embedding FROM chunks")
@@ -436,14 +457,14 @@ impl VectorStore for SqliteStore {
     }
 
     async fn delete(&self, doc_id: &str) -> Result<()> {
-        let conn = self.conn.lock().await;
+        let conn = self.write_conn.lock().await;
         conn.execute("DELETE FROM chunks WHERE doc_id = ?1", [doc_id])
             .map_err(|e| RavenError::Store(format!("Delete failed: {e}")))?;
         Ok(())
     }
 
     async fn count(&self) -> Result<usize> {
-        let conn = self.conn.lock().await;
+        let conn = self.read_conn.lock().await;
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM chunks", [], |row| row.get(0))
             .map_err(|e| RavenError::Store(format!("Count failed: {e}")))?;
@@ -451,14 +472,14 @@ impl VectorStore for SqliteStore {
     }
 
     async fn clear(&self) -> Result<()> {
-        let conn = self.conn.lock().await;
+        let conn = self.write_conn.lock().await;
         conn.execute("DELETE FROM chunks", [])
             .map_err(|e| RavenError::Store(format!("Clear failed: {e}")))?;
         Ok(())
     }
 
     async fn all(&self) -> Result<Vec<Chunk>> {
-        let conn = self.conn.lock().await;
+        let conn = self.read_conn.lock().await;
         let mut stmt = conn
             .prepare("SELECT id, doc_id, text, metadata, embedding FROM chunks")
             .map_err(|e| RavenError::Store(format!("Query prepare failed: {e}")))?;
@@ -495,7 +516,7 @@ impl VectorStore for SqliteStore {
     }
 
     async fn get_by_doc_id(&self, doc_id: &str) -> Result<Vec<Chunk>> {
-        let conn = self.conn.lock().await;
+        let conn = self.read_conn.lock().await;
         let mut stmt = conn
             .prepare(
                 "SELECT id, doc_id, text, metadata, embedding FROM chunks
@@ -536,7 +557,7 @@ impl VectorStore for SqliteStore {
     }
 
     async fn get_fingerprint(&self, path: &str) -> Result<Option<String>> {
-        let conn = self.conn.lock().await;
+        let conn = self.read_conn.lock().await;
         let result = conn.query_row(
             "SELECT content_hash FROM fingerprints WHERE path = ?1",
             [path],
@@ -550,7 +571,7 @@ impl VectorStore for SqliteStore {
     }
 
     async fn set_fingerprint(&self, path: &str, hash: &str) -> Result<()> {
-        let conn = self.conn.lock().await;
+        let conn = self.write_conn.lock().await;
         conn.execute(
             "INSERT OR REPLACE INTO fingerprints (path, content_hash, modified) VALUES (?1, ?2, ?3)",
             rusqlite::params![path, hash, chrono::Utc::now().timestamp()],
@@ -560,7 +581,7 @@ impl VectorStore for SqliteStore {
     }
 
     async fn delete_fingerprint(&self, path: &str) -> Result<()> {
-        let conn = self.conn.lock().await;
+        let conn = self.write_conn.lock().await;
         conn.execute("DELETE FROM fingerprints WHERE path = ?1", [path])
             .map_err(|e| RavenError::Store(format!("Fingerprint delete failed: {e}")))?;
         Ok(())
@@ -572,7 +593,7 @@ impl VectorStore for SqliteStore {
         terms: &HashMap<String, f32>,
         doc_length: f32,
     ) -> Result<()> {
-        let conn = self.conn.lock().await;
+        let conn = self.write_conn.lock().await;
         let terms_json = serde_json::to_string(terms).map_err(RavenError::Serde)?;
 
         // We need the doc_id and text from the chunks table
@@ -593,7 +614,7 @@ impl VectorStore for SqliteStore {
     }
 
     async fn load_bm25_data(&self) -> Result<Vec<Bm25TermData>> {
-        let conn = self.conn.lock().await;
+        let conn = self.read_conn.lock().await;
         let mut stmt = conn
             .prepare("SELECT chunk_id, doc_id, text, terms, doc_length FROM bm25_terms")
             .map_err(|e| RavenError::Store(format!("BM25 load prepare failed: {e}")))?;
@@ -627,14 +648,14 @@ impl VectorStore for SqliteStore {
     }
 
     async fn delete_bm25_terms(&self, doc_id: &str) -> Result<()> {
-        let conn = self.conn.lock().await;
+        let conn = self.write_conn.lock().await;
         conn.execute("DELETE FROM bm25_terms WHERE doc_id = ?1", [doc_id])
             .map_err(|e| RavenError::Store(format!("BM25 delete failed: {e}")))?;
         Ok(())
     }
 
     async fn clear_bm25(&self) -> Result<()> {
-        let conn = self.conn.lock().await;
+        let conn = self.write_conn.lock().await;
         conn.execute("DELETE FROM bm25_terms", [])
             .map_err(|e| RavenError::Store(format!("BM25 clear failed: {e}")))?;
         Ok(())
