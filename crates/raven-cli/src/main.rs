@@ -368,8 +368,8 @@ fn make_embedder(backend: &str, url: &str, model: &str) -> Arc<dyn Embedder> {
     raven_embed::create_cached_embedder(backend, model, Some(url), None, 1000)
 }
 
-async fn make_store(db: &PathBuf) -> Result<Arc<SqliteStore>> {
-    Ok(Arc::new(SqliteStore::new(db, 768).await?))
+async fn make_store(db: &PathBuf, dimension: usize) -> Result<Arc<SqliteStore>> {
+    Ok(Arc::new(SqliteStore::new(db, dimension).await?))
 }
 
 #[tokio::main]
@@ -438,7 +438,7 @@ async fn main() -> Result<()> {
             }
 
             let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db).await?;
+            let store = make_store(&db, embedder.dimension()).await?;
             let index = DocumentIndex::new(store.clone(), embedder);
             let splitter = TextSplitter::new(chunk_size, chunk_overlap);
 
@@ -512,7 +512,7 @@ async fn main() -> Result<()> {
             alpha,
         } => {
             let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db).await?;
+            let store = make_store(&db, embedder.dimension()).await?;
             let index = DocumentIndex::new(store.clone(), embedder);
 
             let results = if hybrid {
@@ -580,7 +580,7 @@ async fn main() -> Result<()> {
             top_k,
         } => {
             let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db).await?;
+            let store = make_store(&db, embedder.dimension()).await?;
             let index = DocumentIndex::new(store, embedder);
 
             let prompt = index.query_for_prompt(&query, top_k).await?;
@@ -598,7 +598,7 @@ async fn main() -> Result<()> {
             temperature,
         } => {
             let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db).await?;
+            let store = make_store(&db, embedder.dimension()).await?;
             let index = DocumentIndex::new(store, embedder);
 
             // Get context prompt from RAG pipeline
@@ -649,7 +649,7 @@ async fn main() -> Result<()> {
         }
 
         Commands::Info { db } => {
-            let store = make_store(&db).await?;
+            let store = make_store(&db, 0).await?;
             let count = store.count().await?;
 
             if cli.json {
@@ -678,7 +678,7 @@ async fn main() -> Result<()> {
             api_key,
         } => {
             let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db).await?;
+            let store = make_store(&db, embedder.dimension()).await?;
             let index = DocumentIndex::new(store.clone(), embedder);
 
             // Populate BM25 index from stored chunks for hybrid search support
@@ -713,13 +713,13 @@ async fn main() -> Result<()> {
         }
 
         Commands::Clear { db } => {
-            let store = make_store(&db).await?;
+            let store = make_store(&db, 0).await?;
             store.clear().await?;
             println!("✓ Cleared index at {}", db.display());
         }
 
         Commands::Export { output, db } => {
-            let store = make_store(&db).await?;
+            let store = make_store(&db, 0).await?;
             let count = store.count().await?;
             println!("Exporting {} chunks from {}...", count, db.display());
 
@@ -756,7 +756,7 @@ async fn main() -> Result<()> {
             }
 
             let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db).await?;
+            let store = make_store(&db, embedder.dimension()).await?;
             let index = DocumentIndex::new(store, embedder);
             let splitter = TextSplitter::new(512, 50);
 
@@ -771,7 +771,7 @@ async fn main() -> Result<()> {
             model,
         } => {
             let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db).await?;
+            let store = make_store(&db, embedder.dimension()).await?;
             let index = Arc::new(DocumentIndex::new(store, embedder));
             let splitter = TextSplitter::new(512, 50);
 
@@ -784,7 +784,7 @@ async fn main() -> Result<()> {
 
         Commands::Doctor { url, db } => {
             let db_status = if db.exists() {
-                match SqliteStore::new(&db, 768).await {
+                match SqliteStore::new(&db, 0).await {
                     Ok(store) => {
                         let count = store.count().await.unwrap_or(0);
                         let version = store.schema_version().await.unwrap_or(0);
@@ -837,7 +837,7 @@ async fn main() -> Result<()> {
             debounce,
         } => {
             let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db).await?;
+            let store = make_store(&db, embedder.dimension()).await?;
             let index = Arc::new(DocumentIndex::new(store.clone(), embedder));
             let splitter: Arc<dyn raven_split::Splitter> = Arc::new(TextSplitter::new(512, 50));
 
@@ -973,7 +973,7 @@ async fn main() -> Result<()> {
 
         Commands::Graph { action } => match action {
             GraphAction::Build { db, output } => {
-                let store = make_store(&db).await?;
+                let store = make_store(&db, 0).await?;
                 let chunks = store.all().await?;
 
                 if chunks.is_empty() {
