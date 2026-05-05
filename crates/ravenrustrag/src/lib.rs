@@ -2,9 +2,15 @@
 //!
 //! A local-first, embeddable RAG (Retrieval-Augmented Generation) engine in Rust.
 //!
-//! This crate provides a unified API for the entire RavenRustRAG pipeline:
+//! This crate provides the **stable public API** for the entire RavenRustRAG pipeline:
 //! load documents, split into chunks, embed with local or cloud models,
 //! store in SQLite, and query with vector/hybrid/graph search.
+//!
+//! ## API Stability
+//!
+//! Only types re-exported by this crate are part of the stable API.
+//! Internal crates (`raven-core`, `raven-embed`, etc.) may change without notice.
+//! Use `ravenrustrag::*` for all public interfaces.
 //!
 //! ## Quick Start
 //!
