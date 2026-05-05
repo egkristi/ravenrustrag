@@ -45,3 +45,13 @@ tempfile = "3"
 
 [lints]
 workspace = true
+
+[package.metadata.deb]
+maintainer = "Erling Kristiansen <https://github.com/egkristi>"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/raven", "usr/bin/", "755"],
+    ["../../README.md", "usr/share/doc/raven-rag/README.md", "644"],
+]
+extended-description = "Local-first RAG engine — fast, safe, embeddable retrieval-augmented generation in Rust. Sub-millisecond vector search. Single static binary. No Python. No virtual environments."

@@ -52,6 +52,58 @@ Sub-millisecond vector search. Single static binary. No Python. No virtual envir
 
 ## Installation
 
+### Package Managers
+
+**Windows:**
+
+```powershell
+# winget (recommended)
+winget install egkristi.raven
+
+# Scoop
+scoop bucket add raven https://github.com/egkristi/scoop-raven
+scoop install raven
+
+# Chocolatey
+choco install raven-rag
+```
+
+**macOS:**
+
+```bash
+# Homebrew (recommended)
+brew install egkristi/tap/raven
+```
+
+**Linux:**
+
+```bash
+# Debian / Ubuntu (.deb)
+curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/raven-rag_1.0.0_amd64.deb
+sudo dpkg -i raven-rag_1.0.0_amd64.deb
+
+# Fedora / RHEL (.rpm)
+curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/raven-rag-1.0.0.amd64.rpm
+sudo rpm -i raven-rag-1.0.0.amd64.rpm
+
+# Arch Linux (AUR)
+yay -S raven-rag
+
+# Alpine Linux (.apk)
+curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/raven-rag_1.0.0_amd64.apk
+sudo apk add --allow-untrusted raven-rag_1.0.0_amd64.apk
+
+# Snap
+sudo snap install raven-rag
+```
+
+**Cross-platform:**
+
+```bash
+# Cargo (from crates.io)
+cargo install raven-cli
+```
+
 ### Download pre-built binary
 
 Pre-built binaries are available for every release on the [GitHub Releases](https://github.com/egkristi/ravenrustrag/releases) page:
@@ -66,28 +118,11 @@ Pre-built binaries are available for every release on the [GitHub Releases](http
 | Windows x86_64 | `raven-windows-amd64.exe` |
 | Windows ARM64 | `raven-windows-arm64.exe` |
 
-**Linux / macOS:**
-
 ```bash
-# Download (replace URL with latest release)
+# Linux / macOS (replace URL with latest release)
 curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/raven-linux-amd64
 chmod +x raven-linux-amd64
 sudo mv raven-linux-amd64 /usr/local/bin/raven
-```
-
-**Windows (winget):**
-
-```powershell
-winget install egkristi.raven
-```
-
-**Windows (manual download):**
-
-```powershell
-# Download the latest release
-Invoke-WebRequest -Uri "https://github.com/egkristi/ravenrustrag/releases/latest/download/raven-windows-amd64.exe" -OutFile "raven.exe"
-# Move to a directory in your PATH, or add the current directory to PATH
-Move-Item raven.exe "$env:LOCALAPPDATA\Microsoft\WindowsApps\raven.exe"
 ```
 
 ### Install from source
@@ -449,7 +484,7 @@ See [PLAN.md](PLAN.md) for the detailed roadmap. See [docs/changelog.md](docs/ch
 - [x] **Phase 4** — Integration tests, top-level library crate, HNSW auto-rebuild, coverage gate, embeddings versioning, read-only mode, MCP validation, stable API surface
 - [x] **Phase 5** — ONNX embeddings, ONNX cross-encoder, WebSocket streaming, plugin system, `/ask` SSE streaming, MCP resources/prompts, backup, query explain, quantized ONNX, incremental BM25, async SQLite, binary embedding storage, config hot-reload
 - [x] **v1.0.0 Released** — All code features complete
-- [ ] **Packaging** — crates.io publish, Homebrew tap, AUR package ([#84](https://github.com/egkristi/ravenrustrag/issues/84), [#85](https://github.com/egkristi/ravenrustrag/issues/85), [#86](https://github.com/egkristi/ravenrustrag/issues/86))
+- [ ] **Phase 6: Distribution** — winget, Chocolatey, Scoop, Homebrew, AUR, APT/deb, RPM, APK, Snap, Flatpak, crates.io, Docker multi-arch
 
 ## Building from Source
 

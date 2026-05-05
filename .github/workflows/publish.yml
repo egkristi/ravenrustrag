@@ -1,0 +1,52 @@
+name: Publish to crates.io
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  publish:
+    name: Publish crates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Publish crates in dependency order
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -e
+
+          publish_crate() {
+            local crate=$1
+            echo "Publishing $crate..."
+            cargo publish -p "$crate" --locked
+            echo "Waiting for crates.io index update..."
+            sleep 30
+          }
+
+          # Layer 0: no internal deps
+          publish_crate raven-core
+
+          # Layer 1: depends on raven-core only
+          publish_crate raven-embed
+          publish_crate raven-split
+          publish_crate raven-load
+          publish_crate raven-store
+
+          # Layer 2: depends on layer 0+1
+          publish_crate raven-search
+
+          # Layer 3: depends on layer 0+1+2
+          publish_crate raven-server
+          publish_crate raven-mcp
+
+          # Layer 4: depends on everything
+          publish_crate raven-cli
+          publish_crate ravenrustrag
+
+          echo "All crates published successfully!"

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>raven-rag</id>
+    <version>${VERSION}</version>
+    <title>Raven RAG</title>
+    <authors>Erling Kristiansen</authors>
+    <owners>egkristi</owners>
+    <projectUrl>https://github.com/egkristi/ravenrustrag</projectUrl>
+    <licenseUrl>https://github.com/egkristi/ravenrustrag/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Local-first RAG engine — fast, safe, embeddable retrieval-augmented generation in Rust. Sub-millisecond vector search. Single static binary.</description>
+    <summary>A local-first, embeddable RAG engine in Rust</summary>
+    <tags>rag search embedding ai rust cli</tags>
+    <projectSourceUrl>https://github.com/egkristi/ravenrustrag</projectSourceUrl>
+    <docsUrl>https://egkristi.github.io/ravenrustrag/</docsUrl>
+    <bugTrackerUrl>https://github.com/egkristi/ravenrustrag/issues</bugTrackerUrl>
+  </metadata>
+</package>

@@ -1,0 +1,20 @@
+name: raven-rag
+arch: "${ARCH}"
+platform: linux
+version: "${VERSION}"
+maintainer: "Erling Kristiansen <https://github.com/egkristi>"
+description: "Local-first RAG engine — fast, safe, embeddable retrieval-augmented generation in Rust"
+vendor: "egkristi"
+homepage: "https://github.com/egkristi/ravenrustrag"
+license: "AGPL-3.0-or-later"
+section: "utils"
+
+contents:
+  - src: ./raven
+    dst: /usr/bin/raven
+    file_info:
+      mode: 0755
+  - src: ../../README.md
+    dst: /usr/share/doc/raven-rag/README.md
+    file_info:
+      mode: 0644

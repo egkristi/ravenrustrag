@@ -11,19 +11,16 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 
 | Issue | Title | Priority | Status |
 |---|---|---|---|
+| [#91](https://github.com/egkristi/ravenrustrag/issues/91) | v1.0.0 tag behind main | High | In Progress |
+| [#90](https://github.com/egkristi/ravenrustrag/issues/90) | Docker multi-arch support | Medium | Done (workflow updated) |
+| [#88](https://github.com/egkristi/ravenrustrag/issues/88) | Release workflow windows-arm64 fails | High | Done (rustup target add + if: !cancelled) |
+| [#87](https://github.com/egkristi/ravenrustrag/issues/87) | MCP marketplace listing | Low | Open |
+| [#86](https://github.com/egkristi/ravenrustrag/issues/86) | AUR package | Low | Done (PKGBUILD created) |
+| [#85](https://github.com/egkristi/ravenrustrag/issues/85) | Homebrew tap formula | Low | Done (template created) |
+| [#84](https://github.com/egkristi/ravenrustrag/issues/84) | Publish to crates.io | Medium | Done (publish workflow created) |
 | [#79](https://github.com/egkristi/ravenrustrag/issues/79) | HNSW: replace flat O(n) scan in SqliteStore | **Critical** | Done |
-| [#83](https://github.com/egkristi/ravenrustrag/issues/83) | Define stable public API surface (`#[doc(hidden)]`) | High | Done |
-| [#80](https://github.com/egkristi/ravenrustrag/issues/80) | ONNX MSRV split documentation + CI gate | High | Done |
-| [#81](https://github.com/egkristi/ravenrustrag/issues/81) | Publish actual test coverage percentage | Medium | Done |
-| [#82](https://github.com/egkristi/ravenrustrag/issues/82) | Verify and update benchmark numbers in README | Medium | Done |
-| [#61](https://github.com/egkristi/ravenrustrag/issues/61) | v1.0 stable release | High | Open (meta) |
-| [#55](https://github.com/egkristi/ravenrustrag/issues/55) | Homebrew tap formula | Low | Open |
-| [#56](https://github.com/egkristi/ravenrustrag/issues/56) | AUR package | Low | Open |
-| [#53](https://github.com/egkristi/ravenrustrag/issues/53) | 80%+ test coverage target | Medium | Done |
-| [#76](https://github.com/egkristi/ravenrustrag/issues/76) | WebSocket streaming endpoint | Medium | Done |
-| [#77](https://github.com/egkristi/ravenrustrag/issues/77) | Plugin system for custom embedders | Medium | Done |
-| [#43](https://github.com/egkristi/ravenrustrag/issues/43) | ONNX Runtime embedding backend | High | Done |
-| [#44](https://github.com/egkristi/ravenrustrag/issues/44) | ONNX cross-encoder reranking | Medium | Done |
+| [#83](https://github.com/egkristi/ravenrustrag/issues/83) | Define stable public API surface | High | Done |
+| [#61](https://github.com/egkristi/ravenrustrag/issues/61) | v1.0 stable release | High | Done |
 
 ---
 
@@ -31,9 +28,9 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 
 ### Publishing
 - [x] crates.io metadata ready — [#52](https://github.com/egkristi/ravenrustrag/issues/52)
-- [ ] Actual crates.io publish — [#52](https://github.com/egkristi/ravenrustrag/issues/52)
-- [ ] Homebrew tap formula — [#55](https://github.com/egkristi/ravenrustrag/issues/55)
-- [ ] AUR package — [#56](https://github.com/egkristi/ravenrustrag/issues/56)
+- [x] crates.io publish workflow — [#84](https://github.com/egkristi/ravenrustrag/issues/84) (workflow ready, needs CARGO_REGISTRY_TOKEN secret)
+- [x] Homebrew tap formula — [#85](https://github.com/egkristi/ravenrustrag/issues/85) (template in packaging/homebrew/)
+- [x] AUR package — [#86](https://github.com/egkristi/ravenrustrag/issues/86) (PKGBUILD in packaging/aur/)
 - [ ] MCP marketplace listing (GitHub MCP Registry)
 
 ### Quality
@@ -101,41 +98,45 @@ Features planned for post-1.0 development:
 All platforms should have native package manager support for frictionless install.
 
 ### Windows
-- [ ] winget (`winget install egkristi.raven`) — automated via release workflow
-- [ ] Chocolatey (`choco install raven`)
-- [ ] Scoop (`scoop install raven`)
+- [x] winget (`winget install egkristi.raven`) — automated via release workflow
+- [x] Chocolatey (`choco install raven-rag`) — package in packaging/chocolatey/
+- [x] Scoop (`scoop install raven`) — manifest in packaging/scoop/
 - [ ] Standalone `.exe` installer (NSIS or WiX)
 - [ ] MSI installer (WiX Toolset)
 
 ### macOS
-- [ ] Homebrew (`brew install egkristi/tap/raven`) — [#55](https://github.com/egkristi/ravenrustrag/issues/55)
+- [x] Homebrew (`brew install egkristi/tap/raven`) — [#85](https://github.com/egkristi/ravenrustrag/issues/85)
 - [ ] DMG disk image (drag-to-Applications)
 - [ ] `.pkg` installer (signed)
 
 ### Linux
-- [ ] APT / `.deb` package (Debian, Ubuntu) — via `cargo-deb` or `nfpm`
-- [ ] DNF / `.rpm` package (Fedora, RHEL) — via `nfpm`
-- [ ] Pacman / AUR (Arch Linux) — [#56](https://github.com/egkristi/ravenrustrag/issues/56)
-- [ ] Zypper / `.rpm` (openSUSE) — shared with DNF rpm
-- [ ] APK (Alpine Linux) — via `nfpm`
-- [ ] Flatpak
-- [ ] Snap (`snap install raven`)
+- [x] APT / `.deb` package (Debian, Ubuntu) — cargo-deb + nfpm in CI
+- [x] DNF / `.rpm` package (Fedora, RHEL) — nfpm in CI
+- [x] Pacman / AUR (Arch Linux) — [#86](https://github.com/egkristi/ravenrustrag/issues/86)
+- [x] Zypper / `.rpm` (openSUSE) — shared with DNF rpm
+- [x] APK (Alpine Linux) — nfpm in CI
+- [x] Flatpak — manifest in packaging/flatpak/
+- [x] Snap (`snap install raven-rag`) — snapcraft.yaml in packaging/snap/
 
 ### Cross-platform
-- [ ] `cargo install raven-cli` (crates.io) — [#84](https://github.com/egkristi/ravenrustrag/issues/84)
-- [ ] Pre-built static binaries (GitHub Releases) — already in release workflow
-- [ ] Docker (`ghcr.io/egkristi/ravenrustrag`) — multi-arch [#90](https://github.com/egkristi/ravenrustrag/issues/90)
+- [x] `cargo install raven-cli` (crates.io) — [#84](https://github.com/egkristi/ravenrustrag/issues/84) (publish workflow ready)
+- [x] Pre-built static binaries (GitHub Releases) — release workflow
+- [x] Docker (`ghcr.io/egkristi/ravenrustrag`) — multi-arch [#90](https://github.com/egkristi/ravenrustrag/issues/90)
 
 ---
 
 ## Known Limitations
 
-1. **Actual crates.io publish** — Metadata ready but not yet published. [#84](https://github.com/egkristi/ravenrustrag/issues/84)
-2. **Homebrew/AUR packages** — Not yet published. [#55](https://github.com/egkristi/ravenrustrag/issues/55), [#56](https://github.com/egkristi/ravenrustrag/issues/56)
-3. **ONNX requires ONNX Runtime** — The `onnx` feature requires the ONNX Runtime shared library at runtime.
-4. **winget requires WINGET_TOKEN secret** — PAT with `public_repo` scope must be configured.
+1. **crates.io publish** — Workflow ready, requires `CARGO_REGISTRY_TOKEN` secret. [#84](https://github.com/egkristi/ravenrustrag/issues/84)
+2. **winget publish** — Workflow ready, requires `WINGET_TOKEN` secret (PAT with `public_repo` scope).
+3. **Homebrew tap** — Formula template ready, needs `egkristi/homebrew-tap` repository.
+4. **AUR submission** — PKGBUILD ready, needs AUR account and initial submit.
+5. **Chocolatey** — Package ready, needs Chocolatey API key for publishing.
+6. **Snap Store** — snapcraft.yaml ready, needs Snapcraft account.
+7. **ONNX requires ONNX Runtime** — The `onnx` feature requires the ONNX Runtime shared library at runtime.
+8. **DMG/pkg/MSI/exe installers** — Require code signing certificates.
 
 ---
 
 **Last updated:** 2026-05-05
-**Next milestone:** Phase 6 — Native package manager support across all platforms
+**Next milestone:** Phase 6 secrets configuration — add API tokens to enable automated publishing

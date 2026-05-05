@@ -1,0 +1,97 @@
+name: Packages
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  linux-packages:
+    name: Linux Packages (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            artifact: raven-linux-amd64
+            nfpm_arch: amd64
+          - arch: arm64
+            artifact: raven-linux-arm64
+            nfpm_arch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download release binary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download ${{ github.event.release.tag_name }} \
+            --pattern "${{ matrix.artifact }}" \
+            --dir ./packaging/nfpm/
+          mv ./packaging/nfpm/${{ matrix.artifact }} ./packaging/nfpm/raven
+          chmod +x ./packaging/nfpm/raven
+
+      - name: Install nfpm
+        run: |
+          echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
+          sudo apt-get update
+          sudo apt-get install -y nfpm
+
+      - name: Set version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build .deb package
+        working-directory: packaging/nfpm
+        run: |
+          VERSION=${{ steps.version.outputs.version }} \
+          ARCH=${{ matrix.nfpm_arch }} \
+          envsubst < nfpm.yaml > nfpm-resolved.yaml
+          nfpm package -f nfpm-resolved.yaml -p deb -t ../../raven-rag_${{ steps.version.outputs.version }}_${{ matrix.nfpm_arch }}.deb
+
+      - name: Build .rpm package
+        working-directory: packaging/nfpm
+        run: |
+          VERSION=${{ steps.version.outputs.version }} \
+          ARCH=${{ matrix.nfpm_arch }} \
+          envsubst < nfpm.yaml > nfpm-resolved.yaml
+          nfpm package -f nfpm-resolved.yaml -p rpm -t ../../raven-rag-${{ steps.version.outputs.version }}.${{ matrix.nfpm_arch }}.rpm
+
+      - name: Build .apk package
+        working-directory: packaging/nfpm
+        run: |
+          VERSION=${{ steps.version.outputs.version }} \
+          ARCH=${{ matrix.nfpm_arch }} \
+          envsubst < nfpm.yaml > nfpm-resolved.yaml
+          nfpm package -f nfpm-resolved.yaml -p apk -t ../../raven-rag_${{ steps.version.outputs.version }}_${{ matrix.nfpm_arch }}.apk
+
+      - name: Upload packages to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} \
+            raven-rag_${{ steps.version.outputs.version }}_${{ matrix.nfpm_arch }}.deb \
+            raven-rag-${{ steps.version.outputs.version }}.${{ matrix.nfpm_arch }}.rpm \
+            raven-rag_${{ steps.version.outputs.version }}_${{ matrix.nfpm_arch }}.apk \
+            --clobber
+
+  cargo-deb:
+    name: cargo-deb
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-deb
+        run: cargo install cargo-deb --locked
+      - name: Build .deb
+        run: cargo deb -p raven-cli
+      - name: Upload .deb to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} \
+            target/debian/*.deb \
+            --clobber

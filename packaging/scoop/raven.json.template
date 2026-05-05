@@ -1,0 +1,30 @@
+{
+    "version": "${VERSION}",
+    "description": "Local-first RAG engine — fast, safe, embeddable retrieval-augmented generation in Rust",
+    "homepage": "https://github.com/egkristi/ravenrustrag",
+    "license": "AGPL-3.0-or-later",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/egkristi/ravenrustrag/releases/download/v${VERSION}/raven-windows-amd64.exe",
+            "hash": "${SHA256_WINDOWS_AMD64}"
+        },
+        "arm64": {
+            "url": "https://github.com/egkristi/ravenrustrag/releases/download/v${VERSION}/raven-windows-arm64.exe",
+            "hash": "${SHA256_WINDOWS_ARM64}"
+        }
+    },
+    "bin": [
+        ["raven-windows-amd64.exe", "raven"]
+    ],
+    "checkver": "github",
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/egkristi/ravenrustrag/releases/download/v$version/raven-windows-amd64.exe"
+            },
+            "arm64": {
+                "url": "https://github.com/egkristi/ravenrustrag/releases/download/v$version/raven-windows-arm64.exe"
+            }
+        }
+    }
+}

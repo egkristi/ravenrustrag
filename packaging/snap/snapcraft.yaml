@@ -1,0 +1,36 @@
+name: raven-rag
+base: core22
+version: '${VERSION}'
+summary: Local-first RAG engine in Rust
+description: |
+  RavenRustRAG is a local-first, embeddable RAG (Retrieval-Augmented Generation)
+  engine written in Rust. Sub-millisecond vector search. Single static binary.
+  No Python. No virtual environments.
+
+  Features: hybrid search (vector + BM25), knowledge graph, HNSW indexing,
+  semantic chunking, HTTP API, MCP server, CLI with 20 commands.
+
+grade: stable
+confinement: strict
+license: AGPL-3.0-or-later
+
+architectures:
+  - build-on: [amd64]
+  - build-on: [arm64]
+
+apps:
+  raven:
+    command: bin/raven
+    plugs:
+      - home
+      - network
+      - network-bind
+
+parts:
+  raven:
+    plugin: rust
+    source: .
+    build-packages:
+      - pkg-config
+      - libssl-dev
+    rust-channel: "1.88"

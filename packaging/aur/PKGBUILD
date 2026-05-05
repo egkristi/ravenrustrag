@@ -1,0 +1,29 @@
+# Maintainer: Erling Kristiansen <https://github.com/egkristi>
+pkgname=raven-rag
+pkgver=${VERSION}
+pkgrel=1
+pkgdesc="Local-first RAG engine — fast, safe, embeddable retrieval-augmented generation in Rust"
+arch=('x86_64' 'aarch64')
+url="https://github.com/egkristi/ravenrustrag"
+license=('AGPL-3.0-or-later')
+depends=('gcc-libs')
+makedepends=('rust' 'cargo')
+source=("${url}/archive/v${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "ravenrustrag-${pkgver}"
+    cargo build --release --locked
+}
+
+check() {
+    cd "ravenrustrag-${pkgver}"
+    cargo test --release --locked
+}
+
+package() {
+    cd "ravenrustrag-${pkgver}"
+    install -Dm755 "target/release/raven" "${pkgdir}/usr/bin/raven"
+    install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    install -Dm644 "README.md" "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+}
