@@ -414,7 +414,7 @@ fn make_embedder(backend: &str, url: &str, model: &str) -> Arc<dyn Embedder> {
 }
 
 async fn make_store(db: &PathBuf, dimension: usize) -> Result<Arc<SqliteStore>> {
-    Ok(Arc::new(SqliteStore::new(db, dimension).await?))
+    Ok(Arc::new(SqliteStore::open(db, dimension).await?))
 }
 
 /// Resolve effective values: CLI defaults are overridden by config

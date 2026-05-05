@@ -209,6 +209,17 @@ impl SqliteStore {
         })
     }
 
+    /// Open an existing store and rebuild the HNSW index from stored chunks.
+    /// Use this instead of `new()` when you need search immediately after opening.
+    pub async fn open(path: impl AsRef<Path>, dimension: usize) -> Result<Self> {
+        let store = Self::new(path, dimension).await?;
+        #[cfg(feature = "hnsw")]
+        {
+            store.rebuild_hnsw().await?;
+        }
+        Ok(store)
+    }
+
     /// Run schema migrations from current version to latest
     fn migrate(conn: &Connection) -> Result<()> {
         // Create schema_version table if it doesn't exist
