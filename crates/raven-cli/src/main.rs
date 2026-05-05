@@ -1180,7 +1180,8 @@ async fn main() -> Result<()> {
             let exts: Vec<&str> = extensions.split(',').map(str::trim).collect();
 
             println!(
-                "🐦‍⬛ Watching {path:?} for changes (extensions: {extensions}, debounce: {debounce}ms)"
+                "🐦‍⬛ Watching {} for changes (extensions: {extensions}, debounce: {debounce}ms)",
+                path.display()
             );
             println!("   Press Ctrl+C to stop.\n");
 

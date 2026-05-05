@@ -2,7 +2,7 @@
 # Produces a small static binary (~15MB)
 
 # --- Build stage (Alpine = native musl, no cross-compilation issues) ---
-FROM rust:1.86-alpine AS builder
+FROM rust:1.88-alpine AS builder
 
 WORKDIR /app
 

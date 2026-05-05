@@ -16,14 +16,14 @@ name = "raven"
 path = "src/main.rs"
 
 [dependencies]
-raven-core = { path = "../raven-core", version = "0.1.0-alpha.1" }
-raven-embed = { path = "../raven-embed", version = "0.1.0-alpha.1" }
-raven-store = { path = "../raven-store", version = "0.1.0-alpha.1" }
-raven-split = { path = "../raven-split", version = "0.1.0-alpha.1" }
-raven-load = { path = "../raven-load", version = "0.1.0-alpha.1" }
-raven-search = { path = "../raven-search", version = "0.1.0-alpha.1" }
-raven-server = { path = "../raven-server", version = "0.1.0-alpha.1" }
-raven-mcp = { path = "../raven-mcp", version = "0.1.0-alpha.1" }
+raven-core = { path = "../raven-core", version = "1.0.0" }
+raven-embed = { path = "../raven-embed", version = "1.0.0" }
+raven-store = { path = "../raven-store", version = "1.0.0" }
+raven-split = { path = "../raven-split", version = "1.0.0" }
+raven-load = { path = "../raven-load", version = "1.0.0" }
+raven-search = { path = "../raven-search", version = "1.0.0" }
+raven-server = { path = "../raven-server", version = "1.0.0" }
+raven-mcp = { path = "../raven-mcp", version = "1.0.0" }
 tokio = { workspace = true }
 clap = { workspace = true }
 clap_complete = "4.4"

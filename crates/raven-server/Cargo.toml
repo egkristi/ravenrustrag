@@ -16,11 +16,11 @@ default = []
 otel = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp", "dep:tracing-opentelemetry"]
 
 [dependencies]
-raven-core = { path = "../raven-core", version = "0.1.0-alpha.1" }
-raven-embed = { path = "../raven-embed", version = "0.1.0-alpha.1" }
-raven-store = { path = "../raven-store", version = "0.1.0-alpha.1" }
-raven-split = { path = "../raven-split", version = "0.1.0-alpha.1" }
-raven-search = { path = "../raven-search", version = "0.1.0-alpha.1" }
+raven-core = { path = "../raven-core", version = "1.0.0" }
+raven-embed = { path = "../raven-embed", version = "1.0.0" }
+raven-store = { path = "../raven-store", version = "1.0.0" }
+raven-split = { path = "../raven-split", version = "1.0.0" }
+raven-search = { path = "../raven-search", version = "1.0.0" }
 tokio = { workspace = true }
 axum = { workspace = true }
 tower = { workspace = true }
@@ -42,8 +42,8 @@ tracing-opentelemetry = { version = "0.23", optional = true }
 workspace = true
 
 [dev-dependencies]
-raven-embed = { path = "../raven-embed", version = "0.1.0-alpha.1" }
-raven-store = { path = "../raven-store", version = "0.1.0-alpha.1" }
+raven-embed = { path = "../raven-embed", version = "1.0.0" }
+raven-store = { path = "../raven-store", version = "1.0.0" }
 tower = { workspace = true, features = ["util"] }
 http-body-util = "0.1"
 hyper = "1"

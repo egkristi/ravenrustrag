@@ -6,7 +6,7 @@
 
 Sub-millisecond vector search. Single static binary. No Python. No virtual environments. No GIL.
 
-[![Rust](https://img.shields.io/badge/rust-1.86%2B-orange.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSE)
 [![CI](https://github.com/egkristi/ravenrustrag/actions/workflows/ci.yml/badge.svg)](https://github.com/egkristi/ravenrustrag/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/egkristi/ravenrustrag/graph/badge.svg)](https://codecov.io/gh/egkristi/ravenrustrag)
@@ -357,8 +357,8 @@ Local embedding and cross-encoder reranking without Ollama, using ONNX Runtime:
 cargo build --release --features onnx
 ```
 
-> **Note:** The `onnx` feature requires Rust 1.88+, while the base project MSRV is 1.86.
-> Default builds (without `--features onnx`) work on Rust 1.86+.
+> **Note:** The `onnx` feature requires the ONNX Runtime and is optional.
+> All features (including `onnx`) work on Rust 1.88+.
 
 ## MCP Server
 

@@ -138,5 +138,5 @@ All tests run on every push and PR via GitHub Actions:
 1. `cargo fmt --all --check`
 2. `cargo clippy --lib -- -D warnings`
 3. `cargo test --all`
-4. MSRV check (Rust 1.86)
+4. MSRV check (Rust 1.88)
 5. Benchmarks (on main branch pushes)

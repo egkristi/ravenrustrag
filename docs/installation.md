@@ -20,7 +20,7 @@ chmod +x raven-darwin-arm64 && mv raven-darwin-arm64 /usr/local/bin/raven
 
 ## From Source
 
-Requires Rust 1.86+ (MSRV):
+Requires Rust 1.88+ (MSRV):
 
 ```bash
 git clone https://github.com/egkristi/ravenrustrag.git

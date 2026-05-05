@@ -79,7 +79,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin --locked
       - name: Generate coverage
         run: |
           cargo tarpaulin --out xml --skip-clean --exclude-files "crates/raven-cli/*" "benches/*" "fuzz/*" 2>&1 | tee coverage-output.txt
@@ -98,7 +98,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
   msrv:
-    name: MSRV (1.86)
+    name: MSRV (1.88)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -106,7 +106,7 @@ jobs:
       RUSTFLAGS: "-Dwarnings"
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.86
+      - uses: dtolnay/rust-toolchain@1.88
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --all-targets
 

@@ -100,7 +100,7 @@ Features planned for post-1.0 development:
 
 1. **Actual crates.io publish** — Metadata ready but not yet published. [#52](https://github.com/egkristi/ravenrustrag/issues/52)
 2. **Homebrew/AUR packages** — Not yet published. [#55](https://github.com/egkristi/ravenrustrag/issues/55), [#56](https://github.com/egkristi/ravenrustrag/issues/56)
-3. **ONNX requires Rust 1.88+** — The `onnx` feature requires a newer compiler than the base MSRV (1.86). Documented and gated in CI.
+3. **ONNX requires ONNX Runtime** — The `onnx` feature requires the ONNX Runtime shared library at runtime.
 
 ---
 

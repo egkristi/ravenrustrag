@@ -4,7 +4,7 @@ Contributions to RavenRustRAG are welcome. This guide covers the development wor
 
 ## Prerequisites
 
-- Rust 1.86+ (MSRV)
+- Rust 1.88+ (MSRV)
 - [Ollama](https://ollama.com) (for integration tests with real embeddings)
 - Git
 

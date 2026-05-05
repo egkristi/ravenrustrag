@@ -12,7 +12,7 @@ keywords = ["document-loader", "parser", "markdown", "pdf", "rag"]
 categories = ["text-processing", "parser-implementations"]
 
 [dependencies]
-raven-core = { path = "../raven-core", version = "0.1.0-alpha.1" }
+raven-core = { path = "../raven-core", version = "1.0.0" }
 walkdir = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }

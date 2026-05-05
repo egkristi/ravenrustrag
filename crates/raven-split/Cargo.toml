@@ -12,7 +12,7 @@ keywords = ["text-splitting", "chunking", "tokenizer", "rag", "nlp"]
 categories = ["text-processing"]
 
 [dependencies]
-raven-core = { path = "../raven-core", version = "0.1.0-alpha.1" }
+raven-core = { path = "../raven-core", version = "1.0.0" }
 
 [dev-dependencies]
 proptest = { workspace = true }
