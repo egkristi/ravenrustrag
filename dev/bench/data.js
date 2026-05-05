@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777940002718,
+  "lastUpdate": 1777940272693,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -935,6 +935,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 101580,
             "range": "± 1157",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "5bcfaf247b694c6cfecf033257e34f44456fa41a",
+          "message": "fix: remove hardcoded 768 dimension — use embedder.dimension() closes #67",
+          "timestamp": "2026-05-05T02:13:37+02:00",
+          "tree_id": "0275f1907f8753c33160b7b80093c7863441e141",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/5bcfaf247b694c6cfecf033257e34f44456fa41a"
+        },
+        "date": 1777940272305,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 99,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 547,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1085,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 53803,
+            "range": "± 479",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 581390,
+            "range": "± 4303",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 93217,
+            "range": "± 1169",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39110,
+            "range": "± 138",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 112333,
+            "range": "± 2416",
             "unit": "ns/iter"
           }
         ]
