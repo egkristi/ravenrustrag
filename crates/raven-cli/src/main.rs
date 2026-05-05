@@ -10,7 +10,7 @@ use raven_search::{GraphRetriever, KnowledgeGraph};
 use raven_server::AppState;
 use raven_split::TextSplitter;
 use raven_store::{SqliteStore, VectorStore};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::{info, warn};
 
@@ -372,6 +372,40 @@ async fn make_store(db: &PathBuf, dimension: usize) -> Result<Arc<SqliteStore>> 
     Ok(Arc::new(SqliteStore::new(db, dimension).await?))
 }
 
+/// Resolve effective values: CLI defaults are overridden by config
+fn resolve_params<'a>(
+    backend: &'a str,
+    url: &'a str,
+    model: &'a str,
+    db: &'a Path,
+    cfg: &'a raven_core::Config,
+) -> (&'a str, &'a str, &'a str, PathBuf) {
+    let eff_backend = if backend == "ollama" {
+        cfg.embedder.backend.as_str()
+    } else {
+        backend
+    };
+    let eff_url = if url == "http://localhost:11434" {
+        cfg.embedder
+            .url
+            .as_deref()
+            .unwrap_or("http://localhost:11434")
+    } else {
+        url
+    };
+    let eff_model = if model == "nomic-embed-text" {
+        cfg.embedder.model.as_str()
+    } else {
+        model
+    };
+    let eff_db = if db == Path::new("./raven.db") {
+        PathBuf::from(&cfg.store.path)
+    } else {
+        db.to_path_buf()
+    };
+    (eff_backend, eff_url, eff_model, eff_db)
+}
+
 #[tokio::main]
 #[allow(clippy::too_many_lines)]
 async fn main() -> Result<()> {
@@ -397,6 +431,12 @@ async fn main() -> Result<()> {
             .with_target(false)
             .init();
     }
+
+    // Load config: explicit --config path, or auto-discover raven.toml, or defaults
+    let cfg = raven_core::Config::load(cli.config.as_deref()).unwrap_or_else(|e| {
+        warn!("Failed to load config: {e}, using defaults");
+        raven_core::Config::default()
+    });
 
     match cli.command {
         Commands::Index {
@@ -437,8 +477,10 @@ async fn main() -> Result<()> {
                 return Ok(());
             }
 
-            let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db, embedder.dimension()).await?;
+            let (eff_backend, eff_url, eff_model, eff_db) =
+                resolve_params(&backend, &url, &model, &db, &cfg);
+            let embedder = make_embedder(eff_backend, eff_url, eff_model);
+            let store = make_store(&eff_db, embedder.dimension()).await?;
             let index = DocumentIndex::new(store.clone(), embedder);
             let splitter = TextSplitter::new(chunk_size, chunk_overlap);
 
@@ -511,8 +553,10 @@ async fn main() -> Result<()> {
             hybrid,
             alpha,
         } => {
-            let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db, embedder.dimension()).await?;
+            let (eff_backend, eff_url, eff_model, eff_db) =
+                resolve_params(&backend, &url, &model, &db, &cfg);
+            let embedder = make_embedder(eff_backend, eff_url, eff_model);
+            let store = make_store(&eff_db, embedder.dimension()).await?;
             let index = DocumentIndex::new(store.clone(), embedder);
 
             let results = if hybrid {
@@ -579,8 +623,10 @@ async fn main() -> Result<()> {
             model,
             top_k,
         } => {
-            let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db, embedder.dimension()).await?;
+            let (eff_backend, eff_url, eff_model, eff_db) =
+                resolve_params(&backend, &url, &model, &db, &cfg);
+            let embedder = make_embedder(eff_backend, eff_url, eff_model);
+            let store = make_store(&eff_db, embedder.dimension()).await?;
             let index = DocumentIndex::new(store, embedder);
 
             let prompt = index.query_for_prompt(&query, top_k).await?;
@@ -597,8 +643,10 @@ async fn main() -> Result<()> {
             top_k,
             temperature,
         } => {
-            let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db, embedder.dimension()).await?;
+            let (eff_backend, eff_url, eff_model, eff_db) =
+                resolve_params(&backend, &url, &model, &db, &cfg);
+            let embedder = make_embedder(eff_backend, eff_url, eff_model);
+            let store = make_store(&eff_db, embedder.dimension()).await?;
             let index = DocumentIndex::new(store, embedder);
 
             // Get context prompt from RAG pipeline
@@ -677,8 +725,10 @@ async fn main() -> Result<()> {
             model,
             api_key,
         } => {
-            let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db, embedder.dimension()).await?;
+            let (eff_backend, eff_url, eff_model, eff_db) =
+                resolve_params(&backend, &url, &model, &db, &cfg);
+            let embedder = make_embedder(eff_backend, eff_url, eff_model);
+            let store = make_store(&eff_db, embedder.dimension()).await?;
             let index = DocumentIndex::new(store.clone(), embedder);
 
             // Populate BM25 index from stored chunks for hybrid search support
@@ -755,8 +805,10 @@ async fn main() -> Result<()> {
                 return Ok(());
             }
 
-            let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db, embedder.dimension()).await?;
+            let (eff_backend, eff_url, eff_model, eff_db) =
+                resolve_params(&backend, &url, &model, &db, &cfg);
+            let embedder = make_embedder(eff_backend, eff_url, eff_model);
+            let store = make_store(&eff_db, embedder.dimension()).await?;
             let index = DocumentIndex::new(store, embedder);
             let splitter = TextSplitter::new(512, 50);
 
@@ -770,8 +822,10 @@ async fn main() -> Result<()> {
             url,
             model,
         } => {
-            let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db, embedder.dimension()).await?;
+            let (eff_backend, eff_url, eff_model, eff_db) =
+                resolve_params(&backend, &url, &model, &db, &cfg);
+            let embedder = make_embedder(eff_backend, eff_url, eff_model);
+            let store = make_store(&eff_db, embedder.dimension()).await?;
             let index = Arc::new(DocumentIndex::new(store, embedder));
             let splitter = TextSplitter::new(512, 50);
 
@@ -836,8 +890,10 @@ async fn main() -> Result<()> {
             extensions,
             debounce,
         } => {
-            let embedder = make_embedder(&backend, &url, &model);
-            let store = make_store(&db, embedder.dimension()).await?;
+            let (eff_backend, eff_url, eff_model, eff_db) =
+                resolve_params(&backend, &url, &model, &db, &cfg);
+            let embedder = make_embedder(eff_backend, eff_url, eff_model);
+            let store = make_store(&eff_db, embedder.dimension()).await?;
             let index = Arc::new(DocumentIndex::new(store.clone(), embedder));
             let splitter: Arc<dyn raven_split::Splitter> = Arc::new(TextSplitter::new(512, 50));
 
