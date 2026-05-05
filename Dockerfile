@@ -19,6 +19,7 @@ COPY crates/raven-search/Cargo.toml crates/raven-search/Cargo.toml
 COPY crates/raven-server/Cargo.toml crates/raven-server/Cargo.toml
 COPY crates/raven-mcp/Cargo.toml crates/raven-mcp/Cargo.toml
 COPY crates/raven-cli/Cargo.toml crates/raven-cli/Cargo.toml
+COPY crates/ravenrustrag/Cargo.toml crates/ravenrustrag/Cargo.toml
 
 # Create dummy source files for dependency caching
 RUN mkdir -p crates/raven-core/src && echo "pub fn dummy() {}" > crates/raven-core/src/lib.rs && \
@@ -29,7 +30,8 @@ RUN mkdir -p crates/raven-core/src && echo "pub fn dummy() {}" > crates/raven-co
     mkdir -p crates/raven-search/src && echo "pub fn dummy() {}" > crates/raven-search/src/lib.rs && \
     mkdir -p crates/raven-server/src && echo "pub fn dummy() {}" > crates/raven-server/src/lib.rs && \
     mkdir -p crates/raven-mcp/src && echo "pub fn dummy() {}" > crates/raven-mcp/src/lib.rs && \
-    mkdir -p crates/raven-cli/src && echo "fn main() {}" > crates/raven-cli/src/main.rs
+    mkdir -p crates/raven-cli/src && echo "fn main() {}" > crates/raven-cli/src/main.rs && \
+    mkdir -p crates/ravenrustrag/src && echo "pub fn dummy() {}" > crates/ravenrustrag/src/lib.rs
 
 # Build dependencies only (cached layer)
 RUN cargo build --release 2>/dev/null || true
