@@ -346,6 +346,17 @@ enum Commands {
         #[arg(value_enum)]
         shell: Shell,
     },
+
+    /// Initialize a new raven.toml configuration file
+    Init {
+        /// Output path (default: ./raven.toml)
+        #[arg(short, long, default_value = "raven.toml")]
+        output: PathBuf,
+
+        /// Overwrite existing config file
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1284,6 +1295,47 @@ async fn main() -> Result<()> {
         Commands::Completions { shell } => {
             let mut cmd = Cli::command();
             clap_complete::generate(shell, &mut cmd, "raven", &mut std::io::stdout());
+        }
+
+        Commands::Init { output, force } => {
+            if output.exists() && !force {
+                anyhow::bail!(
+                    "Config file {} already exists. Use --force to overwrite.",
+                    output.display()
+                );
+            }
+
+            let config = r#"# RavenRustRAG configuration
+# See https://egkristi.github.io/ravenrustrag/configuration/ for details
+
+[embedder]
+backend = "ollama"           # "ollama" or "openai"
+model = "nomic-embed-text"
+url = "http://localhost:11434"
+# api_key = ""               # Required for OpenAI backend
+
+[store]
+path = "./raven.db"
+
+[splitter]
+chunk_size = 512
+chunk_overlap = 50
+
+[pipeline]
+embed_batch_size = 64
+store_batch_size = 100
+
+[server]
+host = "127.0.0.1"
+port = 8484
+# api_key = "your-secret-key"
+# cors_origins = ["http://localhost:3000"]
+request_timeout_secs = 60
+rate_limit_per_second = 100
+"#;
+
+            std::fs::write(&output, config)?;
+            println!("Created {}", output.display());
         }
     }
 

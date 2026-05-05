@@ -229,6 +229,55 @@ fn test_completions_zsh() {
 }
 
 // ---------------------------------------------------------------------------
+// init command
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_init_creates_config() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let config_path = dir.path().join("raven.toml");
+
+    raven()
+        .args(["init", "-o", config_path.to_str().expect("path")])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Created"));
+
+    let content = std::fs::read_to_string(&config_path).expect("read config");
+    assert!(content.contains("[embedder]"));
+    assert!(content.contains("[store]"));
+    assert!(content.contains("[server]"));
+}
+
+#[test]
+fn test_init_refuses_overwrite() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let config_path = dir.path().join("raven.toml");
+    std::fs::write(&config_path, "existing").expect("write");
+
+    raven()
+        .args(["init", "-o", config_path.to_str().expect("path")])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("already exists"));
+}
+
+#[test]
+fn test_init_force_overwrites() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let config_path = dir.path().join("raven.toml");
+    std::fs::write(&config_path, "old").expect("write");
+
+    raven()
+        .args(["init", "-o", config_path.to_str().expect("path"), "--force"])
+        .assert()
+        .success();
+
+    let content = std::fs::read_to_string(&config_path).expect("read config");
+    assert!(content.contains("[embedder]"));
+}
+
+// ---------------------------------------------------------------------------
 // Full round-trip: index → info → query → export
 // ---------------------------------------------------------------------------
 
