@@ -73,6 +73,10 @@ enum Commands {
         /// File extensions to include (comma-separated)
         #[arg(long, default_value = "txt,md")]
         extensions: String,
+
+        /// Show what would be indexed without actually indexing
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// Query the index
@@ -448,6 +452,7 @@ async fn main() -> Result<()> {
             chunk_size,
             chunk_overlap,
             extensions,
+            dry_run,
         } => {
             info!("Indexing documents from {:?}", path);
 
@@ -474,6 +479,60 @@ async fn main() -> Result<()> {
 
             if entries.is_empty() {
                 warn!("No documents found in {:?}", path);
+                return Ok(());
+            }
+
+            // Dry-run mode: just report what would be indexed
+            if dry_run {
+                let (_, _, _, eff_db) = resolve_params(&backend, &url, &model, &db, &cfg);
+                let store = make_store(&eff_db, 0).await.ok();
+
+                let mut would_index = 0usize;
+                let mut would_skip = 0usize;
+
+                for entry in &entries {
+                    let file_path = entry.path();
+                    let path_str = file_path.to_string_lossy().to_string();
+                    let Ok(content) = std::fs::read_to_string(file_path) else {
+                        continue;
+                    };
+                    let hash = raven_core::fingerprint(&content);
+
+                    let skip = if let Some(ref s) = store {
+                        matches!(s.get_fingerprint(&path_str).await, Ok(Some(h)) if h == hash)
+                    } else {
+                        false
+                    };
+
+                    if skip {
+                        would_skip += 1;
+                        if !cli.json {
+                            println!("  skip  {path_str}");
+                        }
+                    } else {
+                        would_index += 1;
+                        if !cli.json {
+                            println!("  index {path_str}");
+                        }
+                    }
+                }
+
+                if cli.json {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&serde_json::json!({
+                            "dry_run": true,
+                            "would_index": would_index,
+                            "would_skip": would_skip,
+                            "total_files": entries.len(),
+                        }))?
+                    );
+                } else {
+                    println!(
+                        "\nDry run: {would_index} to index, {would_skip} unchanged, {} total",
+                        entries.len()
+                    );
+                }
                 return Ok(());
             }
 
