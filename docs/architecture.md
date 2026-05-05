@@ -1,6 +1,6 @@
 # Architecture
 
-RavenRustRAG is a Cargo workspace with 9 crates organized in a layered dependency hierarchy.
+RavenRustRAG is a Cargo workspace with 10 crates organized in a layered dependency hierarchy.
 
 ## Crate Overview
 
@@ -18,6 +18,8 @@ raven-server (depends on core, embed, store, split, search)
 raven-mcp    (depends on core, search, split)
   ↑
 raven-cli    (depends on all)
+  ↑
+ravenrustrag (top-level facade, re-exports public API)
 ```
 
 ## Crate Responsibilities
@@ -60,7 +62,8 @@ Text chunking strategies:
 Document ingestion:
 
 - `Loader` — detects format by extension and loads documents
-- Format handlers: text, markdown (with frontmatter), CSV, JSON, JSONL, HTML
+- Format handlers: text, markdown (with frontmatter), CSV, JSON, JSONL, HTML, PDF, DOCX
+- `LoaderRegistry` — plugin system for custom format handlers
 - `export_jsonl()` / `import_jsonl()` — backup and restore
 - Directory traversal with extension filtering
 
@@ -83,7 +86,7 @@ Pipeline orchestrator:
 - `BM25Index` — keyword search with TF-IDF scoring
 - `KnowledgeGraph` / `GraphRetriever` — entity extraction and graph traversal
 - `MultiQueryExpander` — query expansion via keyword extraction
-- `Reranker` trait + `KeywordReranker` — result re-scoring
+- `Reranker` trait + `KeywordReranker` + `OnnxReranker` — result re-scoring
 - `EvalMetrics` — MRR, NDCG, Precision@k, Recall@k
 - Watch mode with debounce for live re-indexing
 
@@ -95,8 +98,11 @@ HTTP API:
 - Bearer token authentication
 - CORS configuration
 - Rate limiting
-- OpenAPI 3.0 schema generation
+- OpenAPI 3.0.3 schema generation
 - Prometheus metrics endpoint
+- SSE streaming for `/ask` endpoint (source/token/done events)
+- WebSocket support for interactive queries
+- Read-only mode (`--read-only`)
 - Structured JSON responses
 
 ### raven-mcp
@@ -104,16 +110,26 @@ HTTP API:
 AI assistant integration:
 
 - MCP (Model Context Protocol) server over stdio
-- JSON-RPC 2.0 message handling
-- Tool definitions: search, get_prompt, collection_info, index_documents
+- JSON-RPC 2.0 message handling (protocol version 2024-11-05)
+- Tools: search, get_prompt, collection_info, index_documents
+- Resources: raven://index/stats
+- Prompts: rag_answer, summarize_index
+- `--filter` flag to restrict exposed tools
 - Input validation and error reporting
+
+### ravenrustrag
+
+Top-level library crate:
+
+- Stable public API re-exports from all internal crates
+- Single dependency for downstream consumers
 
 ### raven-cli
 
 User-facing binary:
 
 - Clap-derived command parser
-- All commands: index, query, prompt, serve, watch, graph, info, clear, export, import, mcp, doctor, benchmark
+- 20 commands: index, query, ask, prompt, serve, watch, graph build/query, info, status, clear, export, import, backup, mcp, doctor, benchmark, init, diff, completions
 - Structured and JSON output modes
 - Config file loading
 

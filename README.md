@@ -33,9 +33,9 @@ Sub-millisecond vector search. Single static binary. No Python. No virtual envir
 | **Multi-collection** | Route queries across multiple indices with fused top-k |
 | **Context formatting** | LLM-ready prompt generation with source citations |
 | **Retrieval eval** | Built-in MRR, NDCG, Recall@k, Precision@k metrics |
-| **CLI** | 13 commands: index, query, serve, watch, mcp, doctor, benchmark, graph, etc. |
+| **CLI** | 20 commands: index, query, ask, prompt, serve, watch, backup, mcp, doctor, benchmark, graph, etc. |
 | **HTTP API** | Axum server with auth, CORS, rate limit, timeout, body limit, OpenAPI |
-| **MCP server** | Model Context Protocol for Claude, Copilot, Cursor |
+| **MCP server** | Model Context Protocol for Claude, Copilot, Cursor (tools + resources + prompts) |
 | **Embedding backends** | Ollama, OpenAI-compatible, auto-detect |
 | **Watch mode** | Auto-reindex on file changes with debounce and delete tracking |
 | **Streaming** | `query_stream()` yields results via async channel |
@@ -120,6 +120,18 @@ raven doctor
 # MCP server (for Claude, Copilot, Cursor)
 raven mcp
 
+# MCP with restricted tools
+raven mcp --filter search,get_prompt
+
+# Ask a question (RAG + LLM)
+raven ask "What is RAG?"
+
+# Create a database backup
+raven backup ./raven-backup.db
+
+# Query with detailed scoring
+raven query "auth" --explain
+
 # Show index stats
 raven info
 ```
@@ -162,8 +174,8 @@ ravenrustrag/
 │   ├── raven-load/      # Loader trait + file loaders + plugin registry
 │   ├── raven-search/    # DocumentIndex, BM25, HNSW, KnowledgeGraph, Reranker
 │   ├── raven-server/    # Axum HTTP API (auth, CORS, rate limit, /metrics, /openapi)
-│   ├── raven-cli/       # CLI binary (13 commands)
-│   └── raven-mcp/       # MCP server (stdio JSON-RPC, 4 tools)
+│   ├── raven-cli/       # CLI binary (20 commands)
+│   └── raven-mcp/       # MCP server (stdio JSON-RPC, tools + resources + prompts)
 ```
 
 ## Library Usage
@@ -273,7 +285,13 @@ rate_limit_per_second = 100
 | `RAVEN_API_KEY` | `server.api_key` | None |
 | `RAVEN_HOST` | `server.host` | `127.0.0.1` |
 | `RAVEN_PORT` | `server.port` | `8484` |
-| `RAVEN_TOP_K` | `search.top_k` | `5` |
+| `RAVEN_EMBED_BACKEND` | `embedder.backend` | `ollama` |
+| `RAVEN_EMBED_URL` | `embedder.url` | `http://localhost:11434` |
+| `RAVEN_CORS_ORIGINS` | `server.cors_origins` | Localhost only |
+| `RAVEN_RATE_LIMIT` | `server.rate_limit_per_second` | `100` |
+| `RAVEN_REQUEST_TIMEOUT` | `server.request_timeout_secs` | `60` |
+| `RAVEN_MAX_QUERY_LENGTH` | `server.max_query_length` | `10000` |
+| `RAVEN_LOG_FORMAT` | — | `text` |
 
 CLI flags override env vars. Env vars override config file. Config file overrides defaults.
 
@@ -281,16 +299,18 @@ CLI flags override env vars. Env vars override config file. Config file override
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health` | Health check |
-| GET | `/ready` | Readiness check |
+| GET | `/health` | Liveness probe |
+| GET | `/ready` | Readiness probe (checks DB) |
 | GET | `/stats` | Index statistics |
 | GET | `/collections` | List collections |
-| GET | `/metrics` | Timing and cache statistics |
-| GET | `/openapi.json` | OpenAPI 3.0 schema |
-| POST | `/query` | Semantic/hybrid search |
-| POST | `/prompt` | LLM-ready formatted prompt |
-| POST | `/index` | Add documents |
-| DELETE | `/documents/{doc_id}` | Delete a document |
+| GET | `/metrics` | Request counts, uptime, errors |
+| GET | `/openapi.json` | OpenAPI 3.0.3 schema |
+| POST | `/query` | Semantic/hybrid/filtered search |
+| POST | `/prompt` | LLM-ready formatted prompt with citations |
+| POST | `/ask` | RAG Q&A with SSE streaming (source + token + done events) |
+| POST | `/index` | Add documents (disabled in read-only mode) |
+| DELETE | `/documents/{doc_id}` | Delete a document (disabled in read-only mode) |
+| GET | `/ws` | WebSocket (search, prompt, ping) |
 
 ```bash
 # Search
@@ -348,11 +368,18 @@ Expose RavenRustRAG as a Model Context Protocol server for AI assistants:
 raven mcp
 ```
 
-**Tools exposed:**
-- `search` — Query the index with configurable top_k
-- `get_prompt` — Search and format an LLM-ready prompt
-- `collection_info` — Index statistics
-- `index_documents` — Add documents to the index
+**Capabilities:**
+
+| Capability | Methods |
+|---|---|
+| Tools | `search`, `get_prompt`, `collection_info`, `index_documents` |
+| Resources | `raven://index/stats` — browseable index metadata |
+| Prompts | `rag_answer`, `summarize_index` — prompt templates |
+
+Use `--filter` to expose only specific tools:
+```bash
+raven mcp --filter search,get_prompt
+```
 
 Works with Claude Desktop, GitHub Copilot, Cursor, and any MCP-compatible client.
 
@@ -410,8 +437,9 @@ See [PLAN.md](PLAN.md) for the detailed roadmap. See [docs/changelog.md](docs/ch
 - [x] **Phase 1** — Core engine (Document, Chunk, SQLite store, Ollama embeddings, CLI)
 - [x] **Phase 2** — HTTP API, MCP server, hybrid search, file loaders, watch mode, export/import, security hardening, BM25 persistence, metadata filtering, input sanitization
 - [x] **Phase 3** — HNSW search, knowledge graph, multi-query expansion, lock-free cache, mmap SQLite, CI benchmarks, streaming, multi-collection, parent-child retrieval
-- [ ] **Phase 4** — crates.io publish, Homebrew, integration tests, top-level library crate, v1.0
-- [ ] **Future** — ONNX embeddings, ONNX cross-encoder reranking, WebSocket streaming, plugin system
+- [x] **Phase 4** — Integration tests, top-level library crate, HNSW auto-rebuild, coverage gate, embeddings versioning, read-only mode, MCP validation, stable API surface
+- [x] **Phase 5** — ONNX embeddings, ONNX cross-encoder, WebSocket streaming, plugin system, `/ask` SSE streaming, MCP resources/prompts, backup, query explain
+- [ ] **Release** — crates.io publish, Homebrew tap, AUR package, v1.0 stable (#61)
 
 ## Building from Source
 

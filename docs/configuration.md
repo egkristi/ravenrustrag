@@ -41,6 +41,12 @@ public_stats = false
 | `RAVEN_MODEL` | Default embedding model | `nomic-embed-text` |
 | `RAVEN_HOST` | Server bind address | `127.0.0.1` |
 | `RAVEN_PORT` | Server port | `8484` |
+| `RAVEN_EMBED_BACKEND` | Embedding backend (`ollama`, `openai`, `http`, `onnx`) | `ollama` |
+| `RAVEN_EMBED_URL` | Custom embedding service URL | — |
+| `RAVEN_CORS_ORIGINS` | Allowed CORS origins (comma-separated) | `*` |
+| `RAVEN_RATE_LIMIT` | Rate limit per second | `100` |
+| `RAVEN_REQUEST_TIMEOUT` | Request timeout in seconds | `60` |
+| `RAVEN_MAX_QUERY_LENGTH` | Max query string length | `10000` |
 | `RAVEN_LOG_FORMAT` | Log output format (`text` or `json`) | `text` |
 
 ## Precedence

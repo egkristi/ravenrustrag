@@ -17,14 +17,14 @@ Retrieval-Augmented Generation combines document retrieval with LLM prompting. I
 - **Memory-mapped SQLite** with 256 MB mmap for zero-copy reads
 - **HTTP API** (Axum) with Bearer auth, rate limiting, CORS, and OpenAPI schema
 - **MCP server** for AI assistant integration (Claude, Copilot, Cursor)
-- **CLI** with 13 commands for scripting and automation
+- **CLI** with 20 commands for scripting and automation
 - **File watching** with debounce for automatic re-indexing
 - **Incremental indexing** via SHA-256 content fingerprinting
 - **Docker** support with minimal scratch-based images (~15 MB)
 
 ## Architecture
 
-RavenRustRAG is a Cargo workspace with 9 crates:
+RavenRustRAG is a Cargo workspace with 10 crates:
 
 | Crate | Purpose |
 |-------|---------|
@@ -34,9 +34,10 @@ RavenRustRAG is a Cargo workspace with 9 crates:
 | `raven-split` | Splitter trait + Text/Sentence/Token/Semantic splitters |
 | `raven-load` | File loaders (txt, md, csv, json, html, pdf, docx) + JSONL export |
 | `raven-search` | DocumentIndex, BM25, KnowledgeGraph, Reranker, MultiQuery, Eval |
-| `raven-server` | Axum HTTP API (auth, CORS, rate limit, metrics, OpenAPI) |
-| `raven-mcp` | MCP server (stdio JSON-RPC, 4 tools) |
-| `raven-cli` | CLI binary (13 commands) |
+| `raven-server` | Axum HTTP API (auth, CORS, rate limit, SSE streaming, WebSocket, metrics, OpenAPI) |
+| `raven-mcp` | MCP server (stdio JSON-RPC, tools + resources + prompts) |
+| `raven-cli` | CLI binary (20 commands) |
+| `ravenrustrag` | Top-level library crate with stable public API re-exports |
 
 ## Getting Started
 

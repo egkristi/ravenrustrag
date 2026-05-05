@@ -23,19 +23,20 @@ and must be **strictly superior** in every dimension: faster, safer, smaller, an
 
 ## Architecture
 
-Cargo workspace with 9 crates:
+Cargo workspace with 10 crates (~13,750 lines of Rust, 257 tests):
 
 | Crate | Purpose |
 |---|---|
-| `raven-core` | Document, Chunk, SearchResult, Config, RavenError, fingerprint |
-| `raven-embed` | Embedder trait + Ollama, OpenAI, DummyEmbedder backends + cache |
-| `raven-store` | VectorStore trait + SqliteStore, MemoryStore |
-| `raven-split` | Splitter trait + TextSplitter |
-| `raven-load` | Loader + file format support (txt, md, csv, json, html) + JSONL export/import |
-| `raven-search` | DocumentIndex — pipeline orchestrator (split → embed → store → search) |
-| `raven-server` | Axum HTTP API server (auth, CORS, /query, /prompt, /index, /openapi.json) |
-| `raven-mcp` | MCP server (stdio JSON-RPC) for AI assistants |
-| `raven-cli` | CLI binary: index, query, prompt, serve, info, clear, export, import, mcp, doctor |
+| `raven-core` | Document, Chunk, SearchResult, Config, RavenError, fingerprint, cosine_similarity |
+| `raven-embed` | Embedder + Generator traits, Ollama, OpenAI, Http, ONNX, DummyEmbedder backends + DashMap cache |
+| `raven-store` | VectorStore trait + SqliteStore (WAL, HNSW, backup), MemoryStore, MetadataFilter |
+| `raven-split` | Splitter trait + Text, Token, Sentence, Semantic splitters |
+| `raven-load` | Loader + file format support (txt, md, csv, json, jsonl, html, pdf, docx) + plugin registry |
+| `raven-search` | DocumentIndex, BM25, KnowledgeGraph, MultiCollectionRouter, Reranker, eval metrics |
+| `raven-server` | Axum HTTP API (auth, CORS, rate limit, SSE streaming /ask, WebSocket, OpenAPI) |
+| `raven-mcp` | MCP server (stdio JSON-RPC, tools + resources + prompts) |
+| `raven-cli` | CLI binary: 20 commands |
+| `ravenrustrag` | Top-level library crate with stable public API re-exports |
 
 ## Dependency Flow
 
@@ -103,29 +104,38 @@ cargo fmt --check        # Format check
 | Extension | Loader | Notes |
 |---|---|---|
 | `.txt` | Text (fallback) | Plain text, any extension not matched |
-| `.md` | Markdown | YAML frontmatter parsed into metadata |
+| `.md`, `.markdown` | Markdown | YAML frontmatter parsed into metadata |
 | `.csv` | CSV | Headers become key-value pairs |
 | `.json` | JSON | Pretty-printed for chunking |
-| `.jsonl` | JSONL | Each line as separate record |
-| `.html` | HTML | Tags stripped, scripts/styles removed |
-| `.docx` | DOCX | ZIP-based XML extraction (behind `docx` feature) |
-| `.pdf` | PDF | Text extraction via pdf-extract (behind `pdf` feature) |
+| `.jsonl`, `.ndjson` | JSONL | Each line as separate record |
+| `.html`, `.htm` | HTML | Tags stripped, scripts/styles removed |
+| `.docx` | DOCX | ZIP-based XML extraction (behind `docx` feature, default on) |
+| `.pdf` | PDF | Text extraction via pdf-extract (behind `pdf` feature, default on) |
+| Custom | Plugin | Register via `LoaderRegistry::register()` |
 
 ## API Endpoints (raven-server)
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/health` | No | Health check |
-| GET | `/stats` | No | Index statistics |
-| GET | `/openapi.json` | No | OpenAPI 3.0 schema |
-| POST | `/query` | Yes | Search documents |
-| POST | `/prompt` | Yes | LLM-ready prompt |
-| POST | `/index` | Yes | Add documents |
+| GET | `/health` | No | Liveness probe |
+| GET | `/ready` | No | Readiness probe (checks DB) |
+| GET | `/stats` | Conditional | Index statistics |
+| GET | `/collections` | No | List collections |
+| GET | `/metrics` | Conditional | Server metrics |
+| GET | `/openapi.json` | No | OpenAPI 3.0.3 schema |
+| POST | `/query` | Yes | Search documents (vector/hybrid/filtered) |
+| POST | `/prompt` | Yes | LLM-ready prompt with citations |
+| POST | `/ask` | Yes | RAG Q&A with SSE streaming (source/token/done) |
+| POST | `/index` | Yes | Add documents (disabled in read-only mode) |
+| DELETE | `/documents/:id` | Yes | Delete document (disabled in read-only mode) |
+| GET | `/ws` | No | WebSocket (search, prompt, ping) |
 
 Auth is Bearer token via `Authorization` header, only required when `RAVEN_API_KEY` is set.
+Server supports `--read-only` mode which returns 403 for write endpoints.
 
-## MCP Tools (raven-mcp)
+## MCP Capabilities (raven-mcp)
 
+### Tools
 | Tool | Description |
 |---|---|
 | `search` | Query the index with top_k |
@@ -133,19 +143,42 @@ Auth is Bearer token via `Authorization` header, only required when `RAVEN_API_K
 | `collection_info` | Index statistics |
 | `index_documents` | Add documents |
 
+### Resources
+| URI | Description |
+|---|---|
+| `raven://index/stats` | Index statistics (chunk count, model) |
+
+### Prompts
+| Name | Description |
+|---|---|
+| `rag_answer` | Generate answer from retrieved context |
+| `summarize_index` | Summarize index contents |
+
+Supports `--filter` to restrict exposed tools.
+
 ## CLI Commands
 
 ```
-raven index <path>     # Index documents
-raven query <text>     # Search
-raven prompt <text>    # LLM-formatted prompt
-raven serve            # Start HTTP server
-raven info             # Show stats
-raven clear            # Clear index
-raven export           # JSONL backup
-raven import <file>    # JSONL restore
-raven mcp              # Start MCP server
-raven doctor           # Diagnostics
+raven index <path>       # Index documents
+raven query <text>       # Search (--hybrid, --explain)
+raven ask <text>         # RAG Q&A with local LLM
+raven prompt <text>      # LLM-formatted prompt
+raven serve              # Start HTTP server (--read-only)
+raven info               # Show stats
+raven status             # Health dashboard
+raven clear              # Clear index
+raven export             # JSONL backup
+raven import <file>      # JSONL restore
+raven backup <file>      # SQLite backup API
+raven mcp                # Start MCP server (--filter)
+raven doctor             # Diagnostics
+raven watch <path>       # Auto-reindex on changes
+raven benchmark          # Performance benchmarks
+raven graph build        # Build knowledge graph
+raven graph query <text> # Query knowledge graph
+raven init               # Generate raven.toml
+raven diff <path>        # Show changed files
+raven completions <sh>   # Shell completions
 ```
 
 ## Environment Variables
@@ -155,16 +188,27 @@ raven doctor           # Diagnostics
 | `RAVEN_API_KEY` | API authentication key |
 | `RAVEN_DB` | Default database path |
 | `RAVEN_MODEL` | Default embedding model |
+| `RAVEN_HOST` | Server bind host |
+| `RAVEN_PORT` | Server bind port |
+| `RAVEN_EMBED_BACKEND` | Embedding backend selection |
+| `RAVEN_EMBED_URL` | Embedding service URL |
+| `RAVEN_CORS_ORIGINS` | Allowed CORS origins |
+| `RAVEN_RATE_LIMIT` | Rate limit per second |
+| `RAVEN_REQUEST_TIMEOUT` | Request timeout in seconds |
+| `RAVEN_MAX_QUERY_LENGTH` | Max query string length |
+| `RAVEN_LOG_FORMAT` | Log format (text/json) |
 
 ## Reference: Python RavenRAG v0.7.0
 
-The Python version has ~4,200 lines across 24 modules. Key features to match or exceed:
-- Knowledge graph retrieval (Phase 3)
-- BM25 hybrid search with RRF (Phase 2)
-- Cross-encoder reranking (Phase 2)
-- Watch mode with debounce (Phase 2)
-- Multi-collection routing (Phase 3)
-- Parent-child retrieval (Phase 3)
-- Eval metrics: MRR, NDCG, Recall@k (Phase 3)
+The Python version has ~4,200 lines across 24 modules. All key features have been matched or exceeded:
+- Knowledge graph retrieval — Done (Phase 3)
+- BM25 hybrid search with RRF — Done (Phase 2)
+- Cross-encoder reranking — Done (ONNX, Phase 5)
+- Watch mode with debounce — Done (Phase 2)
+- Multi-collection routing — Done (Phase 3)
+- Parent-child retrieval — Done (Phase 3)
+- Eval metrics: MRR, NDCG, Recall@k — Done (Phase 3)
+
+RavenRustRAG is now ~13,750 lines across 10 crates with 257 tests.
 
 See PLAN.md for the full roadmap.

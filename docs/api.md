@@ -155,6 +155,57 @@ Request:
 }
 ```
 
+### `POST /ask`
+
+RAG question-answering via SSE streaming. Retrieves context, generates an answer with a local LLM, and streams the response as Server-Sent Events. **Requires auth**.
+
+Request:
+```json
+{
+  "query": "What is retrieval-augmented generation?",
+  "top_k": 5,
+  "hybrid": false,
+  "model": "llama3",
+  "temperature": 0.7
+}
+```
+
+Response (SSE stream):
+```
+event: source
+data: {"index":1,"source":"docs/rag.md","score":0.92,"text":"RAG combines..."}
+
+event: source
+data: {"index":2,"source":"docs/arch.md","score":0.85,"text":"The retrieval..."}
+
+event: token
+data: Retrieval-Augmented
+
+event: token
+data:  Generation (RAG)
+
+event: token
+data:  is a technique...
+
+event: done
+data: {}
+```
+
+Event types:
+- `source` — Citation metadata (emitted before tokens begin)
+- `token` — Individual LLM tokens as they are generated
+- `error` — Generation error (if the LLM fails)
+- `done` — Stream complete
+
+### `GET /ws`
+
+WebSocket endpoint for real-time streaming search and prompt.
+
+Supported message types:
+- `{"type": "search", "query": "...", "top_k": 5}` — Streaming search results
+- `{"type": "prompt", "query": "...", "top_k": 3}` — Streaming prompt generation
+- `{"type": "ping"}` — Keep-alive
+
 ### `GET /collections`
 
 List available collections (when multi-collection is enabled).
@@ -166,3 +217,13 @@ The server includes permissive CORS headers by default, allowing requests from a
 ## Rate Limiting
 
 The server applies token-bucket rate limiting to prevent abuse. Default: 100 requests per second (configurable via `rate_limit_per_second` in config).
+
+## Read-Only Mode
+
+Start the server in read-only mode to disable write endpoints (`/index`, `/documents`):
+
+```bash
+raven serve --read-only
+```
+
+In this mode, `POST /index` and `DELETE /documents/:doc_id` return `403 Forbidden`.

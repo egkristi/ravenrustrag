@@ -46,6 +46,7 @@ raven query "how does authentication work" --top-k 10 --hybrid
 | `--top-k` | `-k` | `5` | Number of results |
 | `--hybrid` | — | `false` | Use hybrid BM25 + vector search with RRF |
 | `--alpha` | — | `0.5` | Hybrid blend (1.0 = pure vector, 0.0 = pure BM25) |
+| `--explain` | — | `false` | Show detailed scoring (distance, metadata, doc_id) |
 
 ### `raven prompt <query>`
 
@@ -80,6 +81,7 @@ RAVEN_API_KEY=secret raven serve --port 8484
 | `--url` | `-u` | `http://localhost:11434` | — | Ollama URL |
 | `--model` | `-m` | `nomic-embed-text` | — | Embedding model |
 | `--api-key` | — | — | `RAVEN_API_KEY` | API key for auth (optional) |
+| `--read-only` | — | `false` | — | Disable write endpoints (index, delete) |
 
 ### `raven watch <path>`
 
@@ -175,6 +177,7 @@ Start the MCP (Model Context Protocol) server on stdio for AI assistant integrat
 
 ```bash
 raven mcp --db ./raven.db
+raven mcp --filter search,get_prompt
 ```
 
 | Flag | Short | Default | Description |
@@ -183,6 +186,89 @@ raven mcp --db ./raven.db
 | `--backend` | `-b` | `ollama` | Embedding backend |
 | `--url` | `-u` | `http://localhost:11434` | Ollama URL |
 | `--model` | `-m` | `nomic-embed-text` | Embedding model |
+| `--filter` | `-f` | — | Restrict tools (comma-separated names) |
+
+### `raven ask <query>`
+
+Full RAG pipeline: retrieve context, generate an answer via local LLM (Ollama).
+
+```bash
+raven ask "What is retrieval-augmented generation?"
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--db` | `-d` | `./raven.db` | Database path |
+| `--backend` | `-b` | `ollama` | Embedding backend |
+| `--url` | `-u` | `http://localhost:11434` | Ollama URL |
+| `--model` | `-m` | `nomic-embed-text` | Embedding model |
+| `--llm-model` | `-l` | `llama3` | LLM model for generation |
+| `--top-k` | `-k` | `5` | Number of context chunks |
+| `--temperature` | — | `0.7` | Generation temperature |
+
+### `raven backup <output>`
+
+Create a consistent SQLite backup using the backup API.
+
+```bash
+raven backup ./raven-backup.db
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--db` | `-d` | `./raven.db` | Source database |
+
+### `raven init`
+
+Generate a default `raven.toml` configuration file.
+
+```bash
+raven init
+raven init --output ./custom-config.toml
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--output` | `-o` | `./raven.toml` | Output path |
+| `--force` | — | `false` | Overwrite existing file |
+
+### `raven diff <path>`
+
+Show files changed since last index.
+
+```bash
+raven diff ./docs/
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--db` | `-d` | `./raven.db` | Database path |
+| `--extensions` | — | `txt,md` | File extensions to check |
+
+### `raven status`
+
+Show index health at a glance (chunk count, DB size, connectivity).
+
+```bash
+raven status
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--db` | `-d` | `./raven.db` | Database path |
+| `--url` | `-u` | `http://localhost:11434` | Ollama URL |
+
+### `raven completions <shell>`
+
+Generate shell completion scripts.
+
+```bash
+raven completions bash > /etc/bash_completion.d/raven
+raven completions zsh > ~/.zfunc/_raven
+raven completions fish > ~/.config/fish/completions/raven.fish
+```
+
+Supported shells: `bash`, `zsh`, `fish`, `elvish`, `powershell`.
 
 ### `raven doctor`
 
