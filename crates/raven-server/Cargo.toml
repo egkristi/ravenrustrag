@@ -46,3 +46,5 @@ raven-store = { path = "../raven-store", version = "0.1.0-alpha.1" }
 tower = { workspace = true, features = ["util"] }
 http-body-util = "0.1"
 hyper = "1"
+tokio = { workspace = true }
+serde_json = { workspace = true }
