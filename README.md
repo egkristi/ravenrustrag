@@ -102,21 +102,33 @@ sudo snap install raven-rag
 ```bash
 # Cargo (from crates.io)
 cargo install raven-cli
+
+# Quick install script (Linux / macOS)
+curl -sSf https://raw.githubusercontent.com/egkristi/ravenrustrag/main/install.sh | sh
+
+# Nix flake
+nix run github:egkristi/ravenrustrag
+
+# Docker
+docker run --rm -v "$PWD:/data" ghcr.io/egkristi/ravenrustrag:main query "search term"
+
+# Helm (Kubernetes)
+helm install raven ./charts/ravenrustrag
 ```
 
 ### Download pre-built binary
 
 Pre-built binaries are available for every release on the [GitHub Releases](https://github.com/egkristi/ravenrustrag/releases) page:
 
-| Platform | Binary |
-|----------|--------|
-| Linux x86_64 | `raven-linux-amd64` |
-| Linux x86_64 (static) | `raven-linux-amd64-musl` |
-| Linux ARM64 | `raven-linux-arm64` |
-| macOS x86_64 | `raven-darwin-amd64` |
-| macOS ARM64 (Apple Silicon) | `raven-darwin-arm64` |
-| Windows x86_64 | `raven-windows-amd64.exe` |
-| Windows ARM64 | `raven-windows-arm64.exe` |
+| Platform | Binary | Portable ZIP |
+|----------|--------|-------------|
+| Linux x86_64 | `raven-linux-amd64` | `raven-linux-amd64.zip` |
+| Linux x86_64 (static) | `raven-linux-amd64-musl` | `raven-linux-amd64-musl.zip` |
+| Linux ARM64 | `raven-linux-arm64` | `raven-linux-arm64.zip` |
+| macOS x86_64 | `raven-darwin-amd64` | `raven-darwin-amd64.zip` |
+| macOS ARM64 (Apple Silicon) | `raven-darwin-arm64` | `raven-darwin-arm64.zip` |
+| Windows x86_64 | `raven-windows-amd64.exe` | `raven-windows-amd64.zip` |
+| Windows ARM64 | `raven-windows-arm64.exe` | `raven-windows-arm64.zip` |
 
 ```bash
 # Linux / macOS (replace URL with latest release)

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Raven
+Comment=Local-first RAG engine
+Exec=raven
+Icon=raven
+Categories=Utility;Development;
+Terminal=true
