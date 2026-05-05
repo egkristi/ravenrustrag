@@ -36,7 +36,7 @@ Sub-millisecond vector search. Single static binary. No Python. No virtual envir
 | **CLI** | 20 commands: index, query, ask, prompt, serve, watch, backup, mcp, doctor, benchmark, graph, etc. |
 | **HTTP API** | Axum server with auth, CORS, rate limit, timeout, body limit, OpenAPI |
 | **MCP server** | Model Context Protocol for Claude, Copilot, Cursor (tools + resources + prompts) |
-| **Embedding backends** | Ollama, OpenAI-compatible, auto-detect |
+| **Embedding backends** | Ollama, OpenAI-compatible, ONNX Runtime (local, behind `onnx` feature) |
 | **Watch mode** | Auto-reindex on file changes with debounce and delete tracking |
 | **Streaming** | `query_stream()` yields results via async channel |
 | **Incremental indexing** | SHA-256 fingerprinting, skip unchanged files |
@@ -193,7 +193,7 @@ raven info
 │ Loaders  │ Splitters│ Embedders │  Stores  │ Search & Retrieval  │
 │  .txt    │  Text    │  Ollama   │  SQLite  │  Vector (HNSW)      │
 │  .md     │  Token   │  OpenAI   │  Memory  │  BM25 keyword       │
-│  .pdf    │ Sentence │           │          │  Hybrid (RRF)       │
+│  .pdf    │ Sentence │  ONNX     │          │  Hybrid (RRF)       │
 │  .docx   │ Semantic │           │          │  Knowledge graph    │
 │  .html   │          │           │          │  Parent-child       │
 │  .csv    │          │           │          │  Multi-collection   │
@@ -212,50 +212,49 @@ ravenrustrag/
 ├── docs/                # User guide (17 pages, published to GitHub Pages)
 ├── crates/
 │   ├── raven-core/      # Document, Chunk, SearchResult, Config, errors
-│   ├── raven-embed/     # Embedder trait + Ollama, OpenAI backends + DashMap cache
+│   ├── raven-embed/     # Embedder trait + Ollama, OpenAI, ONNX backends + DashMap cache
 │   ├── raven-store/     # VectorStore trait + SQLite (WAL, mmap), Memory backends
-│   ├── raven-split/     # Splitter trait + Text, Token, Sentence, Semantic
-│   ├── raven-load/      # Loader trait + file loaders + plugin registry
-│   ├── raven-search/    # DocumentIndex, BM25, HNSW, KnowledgeGraph, Reranker
+│   ├── raven-split/     # Splitter trait + Text, Token, Sentence
+│   ├── raven-load/      # Loader + file format loaders + plugin registry
+│   ├── raven-search/    # DocumentIndex, BM25, HNSW, KnowledgeGraph, SemanticSplitter, Reranker
 │   ├── raven-server/    # Axum HTTP API (auth, CORS, rate limit, /metrics, /openapi)
+│   ├── raven-mcp/       # MCP server (stdio JSON-RPC, tools + resources + prompts)
 │   ├── raven-cli/       # CLI binary (20 commands)
-│   └── raven-mcp/       # MCP server (stdio JSON-RPC, tools + resources + prompts)
+│   └── ravenrustrag/    # Stable public API re-exports
 ```
 
 ## Library Usage
 
 ```rust
-use ravenrustrag::{DocumentIndex, TextSplitter, Loader};
+use ravenrustrag::{DocumentIndex, TextSplitter, Loader, SqliteStore, create_cached_embedder};
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load documents
-    let docs = Loader::from_directory("./docs").await?;
-    
-    // Split into chunks
-    let splitter = TextSplitter::new().with_chunk_size(512);
-    let chunks = splitter.split(docs);
-    
-    // Build index
-    let mut index = DocumentIndex::builder()
-        .store("./raven.db")
-        .embedder("ollama://nomic-embed-text")
-        .build().await?;
-    
-    index.add(chunks).await?;
-    
+    let docs = Loader::from_directory("./docs", Some(&["md", "txt"]))?;
+
+    // Set up pipeline
+    let store = Arc::new(SqliteStore::new("./raven.db", 768).await?);
+    let embedder = create_cached_embedder("ollama", "nomic-embed-text", None, None, 10_000);
+    let index = DocumentIndex::new(store, embedder);
+
+    // Index documents
+    let splitter = TextSplitter::new(512, 50);
+    index.add_documents(docs, &splitter).await?;
+
     // Query
     let results = index.query("What is RAG?", 5).await?;
-    for result in results {
-        println!("[{:.4}] {}", result.score, result.text);
+    for r in &results {
+        println!("[{:.4}] {}", r.score, r.chunk.text);
     }
 
-    // Hybrid search
-    let results = index.hybrid_query("auth flow", 10, 0.5).await?;
+    // Hybrid search (BM25 + vector with RRF)
+    let results = index.query_hybrid("auth flow", 10, 0.5).await?;
 
     // LLM-ready prompt with citations
     let prompt = index.query_for_prompt("Explain RAG", 3).await?;
-    
+
     Ok(())
 }
 ```

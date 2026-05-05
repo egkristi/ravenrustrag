@@ -18,7 +18,7 @@ use tracing::{info, warn};
 #[derive(Parser)]
 #[command(name = "raven")]
 #[command(about = "RavenRustRAG — Fearlessly fast retrieval.")]
-#[command(version = "0.1.0-alpha.1")]
+#[command(version = env!("CARGO_PKG_VERSION"))]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
