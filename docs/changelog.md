@@ -7,14 +7,25 @@ This project follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- DOCX file loader support (ZIP-based XML extraction, behind `docx` feature flag)
+- PDF file loader support (pdf-extract, behind `pdf` feature flag)
 - `raven ask` command for local LLM question-answering via Ollama (#63)
 - Generator trait and OllamaGenerator for LLM text generation with streaming
 - `raven completions` command for shell completion generation (bash, zsh, fish, elvish, PowerShell) (#62)
+- `raven status` command for rich index health dashboard (#74)
+- `--dry-run` mode for `raven index` (#71)
+- Colored CLI output with term highlighting (#73)
 - Schema migration system with versioned upgrades for SqliteStore (#60)
 - Property-based tests with proptest for core, split, and search crates (#58)
 - Stress tests for concurrent indexing and large document handling (#59)
 - Fuzz targets for text splitter, all loaders, and cosine similarity (#57)
 - mdBook + MkDocs documentation site
+- HNSW integration in SqliteStore for O(log n) vector search (#64)
+- `VectorStore::get_by_doc_id()` for efficient parent-child retrieval (#65)
+- Split read/write connections in SqliteStore for concurrent reads (#69)
+- LRU cache eviction via moka crate (#68)
+- Auto-detect embedding dimension from model (#67)
+- Full `raven.toml` config wiring in CLI (#66)
 - DashMap lock-free embedding cache (#47)
 - Memory-mapped I/O for SQLite (256 MB mmap) (#48)
 - CI concurrency groups to prevent queue flooding (#46)
@@ -25,10 +36,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 - CodeQL security scanning
 
 ### Changed
+- Default `--extensions` for CLI index/watch commands now includes all supported formats (txt,md,csv,json,html,pdf,docx)
 - EmbeddingCache internals: Mutex<HashMap> replaced with DashMap + AtomicU64
+- SqliteStore uses separate read/write connections for better concurrency
 - Semaphore error in batch embedding now returns proper RavenError instead of panic
 
 ### Fixed
+- SqliteStore search now uses HNSW for O(log n) instead of O(n) brute-force (#64)
+- `query_parent()` no longer loads entire database (#65)
+- Embedding dimension no longer hardcoded to 768 (#67)
+- CLI now reads and applies raven.toml configuration (#66)
 - Clippy compliance: removed unwrap in library code
 
 ## [0.1.0-alpha.1] — Initial Release

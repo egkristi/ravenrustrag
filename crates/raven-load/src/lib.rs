@@ -771,4 +771,63 @@ mod tests {
             Some(&"custom_val".to_string())
         );
     }
+
+    #[cfg(feature = "docx")]
+    #[test]
+    fn test_extract_docx_text_basic() {
+        let xml = r"<w:document><w:body><w:p><w:r><w:t>Hello world</w:t></w:r></w:p></w:body></w:document>";
+        let text = extract_docx_text(xml);
+        assert_eq!(text, "Hello world");
+    }
+
+    #[cfg(feature = "docx")]
+    #[test]
+    fn test_extract_docx_text_multiple_paragraphs() {
+        let xml = r"<w:document><w:body><w:p><w:r><w:t>First paragraph</w:t></w:r></w:p><w:p><w:r><w:t>Second paragraph</w:t></w:r></w:p></w:body></w:document>";
+        let text = extract_docx_text(xml);
+        assert!(text.contains("First paragraph"));
+        assert!(text.contains("Second paragraph"));
+        assert!(text.contains('\n'));
+    }
+
+    #[cfg(feature = "docx")]
+    #[test]
+    fn test_extract_docx_text_with_attributes() {
+        // <w:t xml:space="preserve"> should still extract text
+        let xml = r#"<w:p><w:r><w:t xml:space="preserve">Preserved text</w:t></w:r></w:p>"#;
+        let text = extract_docx_text(xml);
+        assert_eq!(text, "Preserved text");
+    }
+
+    #[cfg(feature = "docx")]
+    #[test]
+    fn test_load_docx_file() {
+        use std::io::Write;
+        use zip::write::SimpleFileOptions;
+        use zip::ZipWriter;
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let docx_path = temp_dir.path().join("test.docx");
+
+        // Create a minimal valid .docx (ZIP with word/document.xml)
+        let file = std::fs::File::create(&docx_path).unwrap();
+        let mut zip = ZipWriter::new(file);
+
+        let options = SimpleFileOptions::default();
+        zip.start_file("word/document.xml", options).unwrap();
+        let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Hello from docx</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Second paragraph</w:t></w:r></w:p>
+  </w:body>
+</w:document>"#;
+        zip.write_all(xml.as_bytes()).unwrap();
+        zip.finish().unwrap();
+
+        let doc = Loader::from_file(&docx_path).unwrap();
+        assert!(doc.text.contains("Hello from docx"));
+        assert!(doc.text.contains("Second paragraph"));
+        assert_eq!(doc.metadata.get("format"), Some(&"docx".to_string()));
+    }
 }

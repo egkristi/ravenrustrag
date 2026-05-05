@@ -108,6 +108,8 @@ cargo fmt --check        # Format check
 | `.json` | JSON | Pretty-printed for chunking |
 | `.jsonl` | JSONL | Each line as separate record |
 | `.html` | HTML | Tags stripped, scripts/styles removed |
+| `.docx` | DOCX | ZIP-based XML extraction (behind `docx` feature) |
+| `.pdf` | PDF | Text extraction via pdf-extract (behind `pdf` feature) |
 
 ## API Endpoints (raven-server)
 

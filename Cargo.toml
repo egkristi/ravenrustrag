@@ -9,6 +9,7 @@ members = [
     "crates/raven-server",
     "crates/raven-cli",
     "crates/raven-mcp",
+    "crates/ravenrustrag",
 ]
 exclude = ["fuzz"]
 resolver = "2"

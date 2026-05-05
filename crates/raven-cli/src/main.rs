@@ -72,7 +72,7 @@ enum Commands {
         chunk_overlap: usize,
 
         /// File extensions to include (comma-separated)
-        #[arg(long, default_value = "txt,md")]
+        #[arg(long, default_value = "txt,md,csv,json,html,pdf,docx")]
         extensions: String,
 
         /// Show what would be indexed without actually indexing
@@ -315,7 +315,7 @@ enum Commands {
         model: String,
 
         /// File extensions to watch (comma-separated)
-        #[arg(long, default_value = "txt,md")]
+        #[arg(long, default_value = "txt,md,csv,json,html,pdf,docx")]
         extensions: String,
 
         /// Debounce interval in milliseconds

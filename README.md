@@ -4,7 +4,7 @@
 
 **A local-first, embeddable RAG engine in Rust** — the successor to [RavenRAG](https://github.com/egkristi/ravenrag), reimagined for speed, safety, and deployability.
 
-Index thousands of documents in milliseconds. Query with microsecond latency. Ship as a single static binary. No Python. No virtual environments. No GIL.
+Sub-millisecond vector search. Single static binary. No Python. No virtual environments. No GIL.
 
 [![Rust](https://img.shields.io/badge/rust-1.86%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSE)
@@ -25,7 +25,7 @@ Index thousands of documents in milliseconds. Query with microsecond latency. Sh
 | **Knowledge graph** | Entity extraction + graph traversal + graph-vector fusion |
 | **Semantic chunking** | Sentence-boundary + embedding cosine similarity splitting |
 | **Flexible splitting** | Character, token-aware, and semantic strategies |
-| **File loaders** | txt, md, html, csv, json, jsonl, pdf + plugin system |
+| **File loaders** | txt, md, html, csv, json, jsonl, pdf, docx + plugin system |
 | **Metadata filtering** | Filter search results by arbitrary key-value metadata |
 | **Parent-child** | Search chunks, return full parent documents |
 | **Multi-collection** | Route queries across multiple indices with fused top-k |
@@ -360,13 +360,13 @@ Covers: installation, quick start, CLI reference, HTTP API, MCP server, configur
 
 ## Roadmap
 
-See [PLAN.md](PLAN.md) for the detailed implementation plan.
+See [PLAN.md](PLAN.md) for the detailed roadmap. See [docs/changelog.md](docs/changelog.md) for completed work.
 
 - [x] **Phase 1** — Core engine (Document, Chunk, SQLite store, Ollama embeddings, CLI)
 - [x] **Phase 2** — HTTP API, MCP server, hybrid search, file loaders, watch mode, export/import, security hardening, BM25 persistence, metadata filtering, input sanitization
 - [x] **Phase 3** — HNSW search, knowledge graph, multi-query expansion, lock-free cache, mmap SQLite, CI benchmarks, streaming, multi-collection, parent-child retrieval
-- [ ] **Phase 4** — crates.io publish, Homebrew, comprehensive testing (proptest, fuzz, coverage)
-- [ ] **Future** — ONNX embeddings, ONNX cross-encoder reranking (pending `ort` crate MSRV resolution)
+- [ ] **Phase 4** — crates.io publish, Homebrew, integration tests, top-level library crate, v1.0
+- [ ] **Future** — ONNX embeddings, ONNX cross-encoder reranking, WebSocket streaming, plugin system
 
 ## Building from Source
 

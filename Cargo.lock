@@ -2362,6 +2362,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrustrag"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "raven-core",
+ "raven-embed",
+ "raven-load",
+ "raven-search",
+ "raven-split",
+ "raven-store",
+ "tempfile",
+ "tokio",
+ "tokio-test",
+]
+
+[[package]]
 name = "rayon"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
