@@ -338,6 +338,19 @@ impl SqliteStore {
         Ok(version)
     }
 
+    /// Create a consistent backup of the database using SQLite's backup API.
+    pub async fn backup(&self, dest_path: &std::path::Path) -> Result<()> {
+        let conn = self.read_conn.lock().await;
+        let mut dest = Connection::open(dest_path)
+            .map_err(|e| RavenError::Store(format!("Failed to open backup destination: {e}")))?;
+        let backup = rusqlite::backup::Backup::new(&conn, &mut dest)
+            .map_err(|e| RavenError::Store(format!("Failed to init backup: {e}")))?;
+        backup
+            .run_to_completion(100, std::time::Duration::from_millis(10), None)
+            .map_err(|e| RavenError::Store(format!("Backup failed: {e}")))?;
+        Ok(())
+    }
+
     #[inline]
     fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
         raven_core::cosine_similarity(a, b)

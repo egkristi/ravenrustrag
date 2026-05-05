@@ -305,6 +305,16 @@ enum Commands {
         db: PathBuf,
     },
 
+    /// Create a consistent backup of the database
+    Backup {
+        /// Output file path for the backup
+        output: PathBuf,
+
+        /// Source database path
+        #[arg(short, long, default_value = "./raven.db")]
+        db: PathBuf,
+    },
+
     /// Watch a directory and auto-index on changes
     Watch {
         /// Path to watch
@@ -1078,6 +1088,32 @@ async fn main() -> Result<()> {
                 .run_stdio()
                 .await
                 .map_err(|e| anyhow::anyhow!("{e}"))?;
+        }
+
+        Commands::Backup { output, db } => {
+            if !db.exists() {
+                anyhow::bail!("Database not found: {}", db.display());
+            }
+            let store = SqliteStore::new(&db, 0).await?;
+            store.backup(&output).await?;
+            let size = std::fs::metadata(&output).map(|m| m.len()).unwrap_or(0);
+            if cli.json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "source": db.display().to_string(),
+                        "backup": output.display().to_string(),
+                        "size_bytes": size,
+                    }))?
+                );
+            } else {
+                println!(
+                    "Backup complete: {} -> {} ({} bytes)",
+                    db.display(),
+                    output.display(),
+                    size
+                );
+            }
         }
 
         Commands::Doctor { url, db } => {
