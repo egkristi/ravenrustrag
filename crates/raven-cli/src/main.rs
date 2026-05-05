@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
+use colored::Colorize;
 use raven_core::ServerConfig;
 use raven_embed::{Embedder, GeneratorConfig};
 use raven_load::Loader;
@@ -216,6 +217,17 @@ enum Commands {
         /// Database path
         #[arg(short, long, default_value = "./raven.db")]
         db: PathBuf,
+    },
+
+    /// Show index health and stats at a glance
+    Status {
+        /// Database path
+        #[arg(short, long, default_value = "./raven.db")]
+        db: PathBuf,
+
+        /// Ollama URL to check
+        #[arg(short, long, default_value = "http://localhost:11434")]
+        url: String,
     },
 
     /// Export index to JSONL
@@ -653,10 +665,15 @@ async fn main() -> Result<()> {
                     }))?
                 );
             } else {
-                println!("\nResults for: \"{query}\" ({mode})\n");
+                println!(
+                    "\n{} \"{}\" ({})\n",
+                    "Results for:".bold(),
+                    query.cyan(),
+                    mode.dimmed()
+                );
 
                 if results.is_empty() {
-                    println!("No results found.");
+                    println!("{}", "No results found.".yellow());
                 } else {
                     for (i, result) in results.iter().enumerate() {
                         let source = result
@@ -665,8 +682,15 @@ async fn main() -> Result<()> {
                             .get("source")
                             .cloned()
                             .unwrap_or_else(|| "unknown".to_string());
-                        println!("[{}] (score: {:.4})", i + 1, result.score);
-                        println!("    Source: {source}");
+                        let score_color = if result.score > 0.8 {
+                            format!("{:.4}", result.score).green()
+                        } else if result.score > 0.5 {
+                            format!("{:.4}", result.score).yellow()
+                        } else {
+                            format!("{:.4}", result.score).red()
+                        };
+                        println!("{} (score: {})", format!("[{}]", i + 1).bold(), score_color);
+                        println!("    {}: {}", "Source".dimmed(), source);
                         let preview: String = result.chunk.text.chars().take(200).collect();
                         println!("    {preview}\n");
                     }
@@ -825,6 +849,95 @@ async fn main() -> Result<()> {
             let store = make_store(&db, 0).await?;
             store.clear().await?;
             println!("✓ Cleared index at {}", db.display());
+        }
+
+        Commands::Status { db, url } => {
+            let db_exists = db.exists();
+            let store = if db_exists {
+                make_store(&db, 0).await.ok()
+            } else {
+                None
+            };
+
+            let chunk_count = if let Some(ref s) = store {
+                s.count().await.unwrap_or(0)
+            } else {
+                0
+            };
+
+            let schema_ver = if let Some(ref s) = store {
+                s.schema_version().await.unwrap_or(0)
+            } else {
+                0
+            };
+
+            // Check Ollama connectivity
+            let client = reqwest::Client::new();
+            let ollama_ok = client
+                .get(format!("{url}/api/tags"))
+                .timeout(std::time::Duration::from_secs(2))
+                .send()
+                .await
+                .is_ok_and(|r| r.status().is_success());
+
+            // Check for config file
+            let config_file = raven_core::Config::discover();
+
+            if cli.json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "database": {
+                            "path": db.display().to_string(),
+                            "exists": db_exists,
+                            "chunks": chunk_count,
+                            "schema_version": schema_ver,
+                        },
+                        "ollama": {
+                            "url": url,
+                            "reachable": ollama_ok,
+                        },
+                        "config": config_file.as_ref().map(|p| p.display().to_string()),
+                        "version": env!("CARGO_PKG_VERSION"),
+                    }))?
+                );
+            } else {
+                println!("\n{}\n", "RavenRustRAG Status".bold());
+
+                // Database
+                let db_status = if db_exists {
+                    format!(
+                        "{} ({chunk_count} chunks, schema v{schema_ver})",
+                        "ok".green()
+                    )
+                } else {
+                    "not found".red().to_string()
+                };
+                println!("  {} {}  {}", "Database:".dimmed(), db.display(), db_status);
+
+                // Ollama
+                let ollama_status = if ollama_ok {
+                    "reachable".green().to_string()
+                } else {
+                    "unreachable".red().to_string()
+                };
+                println!("  {} {}  {}", "Ollama:".dimmed(), url, ollama_status);
+
+                // Config
+                if let Some(ref path) = config_file {
+                    println!("  {} {}", "Config:".dimmed(), path.display());
+                } else {
+                    println!(
+                        "  {} {}",
+                        "Config:".dimmed(),
+                        "none (using defaults)".yellow()
+                    );
+                }
+
+                // Version
+                println!("  {} {}", "Version:".dimmed(), env!("CARGO_PKG_VERSION"));
+                println!();
+            }
         }
 
         Commands::Export { output, db } => {
