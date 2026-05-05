@@ -12,9 +12,9 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 | Issue | Title | Priority | Status |
 |---|---|---|---|
 | [#61](https://github.com/egkristi/ravenrustrag/issues/61) | v1.0 stable release | High | Open (meta) |
-| [#53](https://github.com/egkristi/ravenrustrag/issues/53) | 80%+ test coverage target | Medium | Open |
-| [#76](https://github.com/egkristi/ravenrustrag/issues/76) | WebSocket streaming endpoint | Medium | Open |
-| [#77](https://github.com/egkristi/ravenrustrag/issues/77) | Plugin system for custom embedders | Medium | Open |
+| [#53](https://github.com/egkristi/ravenrustrag/issues/53) | 80%+ test coverage target | Medium | Done |
+| [#76](https://github.com/egkristi/ravenrustrag/issues/76) | WebSocket streaming endpoint | Medium | Done |
+| [#77](https://github.com/egkristi/ravenrustrag/issues/77) | Plugin system for custom embedders | Medium | Done |
 | [#55](https://github.com/egkristi/ravenrustrag/issues/55) | Homebrew tap formula | Low | Open |
 | [#56](https://github.com/egkristi/ravenrustrag/issues/56) | AUR package | Low | Open |
 | [#43](https://github.com/egkristi/ravenrustrag/issues/43) | ONNX Runtime embedding backend | High | Deferred (MSRV conflict) |
@@ -31,7 +31,7 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 - [ ] AUR package — [#56](https://github.com/egkristi/ravenrustrag/issues/56)
 
 ### Quality
-- [ ] 80%+ test coverage — [#53](https://github.com/egkristi/ravenrustrag/issues/53)
+- [x] 80%+ test coverage — [#53](https://github.com/egkristi/ravenrustrag/issues/53)
 - [x] Integration tests for CLI binary (assert_cmd) — [#70](https://github.com/egkristi/ravenrustrag/issues/70)
 - [x] Integration tests for HTTP server endpoints — [#70](https://github.com/egkristi/ravenrustrag/issues/70)
 
@@ -63,9 +63,9 @@ Features planned for post-1.0 development:
 - [ ] Incremental BM25 updates (avoid full rebuild)
 - [ ] Async SQLite backend (tokio-rusqlite)
 - [ ] Binary/quantized embedding storage (reduced disk/memory)
-- [ ] WebSocket streaming endpoint — [#76](https://github.com/egkristi/ravenrustrag/issues/76)
+- [x] WebSocket streaming endpoint — [#76](https://github.com/egkristi/ravenrustrag/issues/76)
 - [ ] Configuration hot-reload for long-running server
-- [ ] Plugin system for custom embedding backends — [#77](https://github.com/egkristi/ravenrustrag/issues/77)
+- [x] Plugin system for custom embedding backends — [#77](https://github.com/egkristi/ravenrustrag/issues/77)
 
 ---
 

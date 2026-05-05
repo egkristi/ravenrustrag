@@ -7,8 +7,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
-- DOCX file loader support (ZIP-based XML extraction, behind `docx` feature flag)
-- PDF file loader support (pdf-extract, behind `pdf` feature flag)
+- HttpEmbedder for custom embedding backends via generic HTTP API (plugin system) (#77)
+- WebSocket endpoint `/ws` for real-time streaming search and prompt (#76)
+- 37 new tests across all crates, including Unicode edge cases (#53)
+- `raven diff` command to show changes since last index (#78)
 - `raven ask` command for local LLM question-answering via Ollama (#63)
 - Generator trait and OllamaGenerator for LLM text generation with streaming
 - `raven completions` command for shell completion generation (bash, zsh, fish, elvish, PowerShell) (#62)
@@ -19,6 +21,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Property-based tests with proptest for core, split, and search crates (#58)
 - Stress tests for concurrent indexing and large document handling (#59)
 - Fuzz targets for text splitter, all loaders, and cosine similarity (#57)
+
+### Changed
+- `create_embedder` and `create_cached_embedder` now support "http" backend (#77)
+- All Cargo.toml files now include crates.io metadata (homepage, repository, keywords, categories) (#52)
+
+### Fixed
+- Unicode text splitter bug where multi-byte chars at chunk boundaries produced empty chunks (#53)
+- `raven diff` macOS path canonicalization issue with `/var/folders` vs `/private/var/folders` (#78)
 - mdBook + MkDocs documentation site
 - HNSW integration in SqliteStore for O(log n) vector search (#64)
 - `VectorStore::get_by_doc_id()` for efficient parent-child retrieval (#65)

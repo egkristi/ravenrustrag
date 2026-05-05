@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Embed**: HttpEmbedder for custom embedding backends via generic HTTP API (plugin system) (#77)
+- **Server**: WebSocket endpoint `/ws` for real-time streaming search and prompt (#76)
+- **Testing**: 37 new tests across all crates, including Unicode edge cases (#53)
+- **CLI**: `raven diff` command to show changes since last index (#78)
 - **CLI**: `raven ask` command for local LLM question-answering via Ollama (#63)
 - **Embed**: Generator trait and OllamaGenerator for LLM text generation with streaming
 - **CLI**: `raven completions` command for shell completion generation (bash, zsh, fish, elvish, PowerShell) (#62)
@@ -15,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Testing**: Property-based tests with proptest for core, split, and search crates (#58)
 - **Testing**: Stress tests for concurrent indexing and large document handling (#59)
 - **Fuzzing**: Fuzz targets for text splitter, all loaders, and cosine similarity (#57)
+
+### Changed
+- **Embed**: `create_embedder` and `create_cached_embedder` now support "http" backend (#77)
+- **Build**: All Cargo.toml files now include crates.io metadata (homepage, repository, keywords, categories) (#52)
+
+### Fixed
+- **Split**: Unicode text splitter bug where multi-byte chars at chunk boundaries produced empty chunks (#53)
+- **CLI**: `raven diff` macOS path canonicalization issue with `/var/folders` vs `/private/var/folders` (#78)
 
 ## [0.1.0-alpha.1] - 2026-05-04
 
