@@ -830,4 +830,116 @@ mod tests {
         assert!(doc.text.contains("Second paragraph"));
         assert_eq!(doc.metadata.get("format"), Some(&"docx".to_string()));
     }
+
+    #[test]
+    fn test_import_jsonl_malformed_lines() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file = temp_dir.path().join("bad.jsonl");
+        // Mix of valid and invalid lines
+        let valid1 = serde_json::to_string(&Document::new("valid doc")).unwrap();
+        let valid2 = serde_json::to_string(&Document::new("another valid")).unwrap();
+        let content = format!("{valid1}\nnot json at all\n{valid2}\n");
+        std::fs::write(&file, content).unwrap();
+
+        let docs = import_jsonl(&file).unwrap();
+        // Should skip malformed lines and import valid ones
+        assert_eq!(docs.len(), 2);
+        assert_eq!(docs[0].text, "valid doc");
+        assert_eq!(docs[1].text, "another valid");
+    }
+
+    #[test]
+    fn test_load_csv_empty() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file = temp_dir.path().join("empty.csv");
+        std::fs::write(&file, "name,age\n").unwrap();
+
+        let doc = Loader::from_file(&file).unwrap();
+        assert_eq!(doc.metadata.get("format"), Some(&"csv".to_string()));
+    }
+
+    #[test]
+    fn test_load_json_nested() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file = temp_dir.path().join("nested.json");
+        std::fs::write(&file, r#"{"outer": {"inner": "value"}, "list": [1, 2, 3]}"#).unwrap();
+
+        let doc = Loader::from_file(&file).unwrap();
+        assert!(doc.text.contains("inner"));
+        assert!(doc.text.contains("value"));
+    }
+
+    #[test]
+    fn test_load_html_with_entities() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file = temp_dir.path().join("entities.html");
+        std::fs::write(
+            &file,
+            "<html><body><p>Hello &amp; World &lt;3&gt;</p></body></html>",
+        )
+        .unwrap();
+
+        let doc = Loader::from_file(&file).unwrap();
+        assert!(doc.text.contains("Hello"));
+        assert!(doc.text.contains("World"));
+    }
+
+    #[test]
+    fn test_load_markdown_with_code_blocks() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file = temp_dir.path().join("code.md");
+        std::fs::write(
+            &file,
+            "# Title\n\n```rust\nfn main() {}\n```\n\nSome text after.",
+        )
+        .unwrap();
+
+        let doc = Loader::from_file(&file).unwrap();
+        assert!(doc.text.contains("fn main()"));
+        assert!(doc.text.contains("Some text after"));
+    }
+
+    #[test]
+    fn test_document_with_metadata() {
+        let doc = Document::new("test content")
+            .with_metadata("key1", "val1")
+            .with_metadata("key2", "val2");
+        assert_eq!(doc.metadata.get("key1"), Some(&"val1".to_string()));
+        assert_eq!(doc.metadata.get("key2"), Some(&"val2".to_string()));
+        assert_eq!(doc.text, "test content");
+    }
+
+    #[test]
+    fn test_load_directory_empty() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let docs = Loader::from_directory(temp_dir.path(), None).unwrap();
+        assert!(docs.is_empty());
+    }
+
+    #[test]
+    fn test_export_import_roundtrip_with_metadata() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file = temp_dir.path().join("rt.jsonl");
+
+        let docs = vec![
+            Document::new("Doc 1")
+                .with_metadata("source", "a.txt")
+                .with_metadata("author", "Alice"),
+            Document::new("Doc 2")
+                .with_metadata("source", "b.md")
+                .with_metadata("tags", "rust,rag"),
+        ];
+
+        export_jsonl(&docs, &file).unwrap();
+        let imported = import_jsonl(&file).unwrap();
+        assert_eq!(imported.len(), 2);
+        assert_eq!(
+            imported[0].metadata.get("author"),
+            Some(&"Alice".to_string())
+        );
+        assert_eq!(
+            imported[1].metadata.get("tags"),
+            Some(&"rust,rag".to_string())
+        );
+    }
 }

@@ -595,4 +595,83 @@ mod tests {
             .to_string();
         assert!(text.contains("What is RAG?"));
     }
+
+    #[tokio::test]
+    async fn test_missing_tool_name() {
+        let server = test_server();
+        let req = make_request("tools/call", serde_json::json!({"arguments": {}}));
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_search_with_default_top_k() {
+        let server = test_server();
+        // top_k not specified — should use default
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({"name": "search", "arguments": {"query": "hello"}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_index_empty_documents_list() {
+        let server = test_server();
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({
+                "name": "index_documents",
+                "arguments": { "documents": [] }
+            }),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+        let text = resp.result.unwrap()["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(text.contains("Indexed 0 documents"));
+    }
+
+    #[tokio::test]
+    async fn test_index_then_search() {
+        let server = test_server();
+        // Index documents
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({
+                "name": "index_documents",
+                "arguments": {
+                    "documents": [
+                        {"text": "Rust is a systems programming language"},
+                        {"text": "Python is great for data science"}
+                    ]
+                }
+            }),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+
+        // Search
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({"name": "search", "arguments": {"query": "Rust programming", "top_k": 2}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_search_top_k_too_large() {
+        let server = test_server();
+        let req = make_request(
+            "tools/call",
+            serde_json::json!({"name": "search", "arguments": {"query": "test", "top_k": 1001}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_some());
+        assert_eq!(resp.error.unwrap().code, JSONRPC_INVALID_PARAMS);
+    }
 }

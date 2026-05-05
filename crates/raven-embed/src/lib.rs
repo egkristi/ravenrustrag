@@ -798,4 +798,102 @@ mod tests {
         let cached = create_cached_embedder("ollama", "nomic-embed-text", None, None, 50);
         assert_eq!(cached.model_name(), "nomic-embed-text");
     }
+
+    #[tokio::test]
+    async fn test_cached_embedder_mixed_hits_misses() {
+        let embedder = DummyEmbedder::new(4);
+        let cached = CachedEmbedder::new(embedder, 100);
+
+        // First batch: populate cache with "hello" and "world"
+        let batch1 = vec!["hello".to_string(), "world".to_string()];
+        let r1 = cached.embed(&batch1).await.unwrap();
+        assert_eq!(r1.len(), 2);
+
+        // Second batch: "hello" is cached, "new" is not
+        let batch2 = vec!["hello".to_string(), "new".to_string()];
+        let r2 = cached.embed(&batch2).await.unwrap();
+        assert_eq!(r2.len(), 2);
+        // "hello" should return same result from cache
+        assert_eq!(r1[0], r2[0]);
+
+        let (hits, misses, size) = cached.cache_stats().await;
+        assert_eq!(hits, 1); // "hello" on second call
+        assert_eq!(misses, 3); // "hello", "world" on first call + "new" on second
+        assert_eq!(size, 3);
+    }
+
+    #[tokio::test]
+    async fn test_cache_eviction() {
+        let cache = EmbeddingCache::new(2);
+        cache.set("a".to_string(), vec![1.0]).await;
+        cache.set("b".to_string(), vec![2.0]).await;
+        assert!(cache.get("a").await.is_some());
+        assert!(cache.get("b").await.is_some());
+        // Add a third — one should be evicted (moka uses LRU-like)
+        cache.set("c".to_string(), vec![3.0]).await;
+        assert!(cache.get("c").await.is_some());
+    }
+
+    #[test]
+    fn test_ollama_backend_builder() {
+        let backend =
+            OllamaBackend::new("http://localhost:11434", "nomic-embed-text").with_dimension(384);
+        assert_eq!(backend.dimension(), 384);
+        assert_eq!(backend.model_name(), "nomic-embed-text");
+    }
+
+    #[test]
+    fn test_openai_backend_builder() {
+        let backend = OpenAIBackend::new("https://api.openai.com/v1", "text-embedding-ada-002")
+            .with_api_key("sk-test-key")
+            .with_dimension(1536);
+        assert_eq!(backend.dimension(), 1536);
+        assert_eq!(backend.model_name(), "text-embedding-ada-002");
+    }
+
+    #[test]
+    fn test_dummy_embedder_default() {
+        let embedder = DummyEmbedder::default();
+        assert_eq!(embedder.dimension(), 3);
+        assert_eq!(embedder.model_name(), "dummy");
+    }
+
+    #[test]
+    fn test_create_embedder_openai() {
+        let embedder = create_embedder("openai", "text-embedding-3-small", None, None);
+        assert_eq!(embedder.model_name(), "text-embedding-3-small");
+    }
+
+    #[test]
+    fn test_create_cached_embedder_openai() {
+        let cached = create_cached_embedder(
+            "openai",
+            "text-embedding-3-small",
+            Some("http://localhost:1234/v1"),
+            Some("sk-key"),
+            100,
+        );
+        assert_eq!(cached.model_name(), "text-embedding-3-small");
+    }
+
+    #[tokio::test]
+    async fn test_dummy_embedder_empty_input() {
+        let embedder = DummyEmbedder::new(5);
+        let result = embedder.embed(&[]).await.unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_generator_config_custom() {
+        let config = GeneratorConfig {
+            model: "mistral".to_string(),
+            temperature: 0.1,
+            max_tokens: Some(512),
+            system_prompt: Some("You are helpful.".to_string()),
+        };
+        assert_eq!(config.model, "mistral");
+        assert!((config.temperature - 0.1).abs() < f32::EPSILON);
+        assert_eq!(config.max_tokens, Some(512));
+        assert_eq!(config.system_prompt, Some("You are helpful.".to_string()));
+    }
 }

@@ -1092,6 +1092,129 @@ mod tests {
             assert!(results[i].score >= results[i + 1].score);
         }
     }
+
+    #[tokio::test]
+    async fn test_sqlite_schema_version() {
+        let temp = tempfile::NamedTempFile::new().unwrap();
+        let store = SqliteStore::new(temp.path(), 3).await.unwrap();
+        let version = store.schema_version().await.unwrap();
+        assert_eq!(version, SCHEMA_VERSION);
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_all_fingerprints() {
+        let temp = tempfile::NamedTempFile::new().unwrap();
+        let store = SqliteStore::new(temp.path(), 3).await.unwrap();
+
+        store.set_fingerprint("/a.txt", "hash_a").await.unwrap();
+        store.set_fingerprint("/b.txt", "hash_b").await.unwrap();
+
+        let fps = store.all_fingerprints().await.unwrap();
+        assert_eq!(fps.len(), 2);
+        assert_eq!(fps.get("/a.txt"), Some(&"hash_a".to_string()));
+        assert_eq!(fps.get("/b.txt"), Some(&"hash_b".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_delete_fingerprint() {
+        let temp = tempfile::NamedTempFile::new().unwrap();
+        let store = SqliteStore::new(temp.path(), 3).await.unwrap();
+
+        store.set_fingerprint("/a.txt", "hash_a").await.unwrap();
+        assert!(store.get_fingerprint("/a.txt").await.unwrap().is_some());
+
+        store.delete_fingerprint("/a.txt").await.unwrap();
+        assert!(store.get_fingerprint("/a.txt").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_bm25_terms_roundtrip() {
+        let temp = tempfile::NamedTempFile::new().unwrap();
+        let store = SqliteStore::new(temp.path(), 3).await.unwrap();
+
+        // Must add a chunk first so BM25 foreign key lookup works
+        let chunk = Chunk::new("doc1", "Rust is fast").with_embedding(vec![1.0, 0.0, 0.0]);
+        store.add(&[chunk]).await.unwrap();
+
+        // Get the actual chunk ID from the store
+        let all = store.all().await.unwrap();
+        let chunk_id = &all[0].id;
+
+        let mut terms = HashMap::new();
+        terms.insert("rust".to_string(), 2.0f32);
+        terms.insert("fast".to_string(), 1.0f32);
+
+        store.save_bm25_terms(chunk_id, &terms, 5.0).await.unwrap();
+
+        let data = store.load_bm25_data().await.unwrap();
+        assert_eq!(data.len(), 1);
+        assert_eq!(data[0].chunk_id, *chunk_id);
+        assert!((data[0].doc_length - 5.0).abs() < f32::EPSILON);
+        assert_eq!(data[0].terms.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_memory_store_get_by_doc_id() {
+        let store = MemoryStore::new();
+        let c1 = Chunk::new("doc1", "first chunk").with_embedding(vec![1.0, 0.0]);
+        let c2 = Chunk::new("doc1", "second chunk").with_embedding(vec![0.0, 1.0]);
+        let c3 = Chunk::new("doc2", "other doc").with_embedding(vec![0.5, 0.5]);
+        store.add(&[c1, c2, c3]).await.unwrap();
+
+        let doc1_chunks = store.get_by_doc_id("doc1").await.unwrap();
+        assert_eq!(doc1_chunks.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_metadata_filter_matches() {
+        let filter = MetadataFilter::new()
+            .with("lang", "en")
+            .with("type", "article");
+        let mut meta = HashMap::new();
+        meta.insert("lang".to_string(), "en".to_string());
+        meta.insert("type".to_string(), "article".to_string());
+        assert!(filter.matches(&meta));
+
+        let mut meta2 = HashMap::new();
+        meta2.insert("lang".to_string(), "en".to_string());
+        assert!(!filter.matches(&meta2));
+    }
+
+    #[tokio::test]
+    async fn test_metadata_filter_empty() {
+        let filter = MetadataFilter::new();
+        assert!(filter.is_empty());
+        let meta = HashMap::new();
+        assert!(filter.matches(&meta));
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_concurrent_reads() {
+        let temp = tempfile::NamedTempFile::new().unwrap();
+        let store = Arc::new(SqliteStore::new(temp.path(), 3).await.unwrap());
+
+        // Add some data with dimension 3
+        let chunks: Vec<Chunk> = (0..10)
+            .map(|i| {
+                Chunk::new(format!("doc{i}"), format!("text {i}"))
+                    .with_embedding(vec![1.0, 0.0, 0.0])
+            })
+            .collect();
+        store.add(&chunks).await.unwrap();
+
+        // Spawn multiple concurrent reads
+        let mut handles = Vec::new();
+        for _ in 0..5 {
+            let s = store.clone();
+            handles.push(tokio::spawn(async move {
+                s.search(&[1.0, 0.0, 0.0], 5).await.unwrap()
+            }));
+        }
+        for h in handles {
+            let results = h.await.unwrap();
+            assert_eq!(results.len(), 5);
+        }
+    }
 }
 
 // =============================================================================

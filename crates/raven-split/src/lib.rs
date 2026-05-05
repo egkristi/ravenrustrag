@@ -74,8 +74,12 @@ impl Splitter for TextSplitter {
                     end += 1;
                 }
                 // Also ensure start is on a char boundary (for overlap)
-                while start > 0 && !text.is_char_boundary(start) {
+                while start < text.len() && !text.is_char_boundary(start) {
                     start += 1;
+                }
+                // Skip if we've gone past the end or start == end
+                if start >= end {
+                    break;
                 }
                 let chunk_text = &text[start..end];
 
