@@ -122,6 +122,14 @@ All platforms should have native package manager support for frictionless instal
 - [x] `cargo install raven-cli` (crates.io) — [#84](https://github.com/egkristi/ravenrustrag/issues/84) (publish workflow ready)
 - [x] Pre-built static binaries (GitHub Releases) — release workflow
 - [x] Docker (`ghcr.io/egkristi/ravenrustrag`) — multi-arch [#90](https://github.com/egkristi/ravenrustrag/issues/90)
+- [ ] OCI / generic container image (Podman, containerd, etc.)
+
+### Android
+- [ ] APK (Termux package or standalone)
+- [ ] `pkg install raven` (Termux pkg manager)
+
+### iOS / iPadOS
+- [ ] Apple App Store (requires GUI wrapper or Shortcuts integration)
 
 ---
 
@@ -135,6 +143,8 @@ All platforms should have native package manager support for frictionless instal
 6. **Snap Store** — snapcraft.yaml ready, needs Snapcraft account.
 7. **ONNX requires ONNX Runtime** — The `onnx` feature requires the ONNX Runtime shared library at runtime.
 8. **DMG/pkg/MSI/exe installers** — Require code signing certificates.
+9. **Android** — Requires cross-compilation to `aarch64-linux-android`. Termux package or standalone APK.
+10. **iOS / iPadOS** — Requires Apple Developer account, GUI wrapper (SwiftUI/UIKit), and App Store review.
 
 ---
 
