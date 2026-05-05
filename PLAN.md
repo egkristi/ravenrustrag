@@ -17,7 +17,7 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 
 ---
 
-## Phase 4: Polish & Release (in progress)
+## Phase 4: Polish & Release
 
 ### Publishing
 - [x] crates.io metadata ready — [#52](https://github.com/egkristi/ravenrustrag/issues/52)
