@@ -358,23 +358,24 @@ Works with Claude Desktop, GitHub Copilot, Cursor, and any MCP-compatible client
 
 ## Benchmarks
 
-Measured on Apple Silicon (M-series), release build, using `DummyEmbedder` (128-dim) to isolate compute from network latency. Run with `cargo bench`.
+Measured on Apple Silicon (M-series), release build, using `DummyEmbedder` (128-dim) to isolate compute from network latency. Run with `cargo bench`. Last verified: 2026-05-05.
 
 ### Cosine Similarity (raven-core)
 
 | Dimension | Latency | Throughput |
 |-----------|---------|------------|
 | 128-d | 39 ns | ~25M ops/s |
-| 768-d | 220 ns | ~4.5M ops/s |
-| 1536-d | 434 ns | ~2.3M ops/s |
+| 768-d | 217 ns | ~4.6M ops/s |
+| 1536-d | 430 ns | ~2.3M ops/s |
 
 ### Search & Indexing (raven-search)
 
 | Operation | Latency |
 |-----------|---------|
 | Vector query, 100 docs | 35 µs |
-| Vector query, 1,000 docs | 370 µs |
+| Vector query, 1,000 docs | 378 µs |
 | Hybrid query (BM25 + vector), 100 docs | 55 µs |
+| BM25 search, 1,000 docs | 58 µs |
 | Index 10 docs (split + embed + store) | 41 µs |
 
 Benchmarks depend on hardware, embedding model, and document size. Query latency above excludes embedding time (network-bound for Ollama/OpenAI).
