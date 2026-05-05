@@ -35,6 +35,12 @@ jobs:
           - target: aarch64-apple-darwin
             os: macos-latest
             artifact: raven-darwin-arm64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: raven-windows-amd64.exe
+          - target: aarch64-pc-windows-msvc
+            os: windows-latest
+            artifact: raven-windows-arm64.exe
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -47,6 +53,7 @@ jobs:
         if: matrix.target == 'x86_64-unknown-linux-musl' || matrix.target == 'aarch64-unknown-linux-gnu'
         run: cargo install cross --locked
       - name: Build release binary
+        shell: bash
         run: |
           if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ] || [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
             cross build --release --target ${{ matrix.target }}
@@ -54,10 +61,15 @@ jobs:
             cargo build --release --target ${{ matrix.target }}
           fi
       - name: Package binary
+        shell: bash
         run: |
           mkdir -p dist
-          cp target/${{ matrix.target }}/release/raven dist/${{ matrix.artifact }}
-          chmod +x dist/${{ matrix.artifact }}
+          if [[ "${{ matrix.target }}" == *windows* ]]; then
+            cp target/${{ matrix.target }}/release/raven.exe dist/${{ matrix.artifact }}
+          else
+            cp target/${{ matrix.target }}/release/raven dist/${{ matrix.artifact }}
+            chmod +x dist/${{ matrix.artifact }}
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}

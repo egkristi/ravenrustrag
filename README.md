@@ -47,17 +47,51 @@ Sub-millisecond vector search. Single static binary. No Python. No virtual envir
 | **Thread-safe** | All types are `Send + Sync` by default. No data races possible |
 | **Config file** | `raven.toml` + env vars + CLI flags, auto-discovery |
 
-## Quick Start
+## Installation
+
+### Download pre-built binary
+
+Pre-built binaries are available for every release on the [GitHub Releases](https://github.com/egkristi/ravenrustrag/releases) page:
+
+| Platform | Binary |
+|----------|--------|
+| Linux x86_64 | `raven-linux-amd64` |
+| Linux x86_64 (static) | `raven-linux-amd64-musl` |
+| Linux ARM64 | `raven-linux-arm64` |
+| macOS x86_64 | `raven-darwin-amd64` |
+| macOS ARM64 (Apple Silicon) | `raven-darwin-arm64` |
+| Windows x86_64 | `raven-windows-amd64.exe` |
+| Windows ARM64 | `raven-windows-arm64.exe` |
+
+**Linux / macOS:**
 
 ```bash
-# Install from source
+# Download (replace URL with latest release)
+curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/raven-linux-amd64
+chmod +x raven-linux-amd64
+sudo mv raven-linux-amd64 /usr/local/bin/raven
+```
+
+**Windows (PowerShell):**
+
+```powershell
+# Download the latest release
+Invoke-WebRequest -Uri "https://github.com/egkristi/ravenrustrag/releases/latest/download/raven-windows-amd64.exe" -OutFile "raven.exe"
+# Move to a directory in your PATH, or add the current directory to PATH
+Move-Item raven.exe "$env:LOCALAPPDATA\Microsoft\WindowsApps\raven.exe"
+```
+
+### Install from source
+
+```bash
 git clone https://github.com/egkristi/ravenrustrag
 cd ravenrustrag
 cargo build --release
+```
 
-# Or (when published):
-cargo install ravenrustrag
+## Quick Start
 
+```bash
 # Index your documents
 raven index ./docs --db ./raven.db
 
@@ -376,7 +410,9 @@ See [PLAN.md](PLAN.md) for the detailed roadmap. See [docs/changelog.md](docs/ch
 # Prerequisites
 # macOS: xcode-select --install
 # Ubuntu: sudo apt install build-essential pkg-config
+# Windows: Install Visual Studio Build Tools (C++ workload)
 # Rust: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+#   (Windows: download rustup-init.exe from https://rustup.rs)
 
 git clone https://github.com/egkristi/ravenrustrag.git
 cd ravenrustrag
