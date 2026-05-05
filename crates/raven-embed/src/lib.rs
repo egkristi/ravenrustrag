@@ -372,32 +372,152 @@ impl Embedder for DummyEmbedder {
 }
 
 // =============================================================================
+// HTTP custom embedder (plugin system)
+// =============================================================================
+
+/// Generic HTTP-based embedder for custom backends.
+///
+/// Any server implementing a POST endpoint that accepts:
+/// ```json
+/// {"texts": ["hello", "world"]}
+/// ```
+/// and returns:
+/// ```json
+/// {"embeddings": [[0.1, 0.2, ...], [0.3, 0.4, ...]]}
+/// ```
+/// can be used as an embedding backend.
+pub struct HttpEmbedder {
+    client: reqwest::Client,
+    url: String,
+    model_name: String,
+    dimension: usize,
+    api_key: Option<String>,
+}
+
+impl HttpEmbedder {
+    pub fn new(url: impl Into<String>, dimension: usize) -> Self {
+        Self {
+            client: reqwest::Client::new(),
+            url: url.into(),
+            model_name: "http-custom".to_string(),
+            dimension,
+            api_key: None,
+        }
+    }
+
+    pub fn with_model_name(mut self, name: impl Into<String>) -> Self {
+        self.model_name = name.into();
+        self
+    }
+
+    pub fn with_api_key(mut self, key: impl Into<String>) -> Self {
+        self.api_key = Some(key.into());
+        self
+    }
+}
+
+#[derive(Serialize)]
+struct HttpEmbedRequest {
+    texts: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct HttpEmbedResponse {
+    embeddings: Vec<Vec<f32>>,
+}
+
+#[async_trait]
+impl Embedder for HttpEmbedder {
+    async fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
+        if texts.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let request = HttpEmbedRequest {
+            texts: texts.to_vec(),
+        };
+
+        let mut req_builder = self
+            .client
+            .post(&self.url)
+            .json(&request)
+            .timeout(std::time::Duration::from_secs(60));
+
+        if let Some(ref key) = self.api_key {
+            req_builder = req_builder.bearer_auth(key);
+        }
+
+        let response = req_builder
+            .send()
+            .await
+            .map_err(|e| RavenError::Embed(format!("HTTP embedder error: {e}")))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unknown error".to_string());
+            return Err(RavenError::Embed(format!(
+                "HTTP embedder returned {status}: {text}"
+            )));
+        }
+
+        let body: HttpEmbedResponse = response
+            .json()
+            .await
+            .map_err(|e| RavenError::Embed(format!("HTTP embedder JSON parse error: {e}")))?;
+
+        Ok(body.embeddings)
+    }
+
+    fn dimension(&self) -> usize {
+        self.dimension
+    }
+
+    fn model_name(&self) -> &str {
+        &self.model_name
+    }
+}
+
+// =============================================================================
 // Backend auto-detection
 // =============================================================================
 
 /// Create an embedder from a config, auto-detecting the backend.
 ///
-/// Supported URL schemes:
-/// - `ollama://model` or `ollama://host:port/model`
-/// - `openai://model` or `openai://host:port/model`
-/// - Plain URL with backend hint: backend="ollama" or backend="openai"
+/// Supported backends:
+/// - `"ollama"` — Ollama API (default)
+/// - `"openai"` — OpenAI-compatible API
+/// - `"http"` — Generic HTTP endpoint (plugin system)
 pub fn create_embedder(
     backend: &str,
     model: &str,
     url: Option<&str>,
     api_key: Option<&str>,
 ) -> Arc<dyn Embedder> {
-    if backend == "openai" {
-        let base_url = url.unwrap_or("https://api.openai.com/v1");
-        let mut embedder = OpenAIBackend::new(base_url, model);
-        if let Some(key) = api_key {
-            embedder = embedder.with_api_key(key);
+    match backend {
+        "openai" => {
+            let base_url = url.unwrap_or("https://api.openai.com/v1");
+            let mut embedder = OpenAIBackend::new(base_url, model);
+            if let Some(key) = api_key {
+                embedder = embedder.with_api_key(key);
+            }
+            Arc::new(embedder)
         }
-        Arc::new(embedder)
-    } else {
-        // Default: Ollama
-        let base_url = url.unwrap_or("http://localhost:11434");
-        Arc::new(OllamaBackend::new(base_url, model))
+        "http" => {
+            let embed_url = url.unwrap_or("http://localhost:8080/embed");
+            let mut embedder = HttpEmbedder::new(embed_url, 768).with_model_name(model);
+            if let Some(key) = api_key {
+                embedder = embedder.with_api_key(key);
+            }
+            Arc::new(embedder)
+        }
+        _ => {
+            // Default: Ollama
+            let base_url = url.unwrap_or("http://localhost:11434");
+            Arc::new(OllamaBackend::new(base_url, model))
+        }
     }
 }
 
@@ -409,17 +529,28 @@ pub fn create_cached_embedder(
     api_key: Option<&str>,
     cache_size: usize,
 ) -> Arc<dyn Embedder> {
-    if backend == "openai" {
-        let base_url = url.unwrap_or("https://api.openai.com/v1");
-        let mut embedder = OpenAIBackend::new(base_url, model);
-        if let Some(key) = api_key {
-            embedder = embedder.with_api_key(key);
+    match backend {
+        "openai" => {
+            let base_url = url.unwrap_or("https://api.openai.com/v1");
+            let mut embedder = OpenAIBackend::new(base_url, model);
+            if let Some(key) = api_key {
+                embedder = embedder.with_api_key(key);
+            }
+            Arc::new(CachedEmbedder::new(embedder, cache_size))
         }
-        Arc::new(CachedEmbedder::new(embedder, cache_size))
-    } else {
-        let base_url = url.unwrap_or("http://localhost:11434");
-        let embedder = OllamaBackend::new(base_url, model);
-        Arc::new(CachedEmbedder::new(embedder, cache_size))
+        "http" => {
+            let embed_url = url.unwrap_or("http://localhost:8080/embed");
+            let mut embedder = HttpEmbedder::new(embed_url, 768).with_model_name(model);
+            if let Some(key) = api_key {
+                embedder = embedder.with_api_key(key);
+            }
+            Arc::new(CachedEmbedder::new(embedder, cache_size))
+        }
+        _ => {
+            let base_url = url.unwrap_or("http://localhost:11434");
+            let embedder = OllamaBackend::new(base_url, model);
+            Arc::new(CachedEmbedder::new(embedder, cache_size))
+        }
     }
 }
 
@@ -895,5 +1026,32 @@ mod tests {
         assert!((config.temperature - 0.1).abs() < f32::EPSILON);
         assert_eq!(config.max_tokens, Some(512));
         assert_eq!(config.system_prompt, Some("You are helpful.".to_string()));
+    }
+
+    #[test]
+    fn test_http_embedder_builder() {
+        let embedder = HttpEmbedder::new("http://localhost:9999/embed", 384)
+            .with_model_name("custom-model")
+            .with_api_key("secret-key");
+        assert_eq!(embedder.dimension(), 384);
+        assert_eq!(embedder.model_name(), "custom-model");
+    }
+
+    #[test]
+    fn test_create_embedder_http() {
+        let embedder = create_embedder("http", "my-model", Some("http://myserver/embed"), None);
+        assert_eq!(embedder.model_name(), "my-model");
+    }
+
+    #[test]
+    fn test_create_cached_embedder_http() {
+        let cached = create_cached_embedder(
+            "http",
+            "my-model",
+            Some("http://myserver/embed"),
+            Some("key"),
+            50,
+        );
+        assert_eq!(cached.model_name(), "my-model");
     }
 }

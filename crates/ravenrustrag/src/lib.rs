@@ -44,7 +44,7 @@ pub use raven_core::{
 // Re-export embedding
 pub use raven_embed::{
     create_cached_embedder, create_embedder, CachedEmbedder, DummyEmbedder, Embedder,
-    EmbeddingCache, OllamaBackend, OpenAIBackend,
+    EmbeddingCache, HttpEmbedder, OllamaBackend, OpenAIBackend,
 };
 
 // Re-export storage
