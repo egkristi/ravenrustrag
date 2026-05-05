@@ -11,12 +11,17 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 
 | Issue | Title | Priority | Status |
 |---|---|---|---|
+| [#79](https://github.com/egkristi/ravenrustrag/issues/79) | HNSW: replace flat O(n) scan in SqliteStore | **Critical** | Open |
+| [#83](https://github.com/egkristi/ravenrustrag/issues/83) | Define stable public API surface (`#[doc(hidden)]`) | High | Open |
+| [#80](https://github.com/egkristi/ravenrustrag/issues/80) | ONNX MSRV split documentation + CI gate | High | Open |
+| [#81](https://github.com/egkristi/ravenrustrag/issues/81) | Publish actual test coverage percentage | Medium | Open |
+| [#82](https://github.com/egkristi/ravenrustrag/issues/82) | Verify and update benchmark numbers in README | Medium | Open |
 | [#61](https://github.com/egkristi/ravenrustrag/issues/61) | v1.0 stable release | High | Open (meta) |
+| [#55](https://github.com/egkristi/ravenrustrag/issues/55) | Homebrew tap formula | Low | Open |
+| [#56](https://github.com/egkristi/ravenrustrag/issues/56) | AUR package | Low | Open |
 | [#53](https://github.com/egkristi/ravenrustrag/issues/53) | 80%+ test coverage target | Medium | Done |
 | [#76](https://github.com/egkristi/ravenrustrag/issues/76) | WebSocket streaming endpoint | Medium | Done |
 | [#77](https://github.com/egkristi/ravenrustrag/issues/77) | Plugin system for custom embedders | Medium | Done |
-| [#55](https://github.com/egkristi/ravenrustrag/issues/55) | Homebrew tap formula | Low | Open |
-| [#56](https://github.com/egkristi/ravenrustrag/issues/56) | AUR package | Low | Open |
 | [#43](https://github.com/egkristi/ravenrustrag/issues/43) | ONNX Runtime embedding backend | High | Done |
 | [#44](https://github.com/egkristi/ravenrustrag/issues/44) | ONNX cross-encoder reranking | Medium | Done |
 
@@ -32,8 +37,10 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 
 ### Quality
 - [x] 80%+ test coverage — [#53](https://github.com/egkristi/ravenrustrag/issues/53)
+- [ ] Publish actual coverage percentage and Codecov badge — [#81](https://github.com/egkristi/ravenrustrag/issues/81)
 - [x] Integration tests for CLI binary (assert_cmd) — [#70](https://github.com/egkristi/ravenrustrag/issues/70)
 - [x] Integration tests for HTTP server endpoints — [#70](https://github.com/egkristi/ravenrustrag/issues/70)
+- [ ] Verify and update benchmark numbers in README — [#82](https://github.com/egkristi/ravenrustrag/issues/82)
 
 ### Architecture
 - [x] Top-level `ravenrustrag` library crate with builder API — [#75](https://github.com/egkristi/ravenrustrag/issues/75)
@@ -42,7 +49,12 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 - [x] `raven init` — config generator — [#72](https://github.com/egkristi/ravenrustrag/issues/72)
 - [x] `raven diff` — show changed files since last index — [#78](https://github.com/egkristi/ravenrustrag/issues/78)
 
-### Stability
+### Performance
+- [ ] HNSW: replace flat O(n) vector scan in SqliteStore — [#79](https://github.com/egkristi/ravenrustrag/issues/79)
+
+### API Stability
+- [ ] Define stable public API surface with `#[doc(hidden)]` on internals — [#83](https://github.com/egkristi/ravenrustrag/issues/83)
+- [ ] ONNX MSRV split documentation + CI gate — [#80](https://github.com/egkristi/ravenrustrag/issues/80)
 - [ ] v1.0 stable release — [#61](https://github.com/egkristi/ravenrustrag/issues/61)
 
 ---
@@ -71,9 +83,12 @@ Features planned for post-1.0 development:
 
 ## Known Limitations
 
-_(No current blocking limitations.)_
+1. **Flat O(n) vector search** — SqliteStore::search() falls back to brute-force cosine scan. HNSW index exists behind feature flag but is not auto-maintained on insert. This is the largest performance bottleneck at scale. [#79](https://github.com/egkristi/ravenrustrag/issues/79)
+2. **ONNX requires Rust 1.88+** — The `onnx` feature compiles and works, but requires a higher MSRV (1.88) than the default (1.86). This split is not documented. [#80](https://github.com/egkristi/ravenrustrag/issues/80)
+3. **Coverage percentage unknown** — CI runs tarpaulin but the actual percentage is not published or verified against the 80% target. [#81](https://github.com/egkristi/ravenrustrag/issues/81)
+4. **No stable API contract** — All `pub` types across 10 crates are technically public. Without `#[doc(hidden)]` or visibility reduction, semver is unenforceable after v1.0. [#83](https://github.com/egkristi/ravenrustrag/issues/83)
 
 ---
 
-**Last updated:** 2026-05-06
-**Next milestone:** v1.0 stable release (#61) — requires #52, #53, #70, #75
+**Last updated:** 2026-05-05
+**Next milestone:** v1.0 stable release (#61) — requires #79, #83, #80, #81, #82
