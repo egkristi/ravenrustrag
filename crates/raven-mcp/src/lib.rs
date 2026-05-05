@@ -84,51 +84,89 @@ fn tool_definitions() -> Value {
         "tools": [
             {
                 "name": "search",
-                "description": "Search the document index for relevant content",
+                "description": "Search the document index for relevant content using vector similarity",
                 "inputSchema": {
                     "type": "object",
                     "required": ["query"],
+                    "additionalProperties": false,
                     "properties": {
-                        "query": { "type": "string", "description": "Search query text" },
-                        "top_k": { "type": "integer", "description": "Number of results (default: 5)", "default": 5 }
+                        "query": {
+                            "type": "string",
+                            "description": "Search query text",
+                            "minLength": 1,
+                            "maxLength": 10000
+                        },
+                        "top_k": {
+                            "type": "integer",
+                            "description": "Number of results to return",
+                            "default": 5,
+                            "minimum": 1,
+                            "maximum": 100
+                        }
                     }
                 }
             },
             {
                 "name": "get_prompt",
-                "description": "Search and format an LLM-ready prompt with citations",
+                "description": "Search and format an LLM-ready prompt with citations and context",
                 "inputSchema": {
                     "type": "object",
                     "required": ["query"],
+                    "additionalProperties": false,
                     "properties": {
-                        "query": { "type": "string", "description": "Query to answer" },
-                        "top_k": { "type": "integer", "description": "Number of context chunks", "default": 3 }
+                        "query": {
+                            "type": "string",
+                            "description": "Question to answer using retrieved context",
+                            "minLength": 1,
+                            "maxLength": 10000
+                        },
+                        "top_k": {
+                            "type": "integer",
+                            "description": "Number of context chunks to include",
+                            "default": 3,
+                            "minimum": 1,
+                            "maximum": 50
+                        }
                     }
                 }
             },
             {
                 "name": "collection_info",
-                "description": "Get index statistics (document count)",
+                "description": "Get index statistics including document count and embedding model info",
                 "inputSchema": {
                     "type": "object",
+                    "additionalProperties": false,
                     "properties": {}
                 }
             },
             {
                 "name": "index_documents",
-                "description": "Add documents to the index",
+                "description": "Add documents to the index for later retrieval",
                 "inputSchema": {
                     "type": "object",
                     "required": ["documents"],
+                    "additionalProperties": false,
                     "properties": {
                         "documents": {
                             "type": "array",
+                            "description": "Array of documents to index",
+                            "minItems": 1,
+                            "maxItems": 1000,
                             "items": {
                                 "type": "object",
                                 "required": ["text"],
+                                "additionalProperties": false,
                                 "properties": {
-                                    "text": { "type": "string" },
-                                    "metadata": { "type": "object" }
+                                    "text": {
+                                        "type": "string",
+                                        "description": "Document text content",
+                                        "minLength": 1
+                                    },
+                                    "metadata": {
+                                        "type": "object",
+                                        "description": "Optional key-value metadata",
+                                        "additionalProperties": { "type": "string" }
+                                    }
                                 }
                             }
                         }
