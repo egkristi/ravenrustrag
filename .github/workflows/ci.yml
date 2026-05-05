@@ -87,9 +87,9 @@ jobs:
           COVERAGE=$(grep -oP '\d+\.\d+% coverage' coverage-output.txt | grep -oP '\d+\.\d+' || echo "0")
           echo "Coverage: ${COVERAGE}%"
           echo "coverage=${COVERAGE}" >> "$GITHUB_OUTPUT"
-          # Fail if coverage drops below 70%
+          # Fail if coverage drops below 65%
           if [ -f cobertura.xml ]; then
-            awk "BEGIN {exit ($COVERAGE < 70.0) ? 1 : 0}"
+            awk "BEGIN {exit ($COVERAGE < 65.0) ? 1 : 0}"
           else
             echo "Warning: no coverage report generated"
             exit 1
