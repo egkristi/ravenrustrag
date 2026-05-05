@@ -34,6 +34,7 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 - [ ] Actual crates.io publish — [#52](https://github.com/egkristi/ravenrustrag/issues/52)
 - [ ] Homebrew tap formula — [#55](https://github.com/egkristi/ravenrustrag/issues/55)
 - [ ] AUR package — [#56](https://github.com/egkristi/ravenrustrag/issues/56)
+- [ ] MCP marketplace listing (GitHub MCP Registry)
 
 ### Quality
 - [x] 80%+ test coverage — [#53](https://github.com/egkristi/ravenrustrag/issues/53)
@@ -48,6 +49,11 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 ### CLI
 - [x] `raven init` — config generator — [#72](https://github.com/egkristi/ravenrustrag/issues/72)
 - [x] `raven diff` — show changed files since last index — [#78](https://github.com/egkristi/ravenrustrag/issues/78)
+
+### Robustness
+- [ ] Embeddings versioning — store model name + dimensions in fingerprint table, reject mismatched queries
+- [ ] `raven serve --read-only` — disable write endpoints for production deployments
+- [ ] JSON Schema validation on MCP tools/list response (improves Claude/Cursor integration)
 
 ### Performance
 - [ ] HNSW: replace flat O(n) vector scan in SqliteStore — [#79](https://github.com/egkristi/ravenrustrag/issues/79)
@@ -64,12 +70,21 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 Features planned for post-1.0 development:
 
 ### LLM Generation
-- [ ] `POST /ask` server endpoint with streaming SSE response
+- [ ] `POST /ask` with streaming citations — `event: token` for text, `event: source` for citations (Perplexity pattern)
 
 ### ONNX Runtime
 - [x] Local embedding without Ollama — [#43](https://github.com/egkristi/ravenrustrag/issues/43)
 - [x] Cross-encoder reranking — [#44](https://github.com/egkristi/ravenrustrag/issues/44)
 - [ ] Quantized model support (int8/fp16)
+
+### MCP
+- [ ] MCP resources capability — browse index as `raven://documents/` filesystem
+- [ ] MCP prompts capability — expose RAG prompt templates
+- [ ] `raven mcp --filter <expr>` — scoped MCP server per collection/context
+
+### CLI
+- [ ] `raven query --explain` — show score breakdown (vector vs BM25), fingerprint, position
+- [ ] `raven backup <file>` — SQLite `.backup` API for O(1) snapshots
 
 ### Advanced Features
 - [ ] Incremental BM25 updates (avoid full rebuild)
