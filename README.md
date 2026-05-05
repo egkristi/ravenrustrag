@@ -495,7 +495,7 @@ See [PLAN.md](PLAN.md) for the detailed roadmap. See [docs/changelog.md](docs/ch
 - [x] **Phase 4** — Integration tests, top-level library crate, HNSW auto-rebuild, coverage gate, embeddings versioning, read-only mode, MCP validation, stable API surface
 - [x] **Phase 5** — ONNX embeddings, ONNX cross-encoder, WebSocket streaming, plugin system, `/ask` SSE streaming, MCP resources/prompts, backup, query explain, quantized ONNX, incremental BM25, async SQLite, binary embedding storage, config hot-reload
 - [x] **v1.0.0 Released** — All code features complete
-- [ ] **Phase 6: Distribution** — winget, Chocolatey, Scoop, Homebrew, AUR, APT/deb, RPM, APK, Snap, Flatpak, crates.io, Docker multi-arch
+- [x] **Phase 6: Distribution** — winget, Chocolatey, Scoop, Homebrew, AUR, APT/deb, RPM, APK, Snap, Flatpak, Nix, AppImage, Helm, crates.io, Docker multi-arch, curl installer, portable ZIPs
 
 ## Building from Source
 

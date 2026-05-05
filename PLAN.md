@@ -11,8 +11,9 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 
 | Issue | Title | Priority | Status |
 |---|---|---|---|
+| [#94](https://github.com/egkristi/ravenrustrag/issues/94) | Initial winget-pkgs submission | Medium | Open |
 | [#92](https://github.com/egkristi/ravenrustrag/issues/92) | Configure repository secrets for automated publishing | Medium | Open |
-| [#87](https://github.com/egkristi/ravenrustrag/issues/87) | MCP marketplace listing | Low | Open |
+| [#87](https://github.com/egkristi/ravenrustrag/issues/87) | MCP marketplace listing | Low | Done (merged [#93](https://github.com/egkristi/ravenrustrag/pull/93)) |
 
 ---
 
@@ -23,7 +24,7 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 - [x] crates.io publish workflow — [#84](https://github.com/egkristi/ravenrustrag/issues/84) (workflow ready, needs CARGO_REGISTRY_TOKEN secret)
 - [x] Homebrew tap formula — [#85](https://github.com/egkristi/ravenrustrag/issues/85) (template in packaging/homebrew/)
 - [x] AUR package — [#86](https://github.com/egkristi/ravenrustrag/issues/86) (PKGBUILD in packaging/aur/)
-- [ ] MCP marketplace listing (GitHub MCP Registry)
+- [x] MCP marketplace listing (GitHub MCP Registry) — PR [#93](https://github.com/egkristi/ravenrustrag/pull/93)
 
 ### Quality
 - [x] 80%+ test coverage — [#53](https://github.com/egkristi/ravenrustrag/issues/53)
@@ -136,7 +137,7 @@ All platforms should have native package manager support for frictionless instal
 ## Known Limitations
 
 1. **crates.io publish** — Workflow ready, requires `CARGO_REGISTRY_TOKEN` secret. [#84](https://github.com/egkristi/ravenrustrag/issues/84)
-2. **winget publish** — Workflow ready, requires `WINGET_TOKEN` secret (PAT with `public_repo` scope).
+2. **winget publish** — Workflow ready, requires `WINGET_TOKEN` secret and initial winget-pkgs submission. [#94](https://github.com/egkristi/ravenrustrag/issues/94)
 3. **Homebrew tap** — Formula template ready, needs `egkristi/homebrew-tap` repository.
 4. **AUR submission** — PKGBUILD ready, needs AUR account and initial submit.
 5. **Chocolatey** — Package ready, needs Chocolatey API key for publishing.
