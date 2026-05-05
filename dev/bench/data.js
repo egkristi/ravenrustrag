@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777995061553,
+  "lastUpdate": 1777995765735,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -1943,6 +1943,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 117043,
             "range": "± 733",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "27523be67a0b4b09d2d90de1bee6eaa58b983fe6",
+          "message": "docs: add Phase 6 distribution plan — all platform package managers\n\nWindows: winget, choco, scoop, exe, msi\nmacOS: brew, dmg, pkg\nLinux: apt, dnf, pacman, zypper, apk, flatpak, snap\nCross-platform: cargo install, static binaries, Docker",
+          "timestamp": "2026-05-05T17:37:45+02:00",
+          "tree_id": "0d8afbb4dc6ed89d92e78c946fc2992cad70dd3b",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/27523be67a0b4b09d2d90de1bee6eaa58b983fe6"
+        },
+        "date": 1777995765247,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 100,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 557,
+            "range": "± 10",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1105,
+            "range": "± 9",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 54689,
+            "range": "± 2163",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 583735,
+            "range": "± 3995",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 95855,
+            "range": "± 951",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39594,
+            "range": "± 131",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 117198,
+            "range": "± 907",
             "unit": "ns/iter"
           }
         ]
