@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ravenrustrag.fullname" . }}
+  labels:
+    {{- include "ravenrustrag.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "ravenrustrag.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ravenrustrag.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "ravenrustrag.serviceAccountName" . }}
+      {{- end }}
+      containers:
+        - name: raven
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - serve
+            {{- if .Values.config.readOnly }}
+            - --read-only
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: RAVEN_HOST
+              value: "0.0.0.0"
+            - name: RAVEN_PORT
+              value: "3000"
+            - name: RAVEN_DB
+              value: "/data/raven.db"
+            - name: RAVEN_EMBED_BACKEND
+              value: {{ .Values.config.embedBackend | quote }}
+            - name: RAVEN_EMBED_URL
+              value: {{ .Values.config.embedUrl | quote }}
+            - name: RAVEN_MODEL
+              value: {{ .Values.config.embedModel | quote }}
+            - name: RAVEN_LOG_FORMAT
+              value: {{ .Values.config.logFormat | quote }}
+            - name: RAVEN_CORS_ORIGINS
+              value: {{ .Values.config.corsOrigins | quote }}
+            - name: RAVEN_RATE_LIMIT
+              value: {{ .Values.config.rateLimit | quote }}
+            - name: RAVEN_REQUEST_TIMEOUT
+              value: {{ .Values.config.requestTimeout | quote }}
+            {{- if .Values.config.apiKey }}
+            - name: RAVEN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ravenrustrag.fullname" . }}
+                  key: api-key
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "ravenrustrag.fullname" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

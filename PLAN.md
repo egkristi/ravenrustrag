@@ -11,16 +11,8 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 
 | Issue | Title | Priority | Status |
 |---|---|---|---|
-| [#91](https://github.com/egkristi/ravenrustrag/issues/91) | v1.0.0 tag behind main | High | In Progress |
-| [#90](https://github.com/egkristi/ravenrustrag/issues/90) | Docker multi-arch support | Medium | Done (workflow updated) |
-| [#88](https://github.com/egkristi/ravenrustrag/issues/88) | Release workflow windows-arm64 fails | High | Done (rustup target add + if: !cancelled) |
+| [#92](https://github.com/egkristi/ravenrustrag/issues/92) | Configure repository secrets for automated publishing | Medium | Open |
 | [#87](https://github.com/egkristi/ravenrustrag/issues/87) | MCP marketplace listing | Low | Open |
-| [#86](https://github.com/egkristi/ravenrustrag/issues/86) | AUR package | Low | Done (PKGBUILD created) |
-| [#85](https://github.com/egkristi/ravenrustrag/issues/85) | Homebrew tap formula | Low | Done (template created) |
-| [#84](https://github.com/egkristi/ravenrustrag/issues/84) | Publish to crates.io | Medium | Done (publish workflow created) |
-| [#79](https://github.com/egkristi/ravenrustrag/issues/79) | HNSW: replace flat O(n) scan in SqliteStore | **Critical** | Done |
-| [#83](https://github.com/egkristi/ravenrustrag/issues/83) | Define stable public API surface | High | Done |
-| [#61](https://github.com/egkristi/ravenrustrag/issues/61) | v1.0 stable release | High | Done |
 
 ---
 
@@ -103,7 +95,7 @@ All platforms should have native package manager support for frictionless instal
 - [x] Scoop (`scoop install raven`) — manifest in packaging/scoop/
 - [ ] MSI installer (WiX Toolset)
 - [ ] Standalone `.exe` installer (NSIS or WiX)
-- [ ] Portable ZIP (no install, just unzip and run)
+- [x] Portable ZIP (no install, just unzip and run) — release workflow creates ZIP for all platforms
 
 ### macOS
 - [x] Homebrew (`brew install egkristi/tap/raven`) — [#85](https://github.com/egkristi/ravenrustrag/issues/85)
@@ -118,8 +110,8 @@ All platforms should have native package manager support for frictionless instal
 - [x] APK (Alpine Linux) — nfpm in CI
 - [x] Snap (`snap install raven-rag`) — snapcraft.yaml in packaging/snap/
 - [x] Flatpak — manifest in packaging/flatpak/
-- [ ] Nix / nixpkgs (`nix-env -iA raven-rag` or flake)
-- [ ] AppImage (portable, no install)
+- [x] Nix / nixpkgs (`nix-env -iA raven-rag` or flake) — flake.nix in repo root
+- [x] AppImage (portable, no install) — build script in packaging/appimage/
 - [x] Static binary (musl) — release workflow
 
 ### Android
@@ -135,9 +127,9 @@ All platforms should have native package manager support for frictionless instal
 - [x] `cargo install raven-cli` (crates.io) — [#84](https://github.com/egkristi/ravenrustrag/issues/84) (publish workflow ready)
 - [x] Pre-built static binaries (GitHub Releases) — release workflow
 - [x] Docker (`ghcr.io/egkristi/ravenrustrag`) — multi-arch [#90](https://github.com/egkristi/ravenrustrag/issues/90)
-- [ ] OCI / generic container image (Podman, containerd, etc.)
-- [ ] Helm chart (Kubernetes deployment)
-- [ ] `curl` install script (`curl -sSf https://install.raven.sh | sh`)
+- [x] OCI / generic container image (Podman, containerd, etc.) — Docker image works with any OCI runtime
+- [x] Helm chart (Kubernetes deployment) — charts/ravenrustrag/
+- [x] `curl` install script — `curl -sSf https://raw.githubusercontent.com/egkristi/ravenrustrag/main/install.sh | sh`
 
 ---
 
@@ -153,8 +145,6 @@ All platforms should have native package manager support for frictionless instal
 8. **DMG/pkg/MSI/exe installers** — Require code signing certificates.
 9. **Android** — Requires cross-compilation to `aarch64-linux-android`, GUI wrapper for APK, Termux package submission.
 10. **iOS / iPadOS** — Requires Apple Developer account ($99/yr), Swift/UIKit GUI wrapper, and App Store review.
-11. **Nix** — Requires nixpkgs PR or standalone flake.
-12. **Helm chart** — Requires chart repository (e.g. GitHub Pages or OCI registry).
 
 ---
 

@@ -31,7 +31,7 @@ jobs:
             os: ubuntu-latest
             artifact: raven-linux-arm64
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-latest
             artifact: raven-darwin-amd64
           - target: aarch64-apple-darwin
             os: macos-latest
@@ -73,10 +73,32 @@ jobs:
             cp target/${{ matrix.target }}/release/raven dist/${{ matrix.artifact }}
             chmod +x dist/${{ matrix.artifact }}
           fi
+      - name: Create portable ZIP
+        shell: bash
+        run: |
+          ZIPNAME="${{ matrix.artifact }}"
+          ZIPNAME="${ZIPNAME%.exe}"  # strip .exe suffix if present
+          mkdir -p zip-staging
+          if [[ "${{ matrix.target }}" == *windows* ]]; then
+            cp target/${{ matrix.target }}/release/raven.exe zip-staging/
+          else
+            cp target/${{ matrix.target }}/release/raven zip-staging/
+            chmod +x zip-staging/raven
+          fi
+          cp README.md LICENSE zip-staging/ 2>/dev/null || true
+          cd zip-staging
+          if command -v zip >/dev/null 2>&1; then
+            zip -r ../dist/${ZIPNAME}.zip .
+          else
+            # Windows: use PowerShell
+            powershell -Command "Compress-Archive -Path '*' -DestinationPath '../dist/${ZIPNAME}.zip'"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: dist/${{ matrix.artifact }}
+          path: |
+            dist/${{ matrix.artifact }}
+            dist/*.zip
 
   release:
     name: Create Release
