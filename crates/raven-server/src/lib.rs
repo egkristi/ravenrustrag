@@ -9,11 +9,16 @@ use axum::{
     },
     http::{HeaderMap, HeaderValue, Method, StatusCode},
     middleware::{self, Next},
-    response::IntoResponse,
+    response::{
+        sse::{Event, KeepAlive, Sse},
+        IntoResponse,
+    },
     routing::{delete, get, post},
     Router,
 };
+use futures_util::stream;
 use raven_core::{Document, SearchResult, ServerConfig};
+use raven_embed::{create_generator, GeneratorConfig};
 use raven_search::DocumentIndex;
 use raven_split::TextSplitter;
 use raven_store::MetadataFilter;
@@ -489,10 +494,6 @@ async fn ask_handler(
     headers: HeaderMap,
     Json(mut req): Json<AskRequest>,
 ) -> impl IntoResponse {
-    use axum::response::sse::{Event, KeepAlive, Sse};
-    use futures_util::stream;
-    use raven_embed::{create_generator, GeneratorConfig};
-
     state.metrics.requests_total.fetch_add(1, Ordering::Relaxed);
     state.metrics.queries_total.fetch_add(1, Ordering::Relaxed);
 
@@ -574,38 +575,77 @@ async fn ask_handler(
     };
     let generator = create_generator("ollama", req.url.as_deref(), config);
 
-    // Generate via SSE streaming
-    let (tx, rx) = tokio::sync::mpsc::channel::<String>(64);
+    // Generate via SSE streaming with citations
+    build_ask_sse(results, prompt, generator).into_response()
+}
+
+/// Build the SSE stream for the /ask endpoint, emitting source citations then tokens.
+#[allow(clippy::needless_pass_by_value)]
+fn build_ask_sse(
+    results: Vec<raven_core::SearchResult>,
+    prompt: String,
+    generator: Arc<dyn raven_embed::Generator>,
+) -> Sse<impl futures_util::Stream<Item = Result<Event, std::convert::Infallible>>> {
+    let (tx, rx) = tokio::sync::mpsc::channel::<Event>(64);
+
+    let sources: Vec<serde_json::Value> = results
+        .iter()
+        .enumerate()
+        .map(|(i, r)| {
+            let src = r
+                .chunk
+                .metadata
+                .get("source")
+                .unwrap_or(&r.chunk.doc_id)
+                .clone();
+            serde_json::json!({
+                "index": i + 1,
+                "source": src,
+                "score": r.score,
+                "text": r.chunk.text.chars().take(200).collect::<String>()
+            })
+        })
+        .collect();
+
+    let tx_spawn = tx.clone();
+    drop(tx);
 
     tokio::spawn(async move {
-        let tx_err = tx.clone();
+        for source in &sources {
+            let event = Event::default().event("source").data(source.to_string());
+            if tx_spawn.send(event).await.is_err() {
+                return;
+            }
+        }
+
+        let tx_tokens = tx_spawn.clone();
         let result = generator
             .generate_stream(&prompt, &move |token: String| {
-                let _ = tx.try_send(token);
+                let event = Event::default().event("token").data(token);
+                let _ = tx_tokens.try_send(event);
             })
             .await;
 
         if let Err(e) = result {
-            let _ = tx_err.try_send(format!("\n\n[Error: {e}]"));
+            let event = Event::default()
+                .event("error")
+                .data(format!("Generation failed: {e}"));
+            let _ = tx_spawn.send(event).await;
         }
-        // tx/tx_err drop here, closing the stream
+
+        let done = Event::default().event("done").data("{}");
+        let _ = tx_spawn.send(done).await;
     });
 
     let rx_stream = tokio_stream::wrappers::ReceiverStream::new(rx);
     let event_stream = stream::unfold(rx_stream, |mut rx| async move {
         use tokio_stream::StreamExt;
-        match rx.next().await {
-            Some(token) => {
-                let event = Event::default().data(token);
-                Some((Ok::<_, std::convert::Infallible>(event), rx))
-            }
-            None => None,
-        }
+        rx.next()
+            .await
+            .map(|event| (Ok::<_, std::convert::Infallible>(event), rx))
     });
 
-    Sse::new(event_stream)
-        .keep_alive(KeepAlive::default())
-        .into_response()
+    Sse::new(event_stream).keep_alive(KeepAlive::default())
 }
 
 async fn index_handler(
@@ -1017,6 +1057,41 @@ async fn openapi() -> impl IntoResponse {
                                 }
                             }}}
                         },
+                        "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+                    }
+                }
+            },
+            "/ask": {
+                "post": {
+                    "summary": "RAG question answering via SSE streaming",
+                    "description": "Retrieves relevant context and streams an LLM-generated answer. Returns Server-Sent Events with typed events: 'source' (citation metadata), 'token' (answer tokens), 'error', and 'done'.",
+                    "security": [{ "bearerAuth": [] }],
+                    "requestBody": {
+                        "required": true,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["query"],
+                                    "properties": {
+                                        "query": { "type": "string", "description": "The question to answer" },
+                                        "top_k": { "type": "integer", "default": 5, "description": "Number of context chunks to retrieve" },
+                                        "hybrid": { "type": "boolean", "default": false, "description": "Use hybrid BM25+vector search" },
+                                        "alpha": { "type": "number", "default": 0.5, "description": "Blend factor for hybrid search" },
+                                        "model": { "type": "string", "description": "LLM model name (default: llama3)" },
+                                        "temperature": { "type": "number", "description": "Generation temperature (default: 0.7)" },
+                                        "url": { "type": "string", "description": "Custom Ollama base URL" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "SSE stream with event types: source, token, error, done",
+                            "content": { "text/event-stream": { "schema": { "type": "string" } } }
+                        },
+                        "400": { "description": "Invalid request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
                         "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
                     }
                 }
