@@ -23,7 +23,7 @@ and must be **strictly superior** in every dimension: faster, safer, smaller, an
 
 ## Architecture
 
-Cargo workspace with 10 crates (~13,750 lines of Rust, 257 tests):
+Cargo workspace with 10 crates (~14,270 lines of Rust, 266 tests):
 
 | Crate | Purpose |
 |---|---|
@@ -209,6 +209,6 @@ The Python version has ~4,200 lines across 24 modules. All key features have bee
 - Parent-child retrieval — Done (Phase 3)
 - Eval metrics: MRR, NDCG, Recall@k — Done (Phase 3)
 
-RavenRustRAG is now ~13,750 lines across 10 crates with 257 tests.
+RavenRustRAG is now ~14,270 lines across 10 crates with 266 tests.
 
 See PLAN.md for the full roadmap.
