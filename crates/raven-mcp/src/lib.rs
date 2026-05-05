@@ -199,7 +199,9 @@ impl McpServer {
                 serde_json::json!({
                     "protocolVersion": MCP_PROTOCOL_VERSION,
                     "capabilities": {
-                        "tools": {}
+                        "tools": {},
+                        "resources": {},
+                        "prompts": {}
                     },
                     "serverInfo": {
                         "name": "ravenrustrag",
@@ -210,6 +212,10 @@ impl McpServer {
             "notifications/initialized" => None, // No response for notifications
             "tools/list" => Some(JsonRpcResponse::success(id, tool_definitions())),
             "tools/call" => Some(self.handle_tool_call(id, req.params).await),
+            "resources/list" => Some(self.handle_resources_list(id).await),
+            "resources/read" => Some(self.handle_resources_read(id, req.params).await),
+            "prompts/list" => Some(self.handle_prompts_list(id)),
+            "prompts/get" => Some(self.handle_prompts_get(id, req.params).await),
             _ => Some(JsonRpcResponse::error(
                 id,
                 JSONRPC_METHOD_NOT_FOUND,
@@ -387,6 +393,140 @@ impl McpServer {
                 }),
             ),
             Err(e) => JsonRpcResponse::error(id, JSONRPC_INTERNAL_ERROR, e.to_string()),
+        }
+    }
+
+    // --- Resources ---
+
+    async fn handle_resources_list(&self, id: Value) -> JsonRpcResponse {
+        let count = self.index.count().await.unwrap_or(0);
+        let resources = vec![serde_json::json!({
+            "uri": "raven://index/stats",
+            "name": "Index Statistics",
+            "description": format!("Current index contains {} chunks", count),
+            "mimeType": "application/json"
+        })];
+        JsonRpcResponse::success(id, serde_json::json!({ "resources": resources }))
+    }
+
+    async fn handle_resources_read(&self, id: Value, params: Value) -> JsonRpcResponse {
+        let uri = params.get("uri").and_then(|v| v.as_str()).unwrap_or("");
+
+        match uri {
+            "raven://index/stats" => {
+                let count = self.index.count().await.unwrap_or(0);
+                let stats = serde_json::json!({
+                    "chunks": count,
+                    "model": self.index.embedder().model_name(),
+                });
+                JsonRpcResponse::success(
+                    id,
+                    serde_json::json!({
+                        "contents": [{
+                            "uri": "raven://index/stats",
+                            "mimeType": "application/json",
+                            "text": serde_json::to_string_pretty(&stats).unwrap_or_default()
+                        }]
+                    }),
+                )
+            }
+            _ => JsonRpcResponse::error(
+                id,
+                JSONRPC_INVALID_PARAMS,
+                format!("Unknown resource: {uri}"),
+            ),
+        }
+    }
+
+    // --- Prompts ---
+
+    #[allow(clippy::unused_self)]
+    fn handle_prompts_list(&self, id: Value) -> JsonRpcResponse {
+        let prompts = vec![
+            serde_json::json!({
+                "name": "rag_answer",
+                "description": "Generate an answer using retrieved context from the index",
+                "arguments": [
+                    {
+                        "name": "query",
+                        "description": "The question to answer",
+                        "required": true
+                    },
+                    {
+                        "name": "top_k",
+                        "description": "Number of context chunks (default: 3)",
+                        "required": false
+                    }
+                ]
+            }),
+            serde_json::json!({
+                "name": "summarize_index",
+                "description": "Summarize the contents of the document index",
+                "arguments": []
+            }),
+        ];
+        JsonRpcResponse::success(id, serde_json::json!({ "prompts": prompts }))
+    }
+
+    async fn handle_prompts_get(&self, id: Value, params: Value) -> JsonRpcResponse {
+        let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let arguments = params
+            .get("arguments")
+            .cloned()
+            .unwrap_or(Value::Object(serde_json::Map::default()));
+
+        match name {
+            "rag_answer" => {
+                let query = arguments
+                    .get("query")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                if query.is_empty() {
+                    return JsonRpcResponse::error(
+                        id,
+                        JSONRPC_INVALID_PARAMS,
+                        "query argument is required".to_string(),
+                    );
+                }
+                let top_k = arguments
+                    .get("top_k")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .unwrap_or(3);
+
+                match self.index.query_for_prompt(query, top_k).await {
+                    Ok(prompt) => JsonRpcResponse::success(
+                        id,
+                        serde_json::json!({
+                            "messages": [{
+                                "role": "user",
+                                "content": { "type": "text", "text": prompt }
+                            }]
+                        }),
+                    ),
+                    Err(e) => JsonRpcResponse::error(id, JSONRPC_INTERNAL_ERROR, e.to_string()),
+                }
+            }
+            "summarize_index" => {
+                let count = self.index.count().await.unwrap_or(0);
+                let prompt = format!(
+                    "The document index contains {count} chunks. Please provide a brief summary of what types of documents and topics are likely covered based on this information."
+                );
+                JsonRpcResponse::success(
+                    id,
+                    serde_json::json!({
+                        "messages": [{
+                            "role": "user",
+                            "content": { "type": "text", "text": prompt }
+                        }]
+                    }),
+                )
+            }
+            _ => JsonRpcResponse::error(
+                id,
+                JSONRPC_INVALID_PARAMS,
+                format!("Unknown prompt: {name}"),
+            ),
         }
     }
 
@@ -711,5 +851,121 @@ mod tests {
         let resp = server.handle_request(req).await.unwrap();
         assert!(resp.error.is_some());
         assert_eq!(resp.error.unwrap().code, JSONRPC_INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_capabilities() {
+        let server = test_server();
+        let req = make_request("initialize", Value::Object(serde_json::Map::default()));
+        let resp = server.handle_request(req).await.unwrap();
+        let result = resp.result.unwrap();
+        let caps = &result["capabilities"];
+        assert!(caps["tools"].is_object());
+        assert!(caps["resources"].is_object());
+        assert!(caps["prompts"].is_object());
+    }
+
+    #[tokio::test]
+    async fn test_resources_list() {
+        let server = test_server();
+        let req = make_request("resources/list", Value::Object(serde_json::Map::default()));
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+        let result = resp.result.unwrap();
+        let resources = result["resources"].as_array().unwrap();
+        assert_eq!(resources.len(), 1);
+        assert_eq!(resources[0]["uri"], "raven://index/stats");
+    }
+
+    #[tokio::test]
+    async fn test_resources_read_stats() {
+        let server = test_server();
+        let req = make_request(
+            "resources/read",
+            serde_json::json!({"uri": "raven://index/stats"}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+        let result = resp.result.unwrap();
+        let contents = result["contents"].as_array().unwrap();
+        assert_eq!(contents[0]["uri"], "raven://index/stats");
+        assert_eq!(contents[0]["mimeType"], "application/json");
+    }
+
+    #[tokio::test]
+    async fn test_resources_read_unknown() {
+        let server = test_server();
+        let req = make_request(
+            "resources/read",
+            serde_json::json!({"uri": "raven://unknown"}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_prompts_list() {
+        let server = test_server();
+        let req = make_request("prompts/list", Value::Object(serde_json::Map::default()));
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+        let result = resp.result.unwrap();
+        let prompts = result["prompts"].as_array().unwrap();
+        assert_eq!(prompts.len(), 2);
+        assert_eq!(prompts[0]["name"], "rag_answer");
+        assert_eq!(prompts[1]["name"], "summarize_index");
+    }
+
+    #[tokio::test]
+    async fn test_prompts_get_rag_answer() {
+        let server = test_server();
+        let req = make_request(
+            "prompts/get",
+            serde_json::json!({"name": "rag_answer", "arguments": {"query": "test question"}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+        let result = resp.result.unwrap();
+        assert!(result["messages"].is_array());
+        assert_eq!(result["messages"][0]["role"], "user");
+    }
+
+    #[tokio::test]
+    async fn test_prompts_get_missing_query() {
+        let server = test_server();
+        let req = make_request(
+            "prompts/get",
+            serde_json::json!({"name": "rag_answer", "arguments": {}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_some());
+        assert_eq!(resp.error.unwrap().code, JSONRPC_INVALID_PARAMS);
+    }
+
+    #[tokio::test]
+    async fn test_prompts_get_summarize() {
+        let server = test_server();
+        let req = make_request(
+            "prompts/get",
+            serde_json::json!({"name": "summarize_index", "arguments": {}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_none());
+        let result = resp.result.unwrap();
+        assert!(result["messages"][0]["content"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("chunks"));
+    }
+
+    #[tokio::test]
+    async fn test_prompts_get_unknown() {
+        let server = test_server();
+        let req = make_request(
+            "prompts/get",
+            serde_json::json!({"name": "nonexistent", "arguments": {}}),
+        );
+        let resp = server.handle_request(req).await.unwrap();
+        assert!(resp.error.is_some());
     }
 }
