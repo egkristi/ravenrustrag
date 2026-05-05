@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778014381373,
+  "lastUpdate": 1778018825304,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -2663,6 +2663,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 117469,
             "range": "± 946",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egkristi@gmail.com",
+            "name": "Erling Gustav Moland Kristiansen",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2d61681579e34ca0f41d77159e5d4dababf7f1d3",
+          "message": "Merge pull request #95 from egkristi/MUNIN-94-winget-initial-manifest\n\nMUNIN-94: Add winget manifest for initial submission",
+          "timestamp": "2026-05-06T00:03:09+02:00",
+          "tree_id": "d298968c9a8d75d15abee7a587d0f5a008f20a46",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/2d61681579e34ca0f41d77159e5d4dababf7f1d3"
+        },
+        "date": 1778018824729,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 92,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 517,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1028,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 58776,
+            "range": "± 992",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 650090,
+            "range": "± 4386",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 99339,
+            "range": "± 1420",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 38676,
+            "range": "± 337",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 85597,
+            "range": "± 173",
             "unit": "ns/iter"
           }
         ]
