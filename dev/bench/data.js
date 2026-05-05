@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778006654074,
+  "lastUpdate": 1778007216876,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -2159,6 +2159,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 88109,
             "range": "± 461",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "c3c9badbe933187b998e11d6c6ffbef56e345d0a",
+          "message": "fix: portable ZIP creation for Windows runners",
+          "timestamp": "2026-05-05T20:48:50+02:00",
+          "tree_id": "9ee9b727f4ffebeae0b103d6102bbde924d8e543",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/c3c9badbe933187b998e11d6c6ffbef56e345d0a"
+        },
+        "date": 1778007215830,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 82,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 438,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 864,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 46515,
+            "range": "± 556",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 489566,
+            "range": "± 1737",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 76465,
+            "range": "± 206",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 33961,
+            "range": "± 164",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 76387,
+            "range": "± 1766",
             "unit": "ns/iter"
           }
         ]
