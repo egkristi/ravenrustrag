@@ -79,7 +79,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin --locked
+        run: cargo install cargo-tarpaulin@0.32.7 --locked
       - name: Generate coverage
         run: |
           cargo tarpaulin --out xml --skip-clean --exclude-files "crates/raven-cli/*" "benches/*" "fuzz/*" 2>&1 | tee coverage-output.txt
