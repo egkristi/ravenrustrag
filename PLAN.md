@@ -101,8 +101,9 @@ All platforms should have native package manager support for frictionless instal
 - [x] winget (`winget install egkristi.raven`) — automated via release workflow
 - [x] Chocolatey (`choco install raven-rag`) — package in packaging/chocolatey/
 - [x] Scoop (`scoop install raven`) — manifest in packaging/scoop/
-- [ ] Standalone `.exe` installer (NSIS or WiX)
 - [ ] MSI installer (WiX Toolset)
+- [ ] Standalone `.exe` installer (NSIS or WiX)
+- [ ] Portable ZIP (no install, just unzip and run)
 
 ### macOS
 - [x] Homebrew (`brew install egkristi/tap/raven`) — [#85](https://github.com/egkristi/ravenrustrag/issues/85)
@@ -115,21 +116,28 @@ All platforms should have native package manager support for frictionless instal
 - [x] Pacman / AUR (Arch Linux) — [#86](https://github.com/egkristi/ravenrustrag/issues/86)
 - [x] Zypper / `.rpm` (openSUSE) — shared with DNF rpm
 - [x] APK (Alpine Linux) — nfpm in CI
-- [x] Flatpak — manifest in packaging/flatpak/
 - [x] Snap (`snap install raven-rag`) — snapcraft.yaml in packaging/snap/
+- [x] Flatpak — manifest in packaging/flatpak/
+- [ ] Nix / nixpkgs (`nix-env -iA raven-rag` or flake)
+- [ ] AppImage (portable, no install)
+- [x] Static binary (musl) — release workflow
 
-### Cross-platform
+### Android
+- [ ] APK sideload (standalone Android app)
+- [ ] Termux `pkg install raven`
+- [ ] F-Droid (open-source app store)
+
+### iOS / iPadOS
+- [ ] Apple App Store (requires Swift/UIKit GUI wrapper)
+- [ ] TestFlight (beta distribution)
+
+### Generic / Cross-platform
 - [x] `cargo install raven-cli` (crates.io) — [#84](https://github.com/egkristi/ravenrustrag/issues/84) (publish workflow ready)
 - [x] Pre-built static binaries (GitHub Releases) — release workflow
 - [x] Docker (`ghcr.io/egkristi/ravenrustrag`) — multi-arch [#90](https://github.com/egkristi/ravenrustrag/issues/90)
 - [ ] OCI / generic container image (Podman, containerd, etc.)
-
-### Android
-- [ ] APK (Termux package or standalone)
-- [ ] `pkg install raven` (Termux pkg manager)
-
-### iOS / iPadOS
-- [ ] Apple App Store (requires GUI wrapper or Shortcuts integration)
+- [ ] Helm chart (Kubernetes deployment)
+- [ ] `curl` install script (`curl -sSf https://install.raven.sh | sh`)
 
 ---
 
@@ -143,8 +151,10 @@ All platforms should have native package manager support for frictionless instal
 6. **Snap Store** — snapcraft.yaml ready, needs Snapcraft account.
 7. **ONNX requires ONNX Runtime** — The `onnx` feature requires the ONNX Runtime shared library at runtime.
 8. **DMG/pkg/MSI/exe installers** — Require code signing certificates.
-9. **Android** — Requires cross-compilation to `aarch64-linux-android`. Termux package or standalone APK.
-10. **iOS / iPadOS** — Requires Apple Developer account, GUI wrapper (SwiftUI/UIKit), and App Store review.
+9. **Android** — Requires cross-compilation to `aarch64-linux-android`, GUI wrapper for APK, Termux package submission.
+10. **iOS / iPadOS** — Requires Apple Developer account ($99/yr), Swift/UIKit GUI wrapper, and App Store review.
+11. **Nix** — Requires nixpkgs PR or standalone flake.
+12. **Helm chart** — Requires chart repository (e.g. GitHub Pages or OCI registry).
 
 ---
 
