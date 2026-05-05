@@ -133,6 +133,7 @@ jobs:
     needs: release
     if: ${{ !cancelled() && needs.release.result == 'success' }}
     runs-on: windows-latest
+    continue-on-error: true
     steps:
       - uses: vedantmgoyal9/winget-releaser@v2
         with:

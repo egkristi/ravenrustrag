@@ -11,8 +11,8 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 
 | Issue | Title | Priority | Status |
 |---|---|---|---|
-| [#94](https://github.com/egkristi/ravenrustrag/issues/94) | Initial winget-pkgs submission | Medium | Open |
 | [#92](https://github.com/egkristi/ravenrustrag/issues/92) | Configure repository secrets for automated publishing | Medium | Open |
+| [#94](https://github.com/egkristi/ravenrustrag/issues/94) | Initial winget-pkgs submission | Medium | Done (merged [#95](https://github.com/egkristi/ravenrustrag/pull/95)) |
 | [#87](https://github.com/egkristi/ravenrustrag/issues/87) | MCP marketplace listing | Low | Done (merged [#93](https://github.com/egkristi/ravenrustrag/pull/93)) |
 
 ---
