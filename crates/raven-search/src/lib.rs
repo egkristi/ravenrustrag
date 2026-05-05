@@ -149,6 +149,39 @@ impl DocumentIndex {
             self.store.add(batch).await?;
         }
 
+        // Record embedding metadata (model + dimensions) for versioning
+        let model_name = self.embedder.model_name();
+        let dimensions = self.embedder.dimension();
+        if let Ok(existing) = self.store.get_embedding_metadata().await {
+            match existing {
+                None => {
+                    self.store
+                        .set_embedding_metadata(model_name, dimensions)
+                        .await
+                        .ok();
+                }
+                Some((ref stored_model, stored_dims)) => {
+                    if stored_dims != dimensions {
+                        return Err(RavenError::Config(format!(
+                            "Embedding dimension mismatch: index was created with model '{stored_model}' ({stored_dims} dims), \
+                             but current embedder '{model_name}' produces {dimensions} dims. \
+                             Run `raven clear` and re-index to switch models."
+                        )));
+                    }
+                    if stored_model != model_name {
+                        warn!(
+                            "Embedding model changed from '{stored_model}' to '{model_name}' (same dimensions: {dimensions}). \
+                             Results may be degraded — consider re-indexing."
+                        );
+                        self.store
+                            .set_embedding_metadata(model_name, dimensions)
+                            .await
+                            .ok();
+                    }
+                }
+            }
+        }
+
         // Add to BM25 index and persist
         let before = self.bm25.read().await.count();
         self.bm25.write().await.add(&embedded_chunks);

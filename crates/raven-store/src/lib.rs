@@ -127,6 +127,16 @@ pub trait VectorStore: Send + Sync {
     async fn clear_bm25(&self) -> Result<()> {
         Ok(())
     }
+
+    /// Get embedding metadata (model name and dimensions) stored for this index
+    async fn get_embedding_metadata(&self) -> Result<Option<(String, usize)>> {
+        Ok(None)
+    }
+
+    /// Set embedding metadata (model name and dimensions) for this index
+    async fn set_embedding_metadata(&self, _model: &str, _dimensions: usize) -> Result<()> {
+        Ok(())
+    }
 }
 
 /// Data structure for BM25 term storage
@@ -151,7 +161,7 @@ pub struct SqliteStore {
 }
 
 /// Current schema version
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 
 impl SqliteStore {
     #[allow(clippy::unused_async)]
@@ -223,8 +233,9 @@ impl SqliteStore {
             Self::migrate_to_v1(conn)?;
         }
 
-        // Future migrations:
-        // if current_version < 2 { Self::migrate_to_v2(conn)?; }
+        if current_version < 2 {
+            Self::migrate_to_v2(conn)?;
+        }
 
         Ok(())
     }
@@ -274,6 +285,32 @@ impl SqliteStore {
         .map_err(|e| RavenError::Store(format!("Failed to record schema version: {e}")))?;
 
         tracing::info!("Migration to schema version 1 complete");
+        Ok(())
+    }
+
+    /// Migration to version 2: embedding metadata table
+    fn migrate_to_v2(conn: &Connection) -> Result<()> {
+        tracing::info!("Running migration to schema version 2");
+
+        conn.execute_batch(
+            "BEGIN;
+
+            CREATE TABLE IF NOT EXISTS index_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+
+            COMMIT;",
+        )
+        .map_err(|e| RavenError::Store(format!("Migration v2 failed: {e}")))?;
+
+        conn.execute(
+            "INSERT INTO schema_version (version, updated_at) VALUES (?1, datetime('now'))",
+            params![2i64],
+        )
+        .map_err(|e| RavenError::Store(format!("Failed to record schema version: {e}")))?;
+
+        tracing::info!("Migration to schema version 2 complete");
         Ok(())
     }
 
@@ -734,6 +771,47 @@ impl VectorStore for SqliteStore {
         let conn = self.write_conn.lock().await;
         conn.execute("DELETE FROM bm25_terms", [])
             .map_err(|e| RavenError::Store(format!("BM25 clear failed: {e}")))?;
+        Ok(())
+    }
+
+    async fn get_embedding_metadata(&self) -> Result<Option<(String, usize)>> {
+        let conn = self.read_conn.lock().await;
+        let model: Option<String> = conn
+            .query_row(
+                "SELECT value FROM index_metadata WHERE key = 'embedding_model'",
+                [],
+                |row| row.get(0),
+            )
+            .ok();
+        let dims: Option<usize> = conn
+            .query_row(
+                "SELECT value FROM index_metadata WHERE key = 'embedding_dimensions'",
+                [],
+                |row| {
+                    let v: String = row.get(0)?;
+                    Ok(v.parse::<usize>().unwrap_or(0))
+                },
+            )
+            .ok();
+
+        match (model, dims) {
+            (Some(m), Some(d)) if d > 0 => Ok(Some((m, d))),
+            _ => Ok(None),
+        }
+    }
+
+    async fn set_embedding_metadata(&self, model: &str, dimensions: usize) -> Result<()> {
+        let conn = self.write_conn.lock().await;
+        conn.execute(
+            "INSERT OR REPLACE INTO index_metadata (key, value) VALUES ('embedding_model', ?1)",
+            params![model],
+        )
+        .map_err(|e| RavenError::Store(format!("Set embedding model failed: {e}")))?;
+        conn.execute(
+            "INSERT OR REPLACE INTO index_metadata (key, value) VALUES ('embedding_dimensions', ?1)",
+            params![dimensions.to_string()],
+        )
+        .map_err(|e| RavenError::Store(format!("Set embedding dimensions failed: {e}")))?;
         Ok(())
     }
 }
