@@ -393,8 +393,37 @@ Features planned for post-1.0 development:
 - [ ] Incremental BM25 updates (avoid full rebuild)
 - [ ] Async SQLite backend (tokio-rusqlite)
 - [ ] Binary/quantized embedding storage (reduced disk/memory)
-- [ ] WebSocket streaming endpoint
+- [ ] WebSocket streaming endpoint — [#76](https://github.com/egkristi/ravenrustrag/issues/76)
 - [ ] Configuration hot-reload for long-running server
+- [ ] Plugin system for custom embedding backends — [#77](https://github.com/egkristi/ravenrustrag/issues/77)
+
+---
+
+## 6. Phase 5: Production Quality
+
+**Goal:** Make RavenRustRAG production-ready with professional UX and performance at scale.
+
+### 6.1 Critical Performance Fixes
+- [ ] Wire HNSW into SqliteStore for O(log n) search — [#64](https://github.com/egkristi/ravenrustrag/issues/64)
+- [ ] Add `VectorStore::get_by_doc_id()` for efficient parent-child — [#65](https://github.com/egkristi/ravenrustrag/issues/65)
+- [ ] Replace Mutex with RwLock/connection pool in SqliteStore — [#69](https://github.com/egkristi/ravenrustrag/issues/69)
+- [ ] Replace random cache eviction with LRU (moka/quick_cache) — [#68](https://github.com/egkristi/ravenrustrag/issues/68)
+
+### 6.2 Developer Experience
+- [ ] Wire up `--config` / `raven.toml` integration in CLI — [#66](https://github.com/egkristi/ravenrustrag/issues/66)
+- [ ] Auto-detect embedding dimension from model — [#67](https://github.com/egkristi/ravenrustrag/issues/67)
+- [ ] `raven init` — interactive config generator — [#72](https://github.com/egkristi/ravenrustrag/issues/72)
+- [ ] `raven diff` — show changed files since last index — [#78](https://github.com/egkristi/ravenrustrag/issues/78)
+- [ ] `raven status` — rich index health dashboard — [#74](https://github.com/egkristi/ravenrustrag/issues/74)
+- [ ] `--dry-run` mode for `raven index` — [#71](https://github.com/egkristi/ravenrustrag/issues/71)
+- [ ] Colored CLI output with term highlighting — [#73](https://github.com/egkristi/ravenrustrag/issues/73)
+
+### 6.3 Architecture
+- [ ] Top-level `ravenrustrag` library crate with builder API — [#75](https://github.com/egkristi/ravenrustrag/issues/75)
+
+### 6.4 Testing
+- [ ] Integration tests for CLI binary (assert_cmd) — [#70](https://github.com/egkristi/ravenrustrag/issues/70)
+- [ ] Integration tests for HTTP server endpoints — [#70](https://github.com/egkristi/ravenrustrag/issues/70)
 
 ---
 
@@ -402,17 +431,33 @@ Features planned for post-1.0 development:
 
 1. **ONNX not functional** — Stub exists behind feature flag but `ort` crate has MSRV conflicts (requires reqwest 0.12+). [#43](https://github.com/egkristi/ravenrustrag/issues/43)
 2. **No ONNX cross-encoder** — Reranker trait exists, but only keyword-based. Blocked by #43. [#44](https://github.com/egkristi/ravenrustrag/issues/44)
+3. **SqliteStore search is O(n)** — Loads all chunks per query. HNSW module exists but not integrated. [#64](https://github.com/egkristi/ravenrustrag/issues/64)
+4. **Embedding dimension hardcoded** — CLI hardcodes 768d, breaks with different models. [#67](https://github.com/egkristi/ravenrustrag/issues/67)
+5. **CLI ignores raven.toml** — `--config` flag declared but not wired up. [#66](https://github.com/egkristi/ravenrustrag/issues/66)
 
 ## 7.1 Open Issues
 
 | Issue | Title | Priority | Status |
 |---|---|---|---|
+| [#64](https://github.com/egkristi/ravenrustrag/issues/64) | SqliteStore O(n) brute-force search | Critical | Open |
+| [#65](https://github.com/egkristi/ravenrustrag/issues/65) | query_parent() loads entire DB | Critical | Open |
+| [#67](https://github.com/egkristi/ravenrustrag/issues/67) | Embedding dimension hardcoded to 768 | High | Open |
+| [#66](https://github.com/egkristi/ravenrustrag/issues/66) | CLI ignores raven.toml config | High | Open |
+| [#68](https://github.com/egkristi/ravenrustrag/issues/68) | EmbeddingCache random eviction (not LRU) | High | Open |
+| [#69](https://github.com/egkristi/ravenrustrag/issues/69) | SqliteStore Mutex serializes all reads | High | Open |
+| [#70](https://github.com/egkristi/ravenrustrag/issues/70) | Integration tests for CLI and HTTP server | High | Open |
+| [#75](https://github.com/egkristi/ravenrustrag/issues/75) | Top-level library crate with clean API | High | Open |
+| [#71](https://github.com/egkristi/ravenrustrag/issues/71) | --dry-run mode for raven index | Medium | Open |
+| [#72](https://github.com/egkristi/ravenrustrag/issues/72) | raven init — interactive setup | Medium | Open |
+| [#73](https://github.com/egkristi/ravenrustrag/issues/73) | Colored and human-friendly CLI output | Medium | Open |
+| [#74](https://github.com/egkristi/ravenrustrag/issues/74) | raven status — index health dashboard | Medium | Open |
+| [#76](https://github.com/egkristi/ravenrustrag/issues/76) | WebSocket streaming endpoint | Medium | Open |
+| [#77](https://github.com/egkristi/ravenrustrag/issues/77) | Plugin system for custom embedders | Medium | Open |
+| [#78](https://github.com/egkristi/ravenrustrag/issues/78) | raven diff — show changes since last index | Medium | Open |
 | [#43](https://github.com/egkristi/ravenrustrag/issues/43) | ONNX Runtime embedding backend | High | Deferred (MSRV conflict) |
 | [#44](https://github.com/egkristi/ravenrustrag/issues/44) | ONNX cross-encoder reranking | Medium | Deferred (blocked by #43) |
 | [#52](https://github.com/egkristi/ravenrustrag/issues/52) | Publish to crates.io | High | Open |
 | [#53](https://github.com/egkristi/ravenrustrag/issues/53) | 80%+ test coverage target | Medium | Open |
-| [#55](https://github.com/egkristi/ravenrustrag/issues/55) | Homebrew tap for macOS | Medium | Open |
-| [#56](https://github.com/egkristi/ravenrustrag/issues/56) | AUR package for Arch Linux | Low | Open |
 | [#61](https://github.com/egkristi/ravenrustrag/issues/61) | v1.0 stable release | High | Open (meta) |
 
 ### Resolved Issues
