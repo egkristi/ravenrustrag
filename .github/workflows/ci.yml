@@ -81,7 +81,15 @@ jobs:
       - name: Install cargo-tarpaulin
         run: cargo install cargo-tarpaulin
       - name: Generate coverage
-        run: cargo tarpaulin --out xml --skip-clean --exclude-files "crates/raven-cli/*" "benches/*" "fuzz/*"
+        run: |
+          cargo tarpaulin --out xml --skip-clean --exclude-files "crates/raven-cli/*" "benches/*" "fuzz/*" 2>&1 | tee coverage-output.txt
+          # Extract percentage and fail if below threshold
+          COVERAGE=$(grep -oP '\d+\.\d+% coverage' coverage-output.txt | grep -oP '\d+\.\d+')
+          echo "Coverage: ${COVERAGE}%"
+          echo "coverage=${COVERAGE}" >> "$GITHUB_OUTPUT"
+          # Fail if coverage drops below 70%
+          awk "BEGIN {exit ($COVERAGE < 70.0) ? 1 : 0}"
+        id: coverage
       - name: Upload to Codecov
         uses: codecov/codecov-action@v4
         with:
