@@ -210,6 +210,10 @@ enum Commands {
         /// API key for authentication (optional)
         #[arg(long)]
         api_key: Option<String>,
+
+        /// Read-only mode: disable write endpoints (POST /index, DELETE /documents)
+        #[arg(long)]
+        read_only: bool,
     },
 
     /// Clear the index
@@ -832,6 +836,7 @@ async fn main() -> Result<()> {
             url,
             model,
             api_key,
+            read_only,
         } => {
             let (eff_backend, eff_url, eff_model, eff_db) =
                 resolve_params(&backend, &url, &model, &db, &cfg);
@@ -852,12 +857,16 @@ async fn main() -> Result<()> {
                 host: host.clone(),
                 port,
                 api_key,
+                read_only,
                 ..ServerConfig::default()
             };
 
             println!("🐦‍⬛ RavenRustRAG server starting on http://{host}:{port}");
             println!("   Database: {}", db.display());
             println!("   Model: {model} ({url})");
+            if read_only {
+                println!("   Mode: READ-ONLY (write endpoints disabled)");
+            }
             println!(
                 "   Endpoints: /health /ready /stats /metrics /query /prompt /index /openapi.json"
             );

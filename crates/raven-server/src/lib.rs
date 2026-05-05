@@ -616,6 +616,14 @@ async fn index_handler(
     state.metrics.requests_total.fetch_add(1, Ordering::Relaxed);
     state.metrics.index_total.fetch_add(1, Ordering::Relaxed);
 
+    if state.config.read_only {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({"error": "Server is in read-only mode"})),
+        )
+            .into_response();
+    }
+
     if !check_auth(&headers, &state.config) {
         return (
             StatusCode::UNAUTHORIZED,
@@ -673,6 +681,14 @@ async fn delete_handler(
     AxumPath(doc_id): AxumPath<String>,
 ) -> impl IntoResponse {
     state.metrics.requests_total.fetch_add(1, Ordering::Relaxed);
+
+    if state.config.read_only {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({"error": "Server is in read-only mode"})),
+        )
+            .into_response();
+    }
 
     if !check_auth(&headers, &state.config) {
         return (

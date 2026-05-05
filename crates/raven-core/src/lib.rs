@@ -221,6 +221,8 @@ pub struct ServerConfig {
     pub max_query_length: usize,
     #[serde(default)]
     pub public_stats: bool,
+    #[serde(default)]
+    pub read_only: bool,
 }
 
 fn default_request_timeout() -> u64 {
@@ -252,6 +254,7 @@ impl Default for ServerConfig {
             rate_limit_per_second: default_rate_limit(),
             max_query_length: default_max_query_length(),
             public_stats: false,
+            read_only: false,
         }
     }
 }
