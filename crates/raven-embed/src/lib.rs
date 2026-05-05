@@ -539,7 +539,7 @@ mod onnx_embedder {
             let builder = Session::builder()
                 .map_err(|e| RavenError::Embed(format!("ONNX session builder error: {e}")))?;
 
-            let builder = if num_threads > 0 {
+            let mut builder = if num_threads > 0 {
                 builder
                     .with_intra_threads(num_threads)
                     .map_err(|e| RavenError::Embed(format!("ONNX thread config error: {e}")))?
