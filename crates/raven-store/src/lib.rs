@@ -3,7 +3,7 @@
 //! Provides the `VectorStore` trait and implementations: SQLite (persistent) and Memory (testing).
 
 use async_trait::async_trait;
-use raven_core::{Chunk, RavenError, Result, SearchResult};
+use raven_core::{Chunk, EmbeddingFormat, RavenError, Result, SearchResult};
 use rusqlite::{params, Connection};
 use std::collections::HashMap;
 use std::path::Path;
@@ -151,11 +151,13 @@ pub struct Bm25TermData {
 
 /// SQLite-backed vector store with flat (brute-force) search.
 /// Uses separate read/write connections for WAL-mode concurrency.
+/// Heavy operations (add, search, all) use `spawn_blocking` to avoid blocking the Tokio runtime.
 /// When the `hnsw` feature is enabled, an in-memory HNSW index accelerates search to O(log n).
 pub struct SqliteStore {
     write_conn: Arc<Mutex<Connection>>,
     read_conn: Arc<Mutex<Connection>>,
     dimension: usize,
+    embedding_format: EmbeddingFormat,
     #[cfg(feature = "hnsw")]
     hnsw_index: Arc<Mutex<hnsw::HnswIndex>>,
 }
@@ -204,9 +206,23 @@ impl SqliteStore {
             write_conn: Arc::new(Mutex::new(write_conn)),
             read_conn: Arc::new(Mutex::new(read_conn)),
             dimension,
+            embedding_format: EmbeddingFormat::F32,
             #[cfg(feature = "hnsw")]
             hnsw_index: Arc::new(Mutex::new(hnsw::HnswIndex::new())),
         })
+    }
+
+    /// Set the embedding storage format (f32, f16, or uint8).
+    /// Must be called before adding data if using a compact format.
+    /// Existing data must use the same format.
+    pub fn with_embedding_format(mut self, format: EmbeddingFormat) -> Self {
+        self.embedding_format = format;
+        self
+    }
+
+    /// Get the current embedding storage format.
+    pub fn embedding_format(&self) -> EmbeddingFormat {
+        self.embedding_format
     }
 
     /// Open an existing store and rebuild the HNSW index from stored chunks.
@@ -370,30 +386,31 @@ impl SqliteStore {
 #[async_trait]
 impl VectorStore for SqliteStore {
     async fn add(&self, chunks: &[Chunk]) -> Result<()> {
-        {
-            let conn = self.write_conn.lock().await;
+        let write_conn = self.write_conn.clone();
+        let dimension = self.dimension;
+        let format = self.embedding_format;
+        let chunks = chunks.to_vec();
+
+        tokio::task::spawn_blocking(move || {
+            let conn = write_conn.blocking_lock();
             let tx = conn
                 .unchecked_transaction()
                 .map_err(|e| RavenError::Store(format!("Transaction failed: {e}")))?;
 
-            for chunk in chunks {
+            for chunk in &chunks {
                 let embedding = chunk
                     .embedding
                     .as_ref()
                     .ok_or_else(|| RavenError::Store("Chunk missing embedding".to_string()))?;
 
-                if embedding.len() != self.dimension {
+                if embedding.len() != dimension {
                     return Err(RavenError::Store(format!(
-                        "Embedding dimension mismatch: expected {}, got {}",
-                        self.dimension,
+                        "Embedding dimension mismatch: expected {dimension}, got {}",
                         embedding.len()
                     )));
                 }
 
-                let embedding_bytes = embedding
-                    .iter()
-                    .flat_map(|f| f.to_le_bytes())
-                    .collect::<Vec<_>>();
+                let embedding_bytes = raven_core::encode_embedding(embedding, format);
                 let metadata = serde_json::to_string(&chunk.metadata).map_err(RavenError::Serde)?;
 
                 tx.execute(
@@ -405,9 +422,12 @@ impl VectorStore for SqliteStore {
 
             tx.commit()
                 .map_err(|e| RavenError::Store(format!("Commit failed: {e}")))?;
-        }
+            Ok(())
+        })
+        .await
+        .map_err(|e| RavenError::Store(format!("spawn_blocking join error: {e}")))??;
 
-        // Rebuild HNSW index after adding chunks (conn/tx are dropped)
+        // Rebuild HNSW index after adding chunks
         #[cfg(feature = "hnsw")]
         {
             self.rebuild_hnsw().await?;
@@ -426,62 +446,67 @@ impl VectorStore for SqliteStore {
             }
         }
 
-        // Fallback: brute-force scan
-        let conn = self.read_conn.lock().await;
+        // Fallback: brute-force scan (in spawn_blocking to avoid blocking tokio)
+        let read_conn = self.read_conn.clone();
+        let query = query.to_vec();
+        let format = self.embedding_format;
 
-        let mut stmt = conn
-            .prepare("SELECT id, doc_id, text, metadata, embedding FROM chunks")
-            .map_err(|e| RavenError::Store(format!("Query prepare failed: {e}")))?;
+        tokio::task::spawn_blocking(move || {
+            let conn = read_conn.blocking_lock();
 
-        let chunk_iter = stmt
-            .query_map([], |row| {
-                let id: String = row.get(0)?;
-                let doc_id: String = row.get(1)?;
-                let text: String = row.get(2)?;
-                let metadata_str: String = row.get(3)?;
-                let embedding_bytes: Vec<u8> = row.get(4)?;
+            let mut stmt = conn
+                .prepare("SELECT id, doc_id, text, metadata, embedding FROM chunks")
+                .map_err(|e| RavenError::Store(format!("Query prepare failed: {e}")))?;
 
-                let metadata = serde_json::from_str(&metadata_str).unwrap_or_default();
+            let chunk_iter = stmt
+                .query_map([], |row| {
+                    let id: String = row.get(0)?;
+                    let doc_id: String = row.get(1)?;
+                    let text: String = row.get(2)?;
+                    let metadata_str: String = row.get(3)?;
+                    let embedding_bytes: Vec<u8> = row.get(4)?;
 
-                let embedding = embedding_bytes
-                    .chunks_exact(4)
-                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-                    .collect::<Vec<f32>>();
+                    let metadata = serde_json::from_str(&metadata_str).unwrap_or_default();
+                    let embedding = raven_core::decode_embedding(&embedding_bytes, format);
 
-                Ok(Chunk {
-                    id,
-                    doc_id,
-                    text,
-                    metadata,
-                    embedding: Some(embedding),
+                    Ok(Chunk {
+                        id,
+                        doc_id,
+                        text,
+                        metadata,
+                        embedding: Some(embedding),
+                    })
                 })
-            })
-            .map_err(|e| RavenError::Store(format!("Query failed: {e}")))?;
+                .map_err(|e| RavenError::Store(format!("Query failed: {e}")))?;
 
-        let mut scored: Vec<(f32, Chunk)> = Vec::new();
+            let mut scored: Vec<(f32, Chunk)> = Vec::new();
 
-        for chunk_result in chunk_iter {
-            let chunk = chunk_result.map_err(|e| RavenError::Store(format!("Row error: {e}")))?;
-            if let Some(embedding) = chunk.embedding.as_ref() {
-                let score = Self::cosine_similarity(query, embedding);
-                scored.push((score, chunk));
+            for chunk_result in chunk_iter {
+                let chunk =
+                    chunk_result.map_err(|e| RavenError::Store(format!("Row error: {e}")))?;
+                if let Some(embedding) = chunk.embedding.as_ref() {
+                    let score = raven_core::cosine_similarity(&query, embedding);
+                    scored.push((score, chunk));
+                }
             }
-        }
 
-        // Sort by score descending
-        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-        scored.truncate(top_k);
+            // Sort by score descending
+            scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            scored.truncate(top_k);
 
-        let results = scored
-            .into_iter()
-            .map(|(score, chunk)| SearchResult {
-                distance: 1.0 - score,
-                score,
-                chunk,
-            })
-            .collect();
+            let results = scored
+                .into_iter()
+                .map(|(score, chunk)| SearchResult {
+                    distance: 1.0 - score,
+                    score,
+                    chunk,
+                })
+                .collect();
 
-        Ok(results)
+            Ok(results)
+        })
+        .await
+        .map_err(|e| RavenError::Store(format!("spawn_blocking join error: {e}")))?
     }
 
     async fn search_filtered(
@@ -494,65 +519,71 @@ impl VectorStore for SqliteStore {
             return self.search(query, top_k).await;
         }
 
-        let conn = self.read_conn.lock().await;
+        let read_conn = self.read_conn.clone();
+        let query = query.to_vec();
+        let filter = filter.clone();
+        let format = self.embedding_format;
 
-        let mut stmt = conn
-            .prepare("SELECT id, doc_id, text, metadata, embedding FROM chunks")
-            .map_err(|e| RavenError::Store(format!("Query prepare failed: {e}")))?;
+        tokio::task::spawn_blocking(move || {
+            let conn = read_conn.blocking_lock();
 
-        let chunk_iter = stmt
-            .query_map([], |row| {
-                let id: String = row.get(0)?;
-                let doc_id: String = row.get(1)?;
-                let text: String = row.get(2)?;
-                let metadata_str: String = row.get(3)?;
-                let embedding_bytes: Vec<u8> = row.get(4)?;
+            let mut stmt = conn
+                .prepare("SELECT id, doc_id, text, metadata, embedding FROM chunks")
+                .map_err(|e| RavenError::Store(format!("Query prepare failed: {e}")))?;
 
-                let metadata: HashMap<String, String> =
-                    serde_json::from_str(&metadata_str).unwrap_or_default();
+            let chunk_iter = stmt
+                .query_map([], |row| {
+                    let id: String = row.get(0)?;
+                    let doc_id: String = row.get(1)?;
+                    let text: String = row.get(2)?;
+                    let metadata_str: String = row.get(3)?;
+                    let embedding_bytes: Vec<u8> = row.get(4)?;
 
-                let embedding = embedding_bytes
-                    .chunks_exact(4)
-                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-                    .collect::<Vec<f32>>();
+                    let metadata: HashMap<String, String> =
+                        serde_json::from_str(&metadata_str).unwrap_or_default();
+                    let embedding = raven_core::decode_embedding(&embedding_bytes, format);
 
-                Ok(Chunk {
-                    id,
-                    doc_id,
-                    text,
-                    metadata,
-                    embedding: Some(embedding),
+                    Ok(Chunk {
+                        id,
+                        doc_id,
+                        text,
+                        metadata,
+                        embedding: Some(embedding),
+                    })
                 })
-            })
-            .map_err(|e| RavenError::Store(format!("Query failed: {e}")))?;
+                .map_err(|e| RavenError::Store(format!("Query failed: {e}")))?;
 
-        let mut scored: Vec<(f32, Chunk)> = Vec::new();
+            let mut scored: Vec<(f32, Chunk)> = Vec::new();
 
-        for chunk_result in chunk_iter {
-            let chunk = chunk_result.map_err(|e| RavenError::Store(format!("Row error: {e}")))?;
-            // Apply metadata filter before scoring
-            if !filter.matches(&chunk.metadata) {
-                continue;
+            for chunk_result in chunk_iter {
+                let chunk =
+                    chunk_result.map_err(|e| RavenError::Store(format!("Row error: {e}")))?;
+                // Apply metadata filter before scoring
+                if !filter.matches(&chunk.metadata) {
+                    continue;
+                }
+                if let Some(embedding) = chunk.embedding.as_ref() {
+                    let score = raven_core::cosine_similarity(&query, embedding);
+                    scored.push((score, chunk));
+                }
             }
-            if let Some(embedding) = chunk.embedding.as_ref() {
-                let score = Self::cosine_similarity(query, embedding);
-                scored.push((score, chunk));
-            }
-        }
 
-        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-        scored.truncate(top_k);
+            scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            scored.truncate(top_k);
 
-        let results = scored
-            .into_iter()
-            .map(|(score, chunk)| SearchResult {
-                distance: 1.0 - score,
-                score,
-                chunk,
-            })
-            .collect();
+            let results = scored
+                .into_iter()
+                .map(|(score, chunk)| SearchResult {
+                    distance: 1.0 - score,
+                    score,
+                    chunk,
+                })
+                .collect();
 
-        Ok(results)
+            Ok(results)
+        })
+        .await
+        .map_err(|e| RavenError::Store(format!("spawn_blocking join error: {e}")))?
     }
 
     async fn delete(&self, doc_id: &str) -> Result<()> {
@@ -595,44 +626,49 @@ impl VectorStore for SqliteStore {
     }
 
     async fn all(&self) -> Result<Vec<Chunk>> {
-        let conn = self.read_conn.lock().await;
-        let mut stmt = conn
-            .prepare("SELECT id, doc_id, text, metadata, embedding FROM chunks")
-            .map_err(|e| RavenError::Store(format!("Query prepare failed: {e}")))?;
+        let read_conn = self.read_conn.clone();
+        let format = self.embedding_format;
 
-        let chunks = stmt
-            .query_map([], |row| {
-                let id: String = row.get(0)?;
-                let doc_id: String = row.get(1)?;
-                let text: String = row.get(2)?;
-                let metadata_str: String = row.get(3)?;
-                let embedding_bytes: Vec<u8> = row.get(4)?;
+        tokio::task::spawn_blocking(move || {
+            let conn = read_conn.blocking_lock();
+            let mut stmt = conn
+                .prepare("SELECT id, doc_id, text, metadata, embedding FROM chunks")
+                .map_err(|e| RavenError::Store(format!("Query prepare failed: {e}")))?;
 
-                let metadata = serde_json::from_str(&metadata_str).unwrap_or_default();
-                let embedding = embedding_bytes
-                    .chunks_exact(4)
-                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-                    .collect::<Vec<f32>>();
+            let chunks = stmt
+                .query_map([], |row| {
+                    let id: String = row.get(0)?;
+                    let doc_id: String = row.get(1)?;
+                    let text: String = row.get(2)?;
+                    let metadata_str: String = row.get(3)?;
+                    let embedding_bytes: Vec<u8> = row.get(4)?;
 
-                Ok(Chunk {
-                    id,
-                    doc_id,
-                    text,
-                    metadata,
-                    embedding: Some(embedding),
+                    let metadata = serde_json::from_str(&metadata_str).unwrap_or_default();
+                    let embedding = raven_core::decode_embedding(&embedding_bytes, format);
+
+                    Ok(Chunk {
+                        id,
+                        doc_id,
+                        text,
+                        metadata,
+                        embedding: Some(embedding),
+                    })
                 })
-            })
-            .map_err(|e| RavenError::Store(format!("Query failed: {e}")))?;
+                .map_err(|e| RavenError::Store(format!("Query failed: {e}")))?;
 
-        let mut result = Vec::new();
-        for chunk in chunks {
-            result.push(chunk.map_err(|e| RavenError::Store(format!("Row error: {e}")))?);
-        }
-        Ok(result)
+            let mut result = Vec::new();
+            for chunk in chunks {
+                result.push(chunk.map_err(|e| RavenError::Store(format!("Row error: {e}")))?);
+            }
+            Ok(result)
+        })
+        .await
+        .map_err(|e| RavenError::Store(format!("spawn_blocking join error: {e}")))?
     }
 
     async fn get_by_doc_id(&self, doc_id: &str) -> Result<Vec<Chunk>> {
         let conn = self.read_conn.lock().await;
+        let format = self.embedding_format;
         let mut stmt = conn
             .prepare(
                 "SELECT id, doc_id, text, metadata, embedding FROM chunks
@@ -650,10 +686,7 @@ impl VectorStore for SqliteStore {
                 let embedding_bytes: Vec<u8> = row.get(4)?;
 
                 let metadata = serde_json::from_str(&metadata_str).unwrap_or_default();
-                let embedding = embedding_bytes
-                    .chunks_exact(4)
-                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-                    .collect::<Vec<f32>>();
+                let embedding = raven_core::decode_embedding(&embedding_bytes, format);
 
                 Ok(Chunk {
                     id,
@@ -751,37 +784,43 @@ impl VectorStore for SqliteStore {
     }
 
     async fn load_bm25_data(&self) -> Result<Vec<Bm25TermData>> {
-        let conn = self.read_conn.lock().await;
-        let mut stmt = conn
-            .prepare("SELECT chunk_id, doc_id, text, terms, doc_length FROM bm25_terms")
-            .map_err(|e| RavenError::Store(format!("BM25 load prepare failed: {e}")))?;
+        let read_conn = self.read_conn.clone();
 
-        let rows = stmt
-            .query_map([], |row| {
-                let chunk_id: String = row.get(0)?;
-                let doc_id: String = row.get(1)?;
-                let text: String = row.get(2)?;
-                let terms_json: String = row.get(3)?;
-                let doc_length: f32 = row.get(4)?;
+        tokio::task::spawn_blocking(move || {
+            let conn = read_conn.blocking_lock();
+            let mut stmt = conn
+                .prepare("SELECT chunk_id, doc_id, text, terms, doc_length FROM bm25_terms")
+                .map_err(|e| RavenError::Store(format!("BM25 load prepare failed: {e}")))?;
 
-                let terms: HashMap<String, f32> =
-                    serde_json::from_str(&terms_json).unwrap_or_default();
+            let rows = stmt
+                .query_map([], |row| {
+                    let chunk_id: String = row.get(0)?;
+                    let doc_id: String = row.get(1)?;
+                    let text: String = row.get(2)?;
+                    let terms_json: String = row.get(3)?;
+                    let doc_length: f32 = row.get(4)?;
 
-                Ok(Bm25TermData {
-                    chunk_id,
-                    doc_id,
-                    text,
-                    terms,
-                    doc_length,
+                    let terms: HashMap<String, f32> =
+                        serde_json::from_str(&terms_json).unwrap_or_default();
+
+                    Ok(Bm25TermData {
+                        chunk_id,
+                        doc_id,
+                        text,
+                        terms,
+                        doc_length,
+                    })
                 })
-            })
-            .map_err(|e| RavenError::Store(format!("BM25 load failed: {e}")))?;
+                .map_err(|e| RavenError::Store(format!("BM25 load failed: {e}")))?;
 
-        let mut result = Vec::new();
-        for row in rows {
-            result.push(row.map_err(|e| RavenError::Store(format!("BM25 row error: {e}")))?);
-        }
-        Ok(result)
+            let mut result = Vec::new();
+            for row in rows {
+                result.push(row.map_err(|e| RavenError::Store(format!("BM25 row error: {e}")))?);
+            }
+            Ok(result)
+        })
+        .await
+        .map_err(|e| RavenError::Store(format!("spawn_blocking join error: {e}")))?
     }
 
     async fn delete_bm25_terms(&self, doc_id: &str) -> Result<()> {

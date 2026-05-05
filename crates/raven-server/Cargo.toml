@@ -22,6 +22,7 @@ raven-store = { path = "../raven-store", version = "1.0.0" }
 raven-split = { path = "../raven-split", version = "1.0.0" }
 raven-search = { path = "../raven-search", version = "1.0.0" }
 tokio = { workspace = true }
+notify = { workspace = true }
 axum = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true }

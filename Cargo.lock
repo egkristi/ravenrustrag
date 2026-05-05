@@ -2793,6 +2793,7 @@ dependencies = [
  "futures-util",
  "http-body-util",
  "hyper 1.9.0",
+ "notify",
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",

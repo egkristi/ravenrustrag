@@ -1369,7 +1369,12 @@ async fn metrics_handler(
 
 pub async fn serve(state: Arc<AppState>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let addr = format!("{}:{}", state.config.host, state.config.port);
-    let router = build_router(state);
+    let router = build_router(state.clone());
+
+    // Spawn config watcher if a config file is discovered
+    if let Some(config_path) = raven_core::Config::discover() {
+        spawn_config_watcher(config_path, state.clone());
+    }
 
     info!("RavenRustRAG server listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
@@ -1403,6 +1408,97 @@ async fn shutdown_signal() {
         () = terminate => {},
     }
     info!("Received shutdown signal, shutting down...");
+}
+
+// =============================================================================
+// Configuration hot-reload
+// =============================================================================
+
+/// Spawn a background task that watches the config file for changes.
+/// When the file is modified, it reloads the configuration and updates
+/// hot-reloadable settings (rate limiter).
+/// Settings that require a restart (host, port, CORS) are logged as warnings.
+pub fn spawn_config_watcher(config_path: std::path::PathBuf, state: Arc<AppState>) {
+    use notify::{Event, EventKind, RecursiveMode, Watcher};
+
+    tokio::spawn(async move {
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<()>(1);
+
+        let path = config_path.clone();
+        let mut watcher = match notify::recommended_watcher(move |res: notify::Result<Event>| {
+            if let Ok(event) = res {
+                if matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_)) {
+                    // Debounce: only send if channel is empty
+                    let _ = tx.try_send(());
+                }
+            }
+        }) {
+            Ok(w) => w,
+            Err(e) => {
+                tracing::warn!("Failed to create config watcher: {e}");
+                return;
+            }
+        };
+
+        if let Some(parent) = path.parent() {
+            if let Err(e) = watcher.watch(parent, RecursiveMode::NonRecursive) {
+                tracing::warn!("Failed to watch config directory: {e}");
+                return;
+            }
+        }
+
+        info!("Config hot-reload enabled, watching {}", path.display());
+
+        while rx.recv().await.is_some() {
+            // Debounce: wait 100ms for rapid successive writes
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            // Drain any additional notifications
+            while rx.try_recv().is_ok() {}
+
+            match raven_core::Config::from_file(&config_path) {
+                Ok(mut new_config) => {
+                    new_config.apply_env_overrides();
+                    let new_server = &new_config.server;
+
+                    // Update rate limiter (hot-reloadable)
+                    if new_server.rate_limit_per_second != state.config.rate_limit_per_second {
+                        let mut limiter = state.rate_limiter.lock().await;
+                        *limiter = RateLimiter::new(new_server.rate_limit_per_second);
+                        info!(
+                            "Hot-reloaded rate_limit: {} → {} req/s",
+                            state.config.rate_limit_per_second, new_server.rate_limit_per_second
+                        );
+                    }
+
+                    // Log settings that require restart
+                    if new_server.host != state.config.host || new_server.port != state.config.port
+                    {
+                        tracing::warn!(
+                            "Config changed host/port ({}:{} → {}:{}), restart required",
+                            state.config.host,
+                            state.config.port,
+                            new_server.host,
+                            new_server.port
+                        );
+                    }
+                    if new_server.cors_origins != state.config.cors_origins {
+                        tracing::warn!(
+                            "Config changed CORS origins, restart required for full effect"
+                        );
+                    }
+                    if new_server.api_key != state.config.api_key {
+                        info!("Config changed api_key (restart required for auth update)");
+                    }
+                    if new_server.request_timeout_secs != state.config.request_timeout_secs {
+                        tracing::warn!("Config changed request_timeout (restart required)");
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to reload config: {e}");
+                }
+            }
+        }
+    });
 }
 
 #[cfg(test)]

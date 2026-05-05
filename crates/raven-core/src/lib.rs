@@ -430,6 +430,180 @@ pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     }
 }
 
+// =============================================================================
+// Embedding quantization for compact storage
+// =============================================================================
+
+/// Storage format for embeddings in the vector store.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EmbeddingFormat {
+    /// Full-precision f32 (4 bytes per dimension, no loss)
+    F32,
+    /// Half-precision f16 (2 bytes per dimension, ~0.1% quality loss)
+    F16,
+    /// Scalar quantization to uint8 (1 byte per dimension, ~1% quality loss)
+    /// Stores min/max per vector for dequantization (8 bytes overhead)
+    Uint8,
+}
+
+impl Default for EmbeddingFormat {
+    fn default() -> Self {
+        Self::F32
+    }
+}
+
+/// Quantize an f32 embedding to uint8 with linear scaling.
+/// Returns (quantized_bytes, min_val, max_val) for dequantization.
+#[inline]
+pub fn quantize_uint8(embedding: &[f32]) -> (Vec<u8>, f32, f32) {
+    if embedding.is_empty() {
+        return (Vec::new(), 0.0, 0.0);
+    }
+
+    let min_val = embedding.iter().copied().fold(f32::INFINITY, f32::min);
+    let max_val = embedding.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    let range = max_val - min_val;
+
+    let quantized: Vec<u8> = if range == 0.0 {
+        vec![128u8; embedding.len()]
+    } else {
+        embedding
+            .iter()
+            .map(|&v| ((v - min_val) / range * 255.0).round() as u8)
+            .collect()
+    };
+
+    (quantized, min_val, max_val)
+}
+
+/// Dequantize uint8 bytes back to f32 using min/max range.
+#[inline]
+pub fn dequantize_uint8(data: &[u8], min_val: f32, max_val: f32) -> Vec<f32> {
+    let range = max_val - min_val;
+    if range == 0.0 {
+        return vec![min_val; data.len()];
+    }
+    data.iter()
+        .map(|&b| min_val + (f32::from(b) / 255.0) * range)
+        .collect()
+}
+
+/// Quantize an f32 embedding to f16 (stored as u16 bits).
+/// Uses the standard IEEE 754 half-precision format.
+#[inline]
+pub fn quantize_f16(embedding: &[f32]) -> Vec<u8> {
+    embedding
+        .iter()
+        .flat_map(|&v| f32_to_f16(v).to_le_bytes())
+        .collect()
+}
+
+/// Dequantize f16 bytes (stored as u16 LE) back to f32.
+#[inline]
+pub fn dequantize_f16(data: &[u8]) -> Vec<f32> {
+    data.chunks_exact(2)
+        .map(|b| f16_to_f32(u16::from_le_bytes([b[0], b[1]])))
+        .collect()
+}
+
+/// Convert f32 to f16 (IEEE 754 half-precision) stored as u16.
+#[inline]
+#[allow(clippy::cast_possible_wrap)]
+fn f32_to_f16(value: f32) -> u16 {
+    let bits = value.to_bits();
+    let sign = (bits >> 16) & 0x8000;
+    let exponent = ((bits >> 23) & 0xFF) as i32;
+    let mantissa = bits & 0x007F_FFFF;
+
+    if exponent == 255 {
+        // Inf or NaN
+        return (sign | 0x7C00 | if mantissa != 0 { 0x0200 } else { 0 }) as u16;
+    }
+
+    let exp = exponent - 127 + 15;
+    if exp >= 31 {
+        // Overflow → Inf
+        return (sign | 0x7C00) as u16;
+    }
+    if exp <= 0 {
+        // Underflow → zero (subnormals omitted for performance)
+        return sign as u16;
+    }
+
+    (sign | ((exp as u32) << 10) | (mantissa >> 13)) as u16
+}
+
+/// Convert f16 (stored as u16) back to f32.
+#[inline]
+fn f16_to_f32(half: u16) -> f32 {
+    let sign = u32::from(half & 0x8000) << 16;
+    let exponent = u32::from((half >> 10) & 0x1F);
+    let mantissa = u32::from(half & 0x03FF);
+
+    if exponent == 0 {
+        if mantissa == 0 {
+            return f32::from_bits(sign); // Zero
+        }
+        // Subnormal f16 → normalized f32
+        let mut m = mantissa;
+        let mut e: i32 = 1;
+        while m & 0x0400 == 0 {
+            m <<= 1;
+            e -= 1;
+        }
+        let exp = ((127 - 15 + e) as u32) << 23;
+        let mant = (m & 0x03FF) << 13;
+        return f32::from_bits(sign | exp | mant);
+    }
+
+    if exponent == 31 {
+        // Inf or NaN
+        let exp = 0xFF << 23;
+        let mant = mantissa << 13;
+        return f32::from_bits(sign | exp | mant);
+    }
+
+    let exp = (exponent + 127 - 15) << 23;
+    let mant = mantissa << 13;
+    f32::from_bits(sign | exp | mant)
+}
+
+/// Serialize an f32 embedding to bytes in the specified format.
+pub fn encode_embedding(embedding: &[f32], format: EmbeddingFormat) -> Vec<u8> {
+    match format {
+        EmbeddingFormat::F32 => embedding.iter().flat_map(|f| f.to_le_bytes()).collect(),
+        EmbeddingFormat::F16 => quantize_f16(embedding),
+        EmbeddingFormat::Uint8 => {
+            let (quantized, min_val, max_val) = quantize_uint8(embedding);
+            // Prepend min/max as f32 LE bytes (8 bytes header)
+            let mut bytes = Vec::with_capacity(8 + quantized.len());
+            bytes.extend_from_slice(&min_val.to_le_bytes());
+            bytes.extend_from_slice(&max_val.to_le_bytes());
+            bytes.extend_from_slice(&quantized);
+            bytes
+        }
+    }
+}
+
+/// Deserialize bytes back to f32 embedding in the specified format.
+pub fn decode_embedding(data: &[u8], format: EmbeddingFormat) -> Vec<f32> {
+    match format {
+        EmbeddingFormat::F32 => data
+            .chunks_exact(4)
+            .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+            .collect(),
+        EmbeddingFormat::F16 => dequantize_f16(data),
+        EmbeddingFormat::Uint8 => {
+            if data.len() < 8 {
+                return Vec::new();
+            }
+            let min_val = f32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+            let max_val = f32::from_le_bytes([data[4], data[5], data[6], data[7]]);
+            dequantize_uint8(&data[8..], min_val, max_val)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -590,6 +764,79 @@ store_batch_size = 50
     #[test]
     fn test_cosine_similarity_empty() {
         assert_eq!(cosine_similarity(&[], &[]), 0.0);
+    }
+
+    #[test]
+    fn test_quantize_uint8_roundtrip() {
+        let embedding = vec![0.1, 0.5, -0.3, 0.8, -0.9, 0.0];
+        let (quantized, min_val, max_val) = quantize_uint8(&embedding);
+        let restored = dequantize_uint8(&quantized, min_val, max_val);
+        // Uint8 quantization has ~1% error per dimension
+        for (a, b) in embedding.iter().zip(restored.iter()) {
+            assert!((a - b).abs() < 0.01, "diff too large: {a} vs {b}");
+        }
+    }
+
+    #[test]
+    fn test_quantize_f16_roundtrip() {
+        let embedding = vec![0.1, 0.5, -0.3, 0.8, -0.9, 0.0];
+        let bytes = quantize_f16(&embedding);
+        let restored = dequantize_f16(&bytes);
+        // f16 has ~0.1% error
+        for (a, b) in embedding.iter().zip(restored.iter()) {
+            assert!((a - b).abs() < 0.001, "diff too large: {a} vs {b}");
+        }
+    }
+
+    #[test]
+    fn test_encode_decode_f32() {
+        let embedding = vec![1.0, 2.0, 3.0];
+        let encoded = encode_embedding(&embedding, EmbeddingFormat::F32);
+        let decoded = decode_embedding(&encoded, EmbeddingFormat::F32);
+        assert_eq!(embedding, decoded);
+    }
+
+    #[test]
+    fn test_encode_decode_f16() {
+        let embedding = vec![1.0, -1.0, 0.5];
+        let encoded = encode_embedding(&embedding, EmbeddingFormat::F16);
+        let decoded = decode_embedding(&encoded, EmbeddingFormat::F16);
+        for (a, b) in embedding.iter().zip(decoded.iter()) {
+            assert!((a - b).abs() < 0.001);
+        }
+    }
+
+    #[test]
+    fn test_encode_decode_uint8() {
+        let embedding = vec![0.1, 0.5, -0.3, 0.8];
+        let encoded = encode_embedding(&embedding, EmbeddingFormat::Uint8);
+        let decoded = decode_embedding(&encoded, EmbeddingFormat::Uint8);
+        for (a, b) in embedding.iter().zip(decoded.iter()) {
+            assert!((a - b).abs() < 0.01);
+        }
+    }
+
+    #[test]
+    fn test_quantize_uint8_constant_vector() {
+        let embedding = vec![0.5, 0.5, 0.5];
+        let (quantized, min_val, max_val) = quantize_uint8(&embedding);
+        assert_eq!(min_val, 0.5);
+        assert_eq!(max_val, 0.5);
+        let restored = dequantize_uint8(&quantized, min_val, max_val);
+        for v in &restored {
+            assert!((v - 0.5).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_embedding_format_size_reduction() {
+        let embedding = vec![0.1f32; 384]; // typical MiniLM dimension
+        let f32_size = encode_embedding(&embedding, EmbeddingFormat::F32).len();
+        let f16_size = encode_embedding(&embedding, EmbeddingFormat::F16).len();
+        let u8_size = encode_embedding(&embedding, EmbeddingFormat::Uint8).len();
+        assert_eq!(f32_size, 384 * 4); // 1536 bytes
+        assert_eq!(f16_size, 384 * 2); // 768 bytes (50% reduction)
+        assert_eq!(u8_size, 384 + 8); // 392 bytes (75% reduction + 8 byte header)
     }
 }
 

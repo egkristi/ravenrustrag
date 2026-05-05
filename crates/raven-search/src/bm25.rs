@@ -131,6 +131,58 @@ impl Bm25Index {
         self.avg_dl = 0.0;
     }
 
+    /// Remove all chunks belonging to a given doc_id from the index.
+    /// Updates term frequencies, document frequencies, and average document length
+    /// without requiring a full rebuild.
+    pub fn remove_by_doc_id(&mut self, doc_id: &str) -> usize {
+        // Find indices of chunks belonging to this doc_id
+        let indices: Vec<usize> = self
+            .chunks
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.doc_id == doc_id)
+            .map(|(i, _)| i)
+            .collect();
+
+        if indices.is_empty() {
+            return 0;
+        }
+
+        let removed = indices.len();
+
+        // Decrement document frequency for terms in removed documents
+        for &idx in &indices {
+            let seen_terms: std::collections::HashSet<&String> =
+                self.term_freqs[idx].keys().collect();
+            for term in seen_terms {
+                if let Some(df) = self.doc_freq.get_mut(term) {
+                    *df = df.saturating_sub(1);
+                    if *df == 0 {
+                        self.doc_freq.remove(term);
+                    }
+                }
+            }
+        }
+
+        // Remove in reverse order to preserve indices
+        for &idx in indices.iter().rev() {
+            self.term_freqs.swap_remove(idx);
+            self.doc_lengths.swap_remove(idx);
+            self.chunks.swap_remove(idx);
+        }
+
+        self.num_docs = self.chunks.len();
+
+        // Recompute average document length
+        if self.num_docs > 0 {
+            self.avg_dl = self.doc_lengths.iter().sum::<f32>() / self.num_docs as f32;
+        } else {
+            self.avg_dl = 0.0;
+        }
+
+        removed
+    }
+
     pub fn count(&self) -> usize {
         self.num_docs
     }
@@ -273,6 +325,47 @@ mod tests {
         assert!(!results.is_empty());
         // Rust doc should rank first (contains both query terms)
         assert_eq!(results[0].chunk.doc_id, "doc1");
+    }
+
+    #[test]
+    fn test_bm25_remove_by_doc_id() {
+        let mut index = Bm25Index::new();
+
+        let chunks = vec![
+            Chunk::new("doc1", "Rust programming language is fast and safe"),
+            Chunk::new("doc2", "Python is a popular programming language"),
+            Chunk::new("doc3", "The weather today is sunny and warm"),
+        ];
+
+        index.add(&chunks);
+        assert_eq!(index.count(), 3);
+
+        // Remove doc1
+        let removed = index.remove_by_doc_id("doc1");
+        assert_eq!(removed, 1);
+        assert_eq!(index.count(), 2);
+
+        // Search should no longer return doc1
+        let results = index.search("Rust programming", 3);
+        for r in &results {
+            assert_ne!(r.chunk.doc_id, "doc1");
+        }
+
+        // doc2 should still be findable
+        let results = index.search("Python programming", 3);
+        assert!(!results.is_empty());
+        assert_eq!(results[0].chunk.doc_id, "doc2");
+    }
+
+    #[test]
+    fn test_bm25_remove_nonexistent() {
+        let mut index = Bm25Index::new();
+        let chunks = vec![Chunk::new("doc1", "Hello world")];
+        index.add(&chunks);
+
+        let removed = index.remove_by_doc_id("nonexistent");
+        assert_eq!(removed, 0);
+        assert_eq!(index.count(), 1);
     }
 
     #[test]

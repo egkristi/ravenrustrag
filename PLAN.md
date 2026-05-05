@@ -1,6 +1,6 @@
 # RavenRustRAG — Roadmap
 
-> **Status:** v0.1.0-alpha — Phases 1–4 complete, Phase 5 features implemented
+> **Status:** v1.0.0 released — All phases complete
 > **Goal:** Functionally superior to the Python version (RavenRAG v0.7.0) with orders-of-magnitude better performance.
 
 For completed work history, see [docs/changelog.md](docs/changelog.md).
@@ -61,7 +61,7 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 ### API Stability
 - [x] Define stable public API surface with `#[doc(hidden)]` on internals — [#83](https://github.com/egkristi/ravenrustrag/issues/83)
 - [x] ONNX MSRV split documentation + CI gate — [#80](https://github.com/egkristi/ravenrustrag/issues/80)
-- [ ] v1.0 stable release — [#61](https://github.com/egkristi/ravenrustrag/issues/61)
+- [x] v1.0 stable release — [#61](https://github.com/egkristi/ravenrustrag/issues/61) — **DONE** (v1.0.0 released)
 
 ---
 
@@ -75,7 +75,7 @@ Features planned for post-1.0 development:
 ### ONNX Runtime
 - [x] Local embedding without Ollama — [#43](https://github.com/egkristi/ravenrustrag/issues/43)
 - [x] Cross-encoder reranking — [#44](https://github.com/egkristi/ravenrustrag/issues/44)
-- [ ] Quantized model support (int8/fp16)
+- [x] Quantized model support (int8/fp16) — OnnxEmbedder/OnnxReranker accept quantized models, with_threads() constructor
 
 ### MCP
 - [x] MCP resources capability — browse index as `raven://documents/` filesystem
@@ -87,11 +87,11 @@ Features planned for post-1.0 development:
 - [x] `raven backup <file>` — SQLite `.backup` API for O(1) snapshots
 
 ### Advanced Features
-- [ ] Incremental BM25 updates (avoid full rebuild)
-- [ ] Async SQLite backend (tokio-rusqlite)
-- [ ] Binary/quantized embedding storage (reduced disk/memory)
+- [x] Incremental BM25 updates — `remove_by_doc_id()` on BM25Index, wired into DocumentIndex::delete()
+- [x] Async SQLite backend — spawn_blocking for heavy operations (add, search, all, load_bm25)
+- [x] Binary/quantized embedding storage — EmbeddingFormat (F32/F16/Uint8), encode/decode in raven-core, SqliteStore integration
 - [x] WebSocket streaming endpoint — [#76](https://github.com/egkristi/ravenrustrag/issues/76)
-- [ ] Configuration hot-reload for long-running server
+- [x] Configuration hot-reload — file watcher on raven.toml, rate limiter hot-reload, change detection logging
 - [x] Plugin system for custom embedding backends — [#77](https://github.com/egkristi/ravenrustrag/issues/77)
 
 ---
@@ -104,5 +104,5 @@ Features planned for post-1.0 development:
 
 ---
 
-**Last updated:** 2026-05-05
-**Next milestone:** v1.0 stable release (#61) — all code features complete, remaining work is packaging and publishing
+**Last updated:** 2026-05-06
+**Next milestone:** Post-1.0 packaging — crates.io publish, Homebrew tap, AUR package

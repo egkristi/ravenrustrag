@@ -345,6 +345,8 @@ impl DocumentIndex {
     }
 
     pub async fn delete(&self, doc_id: &str) -> Result<()> {
+        // Incrementally remove from in-memory BM25 index
+        self.bm25.write().await.remove_by_doc_id(doc_id);
         self.store.delete_bm25_terms(doc_id).await.ok();
         self.store.delete(doc_id).await
     }

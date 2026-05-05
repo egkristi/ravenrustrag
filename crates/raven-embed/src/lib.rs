@@ -510,7 +510,7 @@ mod onnx_embedder {
     impl OnnxEmbedder {
         /// Create a new ONNX embedder from model and tokenizer files.
         ///
-        /// - `model_path`: Path to the `.onnx` model file
+        /// - `model_path`: Path to the `.onnx` model file (supports fp32, fp16, int8 quantized)
         /// - `tokenizer_path`: Path to `tokenizer.json` (HuggingFace format)
         /// - `dimension`: Output embedding dimension (e.g. 384 for MiniLM)
         pub fn new(
@@ -518,10 +518,36 @@ mod onnx_embedder {
             tokenizer_path: impl AsRef<Path>,
             dimension: usize,
         ) -> Result<Self> {
-            let session = Session::builder()
-                .map_err(|e| RavenError::Embed(format!("ONNX session builder error: {e}")))?
-                .with_intra_threads(4)
-                .map_err(|e| RavenError::Embed(format!("ONNX thread config error: {e}")))?
+            Self::with_threads(model_path, tokenizer_path, dimension, 4)
+        }
+
+        /// Create an ONNX embedder with custom thread count and graph optimization.
+        ///
+        /// For quantized models (int8/fp16), this automatically enables all graph
+        /// optimizations for optimal inference performance on the quantized operators.
+        ///
+        /// - `model_path`: Path to the `.onnx` model (fp32, fp16, or int8 quantized)
+        /// - `tokenizer_path`: Path to `tokenizer.json`
+        /// - `dimension`: Output embedding dimension
+        /// - `num_threads`: Number of intra-op threads (0 = auto)
+        pub fn with_threads(
+            model_path: impl AsRef<Path>,
+            tokenizer_path: impl AsRef<Path>,
+            dimension: usize,
+            num_threads: usize,
+        ) -> Result<Self> {
+            let builder = Session::builder()
+                .map_err(|e| RavenError::Embed(format!("ONNX session builder error: {e}")))?;
+
+            let builder = if num_threads > 0 {
+                builder
+                    .with_intra_threads(num_threads)
+                    .map_err(|e| RavenError::Embed(format!("ONNX thread config error: {e}")))?
+            } else {
+                builder
+            };
+
+            let session = builder
                 .commit_from_file(model_path.as_ref())
                 .map_err(|e| RavenError::Embed(format!("ONNX model load error: {e}")))?;
 

@@ -43,6 +43,9 @@ Sub-millisecond vector search. Single static binary. No Python. No virtual envir
 | **Export/import** | JSONL backup and restore with streaming I/O |
 | **Lock-free cache** | DashMap + AtomicU64 embedding cache, zero contention |
 | **Memory-mapped I/O** | 256 MB mmap for zero-copy SQLite reads |
+| **Async SQLite** | Heavy operations use `spawn_blocking` to avoid Tokio thread starvation |
+| **Quantized storage** | F32, F16 (50% smaller), or Uint8 (75% smaller) embedding storage |
+| **Config hot-reload** | Watch `raven.toml` and reload settings without restart |
 | **Observability** | Tracing spans, `/metrics` endpoint, OpenTelemetry export |
 | **Thread-safe** | All types are `Send + Sync` by default. No data races possible |
 | **Config file** | `raven.toml` + env vars + CLI flags, auto-discovery |
@@ -438,8 +441,9 @@ See [PLAN.md](PLAN.md) for the detailed roadmap. See [docs/changelog.md](docs/ch
 - [x] **Phase 2** — HTTP API, MCP server, hybrid search, file loaders, watch mode, export/import, security hardening, BM25 persistence, metadata filtering, input sanitization
 - [x] **Phase 3** — HNSW search, knowledge graph, multi-query expansion, lock-free cache, mmap SQLite, CI benchmarks, streaming, multi-collection, parent-child retrieval
 - [x] **Phase 4** — Integration tests, top-level library crate, HNSW auto-rebuild, coverage gate, embeddings versioning, read-only mode, MCP validation, stable API surface
-- [x] **Phase 5** — ONNX embeddings, ONNX cross-encoder, WebSocket streaming, plugin system, `/ask` SSE streaming, MCP resources/prompts, backup, query explain
-- [ ] **Release** — crates.io publish, Homebrew tap, AUR package, v1.0 stable (#61)
+- [x] **Phase 5** — ONNX embeddings, ONNX cross-encoder, WebSocket streaming, plugin system, `/ask` SSE streaming, MCP resources/prompts, backup, query explain, quantized ONNX, incremental BM25, async SQLite, binary embedding storage, config hot-reload
+- [x] **v1.0.0 Released** — All code features complete
+- [ ] **Packaging** — crates.io publish, Homebrew tap, AUR package ([#84](https://github.com/egkristi/ravenrustrag/issues/84), [#85](https://github.com/egkristi/ravenrustrag/issues/85), [#86](https://github.com/egkristi/ravenrustrag/issues/86))
 
 ## Building from Source
 

@@ -100,23 +100,40 @@ mod onnx_reranker {
     impl OnnxReranker {
         /// Create a new ONNX cross-encoder reranker.
         ///
-        /// - `model_path`: Path to the cross-encoder `.onnx` model file
+        /// - `model_path`: Path to the cross-encoder `.onnx` model file (fp32, fp16, or int8 quantized)
         /// - `tokenizer_path`: Path to `tokenizer.json` (HuggingFace format)
         pub fn new(model_path: impl AsRef<Path>, tokenizer_path: impl AsRef<Path>) -> Result<Self> {
-            let session = Session::builder()
-                .map_err(|e| {
-                    raven_core::RavenError::Embed(format!(
-                        "ONNX reranker session builder error: {e}"
-                    ))
-                })?
-                .with_intra_threads(4)
-                .map_err(|e| {
+            Self::with_threads(model_path, tokenizer_path, 4)
+        }
+
+        /// Create an ONNX reranker with custom thread count.
+        ///
+        /// Supports fp32, fp16, and int8 quantized cross-encoder models.
+        /// ORT automatically handles quantized operators.
+        ///
+        /// - `model_path`: Path to the cross-encoder `.onnx` model
+        /// - `tokenizer_path`: Path to `tokenizer.json`
+        /// - `num_threads`: Number of intra-op threads (0 = auto)
+        pub fn with_threads(
+            model_path: impl AsRef<Path>,
+            tokenizer_path: impl AsRef<Path>,
+            num_threads: usize,
+        ) -> Result<Self> {
+            let builder = Session::builder().map_err(|e| {
+                raven_core::RavenError::Embed(format!("ONNX reranker session builder error: {e}"))
+            })?;
+
+            let builder = if num_threads > 0 {
+                builder.with_intra_threads(num_threads).map_err(|e| {
                     raven_core::RavenError::Embed(format!("ONNX reranker thread config error: {e}"))
                 })?
-                .commit_from_file(model_path.as_ref())
-                .map_err(|e| {
-                    raven_core::RavenError::Embed(format!("ONNX reranker model load error: {e}"))
-                })?;
+            } else {
+                builder
+            };
+
+            let session = builder.commit_from_file(model_path.as_ref()).map_err(|e| {
+                raven_core::RavenError::Embed(format!("ONNX reranker model load error: {e}"))
+            })?;
 
             let tokenizer =
                 tokenizers::Tokenizer::from_file(tokenizer_path.as_ref()).map_err(|e| {
