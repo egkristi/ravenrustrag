@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778005404667,
+  "lastUpdate": 1778006654074,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -2087,6 +2087,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 114840,
             "range": "± 1655",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "6280f23be0f0a8f7a71096ca69503bc2f3a4756a",
+          "message": "docs: expand Phase 6 distribution targets\n\nAdded: portable ZIP, Nix/nixpkgs, AppImage, F-Droid, TestFlight,\nHelm chart, curl install script. Reorganized sections.",
+          "timestamp": "2026-05-05T20:39:23+02:00",
+          "tree_id": "62496eafc37a4bbbbc6683d2e38a4ba56ff52745",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/6280f23be0f0a8f7a71096ca69503bc2f3a4756a"
+        },
+        "date": 1778006653511,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 92,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 517,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1028,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 58351,
+            "range": "± 689",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 640361,
+            "range": "± 5423",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 97434,
+            "range": "± 598",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 38695,
+            "range": "± 195",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 88109,
+            "range": "± 461",
             "unit": "ns/iter"
           }
         ]
