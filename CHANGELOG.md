@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Split**: Unicode text splitter bug where multi-byte chars at chunk boundaries produced empty chunks (#53)
 - **CLI**: `raven diff` macOS path canonicalization issue with `/var/folders` vs `/private/var/folders` (#78)
+- **CI**: Replace failing `rustsec/audit-check` action with direct `cargo audit --locked`
+- **Docker**: Add `ravenrustrag` facade crate to Dockerfile multi-stage build
 
 ## [0.1.0-alpha.1] - 2026-05-04
 
