@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778007831082,
+  "lastUpdate": 1778008538113,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -2303,6 +2303,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 114432,
             "range": "± 1941",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "b968e07dc6e5730a2f08b08b7ebec52481f3f50f",
+          "message": "fix: exclude stress tests from tarpaulin coverage (ptrace overhead)",
+          "timestamp": "2026-05-05T21:10:47+02:00",
+          "tree_id": "3ceba9e4aefafa4bd5c6eb6b24871d35038125d4",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/b968e07dc6e5730a2f08b08b7ebec52481f3f50f"
+        },
+        "date": 1778008537246,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 100,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 557,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1106,
+            "range": "± 14",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 53961,
+            "range": "± 505",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 581541,
+            "range": "± 3420",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 94602,
+            "range": "± 660",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39422,
+            "range": "± 135",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 114601,
+            "range": "± 1539",
             "unit": "ns/iter"
           }
         ]
