@@ -7,6 +7,20 @@ This project follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- `POST /ask` SSE streaming citations with typed events: source, token, error, done
+- `raven serve --read-only` mode for production deployments
+- MCP resources/list + resources/read capabilities (raven://index/stats)
+- MCP prompts/list + prompts/get capabilities (rag_answer, summarize_index)
+- `raven mcp --filter <expr>` to restrict exposed tools
+- MCP JSON Schema constraints on tools/list (additionalProperties, min/max bounds)
+- `raven query --explain` for detailed scoring breakdown
+- `raven backup <file>` via SQLite backup API
+- Embeddings versioning — model + dimensions stored, dimension mismatch rejected
+- HNSW index auto-rebuilds at store open, eliminates O(n) flat scan (#79)
+- Stable public API surface via ravenrustrag crate re-exports (#83)
+- CI coverage percentage threshold gate at 70% (#81)
+- CI ONNX feature gate job (#80)
+- Verified benchmark numbers in README (#82)
 - HttpEmbedder for custom embedding backends via generic HTTP API (plugin system) (#77)
 - WebSocket endpoint `/ws` for real-time streaming search and prompt (#76)
 - 37 new tests across all crates, including Unicode edge cases (#53)

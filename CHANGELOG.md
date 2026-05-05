@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Server**: `POST /ask` streaming citations — SSE with `event: source`, `event: token`, `event: error`, `event: done` (Perplexity pattern)
+- **Server**: `--read-only` mode disables write endpoints for production deployments
+- **MCP**: `resources/list` and `resources/read` capabilities (browse `raven://index/stats`)
+- **MCP**: `prompts/list` and `prompts/get` capabilities (`rag_answer`, `summarize_index` templates)
+- **MCP**: `--filter <expr>` flag restricts which tools are exposed via MCP
+- **MCP**: JSON Schema constraints on `tools/list` (additionalProperties, min/max, minLength/maxLength)
+- **CLI**: `raven query --explain` shows detailed scoring, distance, metadata breakdown
+- **CLI**: `raven backup <file>` for consistent SQLite backup via backup API
+- **Store**: Embeddings versioning — stores model name + dimensions, rejects dimension mismatch on index
+- **Store**: HNSW index auto-rebuilds at store open — eliminates O(n) flat scan (#79)
+- **Store**: `SqliteStore::backup()` method using rusqlite backup API
+- **API**: Stable public API surface defined through `ravenrustrag` crate re-exports (#83)
+- **CI**: Coverage percentage threshold (70%) gate (#81)
+- **CI**: ONNX feature gate job (cargo check with --features onnx) (#80)
+- **Docs**: Verified and updated benchmark numbers in README (#82)
 - **Embed**: ONNX Runtime embedding backend for local inference without network dependency (#43)
 - **Search**: ONNX cross-encoder reranker for improved search precision (#44)
 - **CI**: Code coverage with cargo-tarpaulin and Codecov integration (#53)
