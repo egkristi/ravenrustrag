@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777964987933,
+  "lastUpdate": 1777968420785,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -1223,6 +1223,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 116483,
             "range": "± 1693",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "8a0442dd6978c6906c0ff16f5223ce655dd31653",
+          "message": "docs: add 9 new features to PLAN.md (streaming citations, MCP resources/prompts, embeddings versioning, read-only mode, query explain, backup, MCP filter, JSON Schema, marketplace)",
+          "timestamp": "2026-05-05T10:02:07+02:00",
+          "tree_id": "6d7d0885c10eb0b154c4265f1ac5bad98e2b2541",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/8a0442dd6978c6906c0ff16f5223ce655dd31653"
+        },
+        "date": 1777968420088,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 102,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 547,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1089,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 53386,
+            "range": "± 270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 568441,
+            "range": "± 1399",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 94728,
+            "range": "± 311",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39477,
+            "range": "± 1057",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 112364,
+            "range": "± 544",
             "unit": "ns/iter"
           }
         ]
