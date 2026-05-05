@@ -71,7 +71,14 @@ fn test_query_empty_db() {
     let db = dir.path().join("empty.db");
 
     raven()
-        .args(["query", "test query", "--db", db.to_str().expect("db path")])
+        .args([
+            "query",
+            "test query",
+            "--db",
+            db.to_str().expect("db path"),
+            "--backend",
+            "dummy",
+        ])
         .assert()
         .success();
 }
@@ -177,6 +184,8 @@ fn test_import_valid_jsonl() {
             jsonl.to_str().expect("jsonl path"),
             "--db",
             db.to_str().expect("db path"),
+            "--backend",
+            "dummy",
         ])
         .assert()
         .success();
@@ -303,7 +312,16 @@ fn test_full_roundtrip() {
 
     // Index
     raven()
-        .args(["index", docs_str, "--db", db_str, "--extensions", "txt"])
+        .args([
+            "index",
+            docs_str,
+            "--db",
+            db_str,
+            "--extensions",
+            "txt",
+            "--backend",
+            "dummy",
+        ])
         .assert()
         .success();
 
@@ -312,7 +330,14 @@ fn test_full_roundtrip() {
 
     // Query
     raven()
-        .args(["query", "What is Rust?", "--db", db_str])
+        .args([
+            "query",
+            "What is Rust?",
+            "--db",
+            db_str,
+            "--backend",
+            "dummy",
+        ])
         .assert()
         .success();
 
@@ -376,7 +401,16 @@ fn test_diff_no_changes() {
 
     // Index first
     raven()
-        .args(["index", docs_str, "--db", db_str, "--extensions", "txt"])
+        .args([
+            "index",
+            docs_str,
+            "--db",
+            db_str,
+            "--extensions",
+            "txt",
+            "--backend",
+            "dummy",
+        ])
         .assert()
         .success();
 

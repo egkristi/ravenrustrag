@@ -681,6 +681,7 @@ pub fn create_embedder(
     api_key: Option<&str>,
 ) -> Arc<dyn Embedder> {
     match backend {
+        "dummy" => Arc::new(DummyEmbedder::default()),
         "openai" => {
             let base_url = url.unwrap_or("https://api.openai.com/v1");
             let mut embedder = OpenAIBackend::new(base_url, model);
