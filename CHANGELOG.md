@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Embed**: ONNX Runtime embedding backend for local inference without network dependency (#43)
+- **Search**: ONNX cross-encoder reranker for improved search precision (#44)
 - **Embed**: HttpEmbedder for custom embedding backends via generic HTTP API (plugin system) (#77)
 - **Server**: WebSocket endpoint `/ws` for real-time streaming search and prompt (#76)
 - **Testing**: 37 new tests across all crates, including Unicode edge cases (#53)

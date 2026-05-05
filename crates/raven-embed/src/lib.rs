@@ -481,6 +481,190 @@ impl Embedder for HttpEmbedder {
 }
 
 // =============================================================================
+// ONNX local embedding backend (behind `onnx` feature)
+// =============================================================================
+
+#[cfg(feature = "onnx")]
+mod onnx_embedder {
+    use super::*;
+    use ndarray::Array2;
+    use ort::session::Session;
+    use ort::value::TensorRef;
+    use std::path::Path;
+    use std::sync::Mutex;
+
+    /// Local ONNX Runtime embedding backend.
+    ///
+    /// Loads an ONNX model and HuggingFace tokenizer to produce embeddings
+    /// without any network dependency. Supports models like all-MiniLM-L6-v2
+    /// and nomic-embed-text.
+    ///
+    /// Requires the `onnx` feature flag and Rust 1.88+.
+    pub struct OnnxEmbedder {
+        session: Mutex<Session>,
+        tokenizer: tokenizers::Tokenizer,
+        dimension: usize,
+        model_name: String,
+    }
+
+    impl OnnxEmbedder {
+        /// Create a new ONNX embedder from model and tokenizer files.
+        ///
+        /// - `model_path`: Path to the `.onnx` model file
+        /// - `tokenizer_path`: Path to `tokenizer.json` (HuggingFace format)
+        /// - `dimension`: Output embedding dimension (e.g. 384 for MiniLM)
+        pub fn new(
+            model_path: impl AsRef<Path>,
+            tokenizer_path: impl AsRef<Path>,
+            dimension: usize,
+        ) -> Result<Self> {
+            let session = Session::builder()
+                .map_err(|e| RavenError::Embed(format!("ONNX session builder error: {e}")))?
+                .with_intra_threads(4)
+                .map_err(|e| RavenError::Embed(format!("ONNX thread config error: {e}")))?
+                .commit_from_file(model_path.as_ref())
+                .map_err(|e| RavenError::Embed(format!("ONNX model load error: {e}")))?;
+
+            let tokenizer = tokenizers::Tokenizer::from_file(tokenizer_path.as_ref())
+                .map_err(|e| RavenError::Embed(format!("Tokenizer load error: {e}")))?;
+
+            let model_name = model_path
+                .as_ref()
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("onnx-model")
+                .to_string();
+
+            Ok(Self {
+                session: Mutex::new(session),
+                tokenizer,
+                dimension,
+                model_name,
+            })
+        }
+
+        pub fn with_model_name(mut self, name: impl Into<String>) -> Self {
+            self.model_name = name.into();
+            self
+        }
+
+        fn tokenize(&self, texts: &[String]) -> Result<(Array2<i64>, Array2<i64>)> {
+            let encodings = self
+                .tokenizer
+                .encode_batch(texts.to_vec(), true)
+                .map_err(|e| RavenError::Embed(format!("Tokenization error: {e}")))?;
+
+            let max_len = encodings
+                .iter()
+                .map(|e| e.get_ids().len())
+                .max()
+                .unwrap_or(0);
+            let batch_size = encodings.len();
+
+            let mut input_ids = Array2::<i64>::zeros((batch_size, max_len));
+            let mut attention_mask = Array2::<i64>::zeros((batch_size, max_len));
+
+            for (i, encoding) in encodings.iter().enumerate() {
+                for (j, &id) in encoding.get_ids().iter().enumerate() {
+                    input_ids[[i, j]] = i64::from(id);
+                }
+                for (j, &mask) in encoding.get_attention_mask().iter().enumerate() {
+                    attention_mask[[i, j]] = i64::from(mask);
+                }
+            }
+
+            Ok((input_ids, attention_mask))
+        }
+
+        fn mean_pool(
+            shape: &ort::value::Shape,
+            hidden_data: &[f32],
+            attention_mask: &Array2<i64>,
+        ) -> Vec<Vec<f32>> {
+            let batch_size = shape[0] as usize;
+            let seq_len = shape[1] as usize;
+            let hidden_dim = shape[2] as usize;
+
+            let mut embeddings = Vec::with_capacity(batch_size);
+
+            for b in 0..batch_size {
+                let mut embedding = vec![0.0f32; hidden_dim];
+                let mut total_mask = 0.0f32;
+
+                for s in 0..seq_len {
+                    let mask = attention_mask[[b, s]] as f32;
+                    total_mask += mask;
+                    let offset = (b * seq_len + s) * hidden_dim;
+                    for d in 0..hidden_dim {
+                        embedding[d] += hidden_data[offset + d] * mask;
+                    }
+                }
+
+                if total_mask > 0.0 {
+                    for val in &mut embedding {
+                        *val /= total_mask;
+                    }
+                }
+
+                // L2 normalize
+                let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+                if norm > 0.0 {
+                    for val in &mut embedding {
+                        *val /= norm;
+                    }
+                }
+
+                embeddings.push(embedding);
+            }
+
+            embeddings
+        }
+    }
+
+    #[async_trait]
+    impl Embedder for OnnxEmbedder {
+        async fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
+            if texts.is_empty() {
+                return Ok(Vec::new());
+            }
+
+            let (input_ids, attention_mask) = self.tokenize(texts)?;
+
+            let ids_tensor = TensorRef::from_array_view(&input_ids)
+                .map_err(|e| RavenError::Embed(format!("ONNX input_ids tensor error: {e}")))?;
+            let mask_tensor = TensorRef::from_array_view(&attention_mask)
+                .map_err(|e| RavenError::Embed(format!("ONNX attention_mask tensor error: {e}")))?;
+
+            let mut session = self
+                .session
+                .lock()
+                .map_err(|e| RavenError::Embed(format!("ONNX session lock poisoned: {e}")))?;
+
+            let outputs = session
+                .run(ort::inputs![ids_tensor, mask_tensor])
+                .map_err(|e| RavenError::Embed(format!("ONNX inference error: {e}")))?;
+
+            let (shape, hidden_data) = outputs[0]
+                .try_extract_tensor::<f32>()
+                .map_err(|e| RavenError::Embed(format!("ONNX output extraction error: {e}")))?;
+
+            Ok(Self::mean_pool(shape, hidden_data, &attention_mask))
+        }
+
+        fn dimension(&self) -> usize {
+            self.dimension
+        }
+
+        fn model_name(&self) -> &str {
+            &self.model_name
+        }
+    }
+}
+
+#[cfg(feature = "onnx")]
+pub use onnx_embedder::OnnxEmbedder;
+
+// =============================================================================
 // Backend auto-detection
 // =============================================================================
 
@@ -757,67 +941,6 @@ pub fn create_generator(
     // Currently only Ollama is supported; OpenAI-compatible can be added later
     Arc::new(OllamaGenerator::new(base_url, config))
 }
-
-// =============================================================================
-// ONNX Runtime local embedder (optional feature)
-// =============================================================================
-
-#[cfg(feature = "onnx")]
-pub mod onnx {
-    //! Local ONNX Runtime embedding backend (stub).
-    //!
-    //! Full ONNX integration requires the `ort` and `ndarray` crates, which depend
-    //! on `reqwest 0.13`. The workspace currently uses `reqwest 0.11`.
-    //!
-    //! When the workspace migrates to reqwest 0.12+, add to Cargo.toml:
-    //! ```toml
-    //! ort = { version = "2.0", default-features = false, features = ["std", "download-binaries"] }
-    //! ndarray = "0.16"
-    //! ```
-    //!
-    //! The full OnnxEmbedder implementation is available in git history (commit 7c48ab2).
-    //! It supports:
-    //! - Loading sentence-transformer ONNX models
-    //! - Batch inference with configurable dimensions
-    //! - Simple tokenization (production should use the `tokenizers` crate)
-
-    use super::*;
-
-    /// Placeholder ONNX embedder that returns an error indicating ONNX deps are not available.
-    pub struct OnnxEmbedder {
-        dimension: usize,
-    }
-
-    impl OnnxEmbedder {
-        pub fn new(
-            _model_path: impl Into<std::path::PathBuf>,
-            dimension: usize,
-        ) -> std::result::Result<Self, String> {
-            Ok(Self { dimension })
-        }
-    }
-
-    #[async_trait::async_trait]
-    impl Embedder for OnnxEmbedder {
-        async fn embed(&self, _texts: &[String]) -> raven_core::Result<Vec<Vec<f32>>> {
-            Err(raven_core::RavenError::Embed(
-                "ONNX Runtime not available: requires ort + ndarray crates (reqwest 0.13 conflict). \
-                 See raven-embed/Cargo.toml for migration instructions.".to_string()
-            ))
-        }
-
-        fn dimension(&self) -> usize {
-            self.dimension
-        }
-
-        fn model_name(&self) -> &str {
-            "onnx-stub"
-        }
-    }
-}
-
-#[cfg(feature = "onnx")]
-pub use onnx::OnnxEmbedder;
 
 #[cfg(test)]
 mod tests {

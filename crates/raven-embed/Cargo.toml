@@ -21,12 +21,14 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 async-trait = "0.1"
 moka = { version = "0.12", features = ["sync"] }
+ndarray = { version = "0.17", optional = true }
+ort = { version = "2.0.0-rc.12", optional = true }
+tokenizers = { version = "0.20", optional = true }
 
 [features]
-# ONNX support placeholder. Currently disabled due to reqwest version conflict
-# (ort crate requires reqwest 0.13, workspace uses 0.11). Enable when workspace
-# migrates to reqwest 0.12+. The OnnxEmbedder code is ready behind cfg(feature = "onnx").
-onnx = []
+# ONNX support for local embedding inference without Ollama.
+# Requires Rust 1.88+ (higher than base MSRV 1.86).
+onnx = ["dep:ort", "dep:tokenizers", "dep:ndarray"]
 
 [lints]
 workspace = true

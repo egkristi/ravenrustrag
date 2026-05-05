@@ -42,6 +42,8 @@ pub use raven_core::{
 };
 
 // Re-export embedding
+#[cfg(feature = "onnx")]
+pub use raven_embed::OnnxEmbedder;
 pub use raven_embed::{
     create_cached_embedder, create_embedder, CachedEmbedder, DummyEmbedder, Embedder,
     EmbeddingCache, HttpEmbedder, OllamaBackend, OpenAIBackend,
@@ -57,6 +59,8 @@ pub use raven_split::{SentenceSplitter, Splitter, TextSplitter, TokenSplitter};
 pub use raven_load::{export_jsonl, import_jsonl, Loader};
 
 // Re-export search pipeline
+#[cfg(feature = "onnx")]
+pub use raven_search::OnnxReranker;
 pub use raven_search::{
     eval_summary, evaluate_batch, expand_query, extract_entities, graph_vector_fusion, mrr,
     ndcg_at_k, precision_at_k, recall_at_k, reciprocal_rank_fusion, rerank, Bm25Index,

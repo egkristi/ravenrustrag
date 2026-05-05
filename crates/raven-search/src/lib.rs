@@ -32,6 +32,8 @@ pub use graph::{
 };
 
 pub mod rerank;
+#[cfg(feature = "onnx")]
+pub use rerank::OnnxReranker;
 pub use rerank::{rerank, KeywordReranker, Reranker};
 
 /// Main document index — the heart of RavenRustRAG

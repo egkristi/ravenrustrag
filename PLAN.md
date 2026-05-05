@@ -17,8 +17,8 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 | [#77](https://github.com/egkristi/ravenrustrag/issues/77) | Plugin system for custom embedders | Medium | Done |
 | [#55](https://github.com/egkristi/ravenrustrag/issues/55) | Homebrew tap formula | Low | Open |
 | [#56](https://github.com/egkristi/ravenrustrag/issues/56) | AUR package | Low | Open |
-| [#43](https://github.com/egkristi/ravenrustrag/issues/43) | ONNX Runtime embedding backend | High | Deferred (MSRV conflict) |
-| [#44](https://github.com/egkristi/ravenrustrag/issues/44) | ONNX cross-encoder reranking | Medium | Deferred (blocked by #43) |
+| [#43](https://github.com/egkristi/ravenrustrag/issues/43) | ONNX Runtime embedding backend | High | Done |
+| [#44](https://github.com/egkristi/ravenrustrag/issues/44) | ONNX cross-encoder reranking | Medium | Done |
 
 ---
 
@@ -54,9 +54,9 @@ Features planned for post-1.0 development:
 ### LLM Generation
 - [ ] `POST /ask` server endpoint with streaming SSE response
 
-### ONNX Runtime (when ort crate is compatible)
-- [ ] Local embedding without Ollama — [#43](https://github.com/egkristi/ravenrustrag/issues/43)
-- [ ] Cross-encoder reranking — [#44](https://github.com/egkristi/ravenrustrag/issues/44)
+### ONNX Runtime
+- [x] Local embedding without Ollama — [#43](https://github.com/egkristi/ravenrustrag/issues/43)
+- [x] Cross-encoder reranking — [#44](https://github.com/egkristi/ravenrustrag/issues/44)
 - [ ] Quantized model support (int8/fp16)
 
 ### Advanced Features
@@ -71,10 +71,9 @@ Features planned for post-1.0 development:
 
 ## Known Limitations
 
-1. **ONNX not functional** — Stub exists behind feature flag but `ort` crate has MSRV conflicts. [#43](https://github.com/egkristi/ravenrustrag/issues/43)
-2. **No ONNX cross-encoder** — Reranker trait exists, but only keyword-based. Blocked by #43. [#44](https://github.com/egkristi/ravenrustrag/issues/44)
+_(No current blocking limitations.)_
 
 ---
 
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-06
 **Next milestone:** v1.0 stable release (#61) — requires #52, #53, #70, #75

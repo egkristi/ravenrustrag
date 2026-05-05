@@ -32,3 +32,4 @@ tempfile = "3"
 default = ["pdf", "docx"]
 pdf = ["raven-load/pdf"]
 docx = ["raven-load/docx"]
+onnx = ["raven-embed/onnx", "raven-search/onnx"]

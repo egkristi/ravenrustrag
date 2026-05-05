@@ -73,6 +73,152 @@ impl Reranker for KeywordReranker {
     }
 }
 
+// =============================================================================
+// ONNX cross-encoder reranker (behind `onnx` feature)
+// =============================================================================
+
+#[cfg(feature = "onnx")]
+mod onnx_reranker {
+    use super::*;
+    use ndarray::Array2;
+    use ort::session::Session;
+    use ort::value::TensorRef;
+    use std::path::Path;
+    use std::sync::Mutex;
+
+    /// Cross-encoder reranker using ONNX Runtime for local inference.
+    ///
+    /// Loads a cross-encoder model (e.g. ms-marco-MiniLM-L-6-v2) that scores
+    /// (query, passage) pairs for relevance. Behind the `onnx` feature flag.
+    ///
+    /// Requires the `onnx` feature flag and Rust 1.88+.
+    pub struct OnnxReranker {
+        session: Mutex<Session>,
+        tokenizer: tokenizers::Tokenizer,
+    }
+
+    impl OnnxReranker {
+        /// Create a new ONNX cross-encoder reranker.
+        ///
+        /// - `model_path`: Path to the cross-encoder `.onnx` model file
+        /// - `tokenizer_path`: Path to `tokenizer.json` (HuggingFace format)
+        pub fn new(model_path: impl AsRef<Path>, tokenizer_path: impl AsRef<Path>) -> Result<Self> {
+            let session = Session::builder()
+                .map_err(|e| {
+                    raven_core::RavenError::Embed(format!(
+                        "ONNX reranker session builder error: {e}"
+                    ))
+                })?
+                .with_intra_threads(4)
+                .map_err(|e| {
+                    raven_core::RavenError::Embed(format!("ONNX reranker thread config error: {e}"))
+                })?
+                .commit_from_file(model_path.as_ref())
+                .map_err(|e| {
+                    raven_core::RavenError::Embed(format!("ONNX reranker model load error: {e}"))
+                })?;
+
+            let tokenizer =
+                tokenizers::Tokenizer::from_file(tokenizer_path.as_ref()).map_err(|e| {
+                    raven_core::RavenError::Embed(format!("Reranker tokenizer load error: {e}"))
+                })?;
+
+            Ok(Self {
+                session: Mutex::new(session),
+                tokenizer,
+            })
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl Reranker for OnnxReranker {
+        async fn score(&self, query: &str, documents: &[&str]) -> Result<Vec<f32>> {
+            if documents.is_empty() {
+                return Ok(Vec::new());
+            }
+
+            // Encode (query, document) pairs for cross-encoder
+            let pairs: Vec<tokenizers::EncodeInput> = documents
+                .iter()
+                .map(|doc| tokenizers::EncodeInput::Dual(query.into(), (*doc).into()))
+                .collect();
+
+            let encodings = self
+                .tokenizer
+                .encode_batch(pairs, true)
+                .map_err(|e| raven_core::RavenError::Embed(format!("Tokenization error: {e}")))?;
+
+            let max_len = encodings
+                .iter()
+                .map(|e| e.get_ids().len())
+                .max()
+                .unwrap_or(0);
+            let batch_size = encodings.len();
+
+            let mut input_ids = Array2::<i64>::zeros((batch_size, max_len));
+            let mut attention_mask = Array2::<i64>::zeros((batch_size, max_len));
+
+            for (i, encoding) in encodings.iter().enumerate() {
+                for (j, &id) in encoding.get_ids().iter().enumerate() {
+                    input_ids[[i, j]] = i64::from(id);
+                }
+                for (j, &mask) in encoding.get_attention_mask().iter().enumerate() {
+                    attention_mask[[i, j]] = i64::from(mask);
+                }
+            }
+
+            let ids_tensor = TensorRef::from_array_view(&input_ids).map_err(|e| {
+                raven_core::RavenError::Embed(format!("ONNX reranker input_ids tensor: {e}"))
+            })?;
+            let mask_tensor = TensorRef::from_array_view(&attention_mask).map_err(|e| {
+                raven_core::RavenError::Embed(format!("ONNX reranker mask tensor: {e}"))
+            })?;
+
+            let mut session = self.session.lock().map_err(|e| {
+                raven_core::RavenError::Embed(format!("ONNX reranker session lock poisoned: {e}"))
+            })?;
+
+            let outputs = session
+                .run(ort::inputs![ids_tensor, mask_tensor])
+                .map_err(|e| {
+                    raven_core::RavenError::Embed(format!("ONNX reranker inference error: {e}"))
+                })?;
+
+            let (logits_shape, logits_data) =
+                outputs[0].try_extract_tensor::<f32>().map_err(|e| {
+                    raven_core::RavenError::Embed(format!("ONNX reranker output error: {e}"))
+                })?;
+
+            // Extract relevance scores (logit for the positive class)
+            let num_cols = if logits_shape.len() >= 2 {
+                logits_shape[1] as usize
+            } else {
+                1
+            };
+
+            let scores: Vec<f32> = (0..batch_size)
+                .map(|i| {
+                    // Cross-encoders typically output a single logit or [neg, pos] logits
+                    if num_cols >= 2 {
+                        sigmoid(logits_data[i * num_cols + 1])
+                    } else {
+                        sigmoid(logits_data[i * num_cols])
+                    }
+                })
+                .collect();
+
+            Ok(scores)
+        }
+    }
+
+    fn sigmoid(x: f32) -> f32 {
+        1.0 / (1.0 + (-x).exp())
+    }
+}
+
+#[cfg(feature = "onnx")]
+pub use onnx_reranker::OnnxReranker;
+
 #[cfg(test)]
 mod tests {
     use super::*;
