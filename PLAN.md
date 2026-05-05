@@ -96,13 +96,46 @@ Features planned for post-1.0 development:
 
 ---
 
-## Known Limitations
+## Phase 6: Distribution & Packaging
 
-1. **Actual crates.io publish** — Metadata ready but not yet published. [#52](https://github.com/egkristi/ravenrustrag/issues/52)
-2. **Homebrew/AUR packages** — Not yet published. [#55](https://github.com/egkristi/ravenrustrag/issues/55), [#56](https://github.com/egkristi/ravenrustrag/issues/56)
-3. **ONNX requires ONNX Runtime** — The `onnx` feature requires the ONNX Runtime shared library at runtime.
+All platforms should have native package manager support for frictionless install.
+
+### Windows
+- [ ] winget (`winget install egkristi.raven`) — automated via release workflow
+- [ ] Chocolatey (`choco install raven`)
+- [ ] Scoop (`scoop install raven`)
+- [ ] Standalone `.exe` installer (NSIS or WiX)
+- [ ] MSI installer (WiX Toolset)
+
+### macOS
+- [ ] Homebrew (`brew install egkristi/tap/raven`) — [#55](https://github.com/egkristi/ravenrustrag/issues/55)
+- [ ] DMG disk image (drag-to-Applications)
+- [ ] `.pkg` installer (signed)
+
+### Linux
+- [ ] APT / `.deb` package (Debian, Ubuntu) — via `cargo-deb` or `nfpm`
+- [ ] DNF / `.rpm` package (Fedora, RHEL) — via `nfpm`
+- [ ] Pacman / AUR (Arch Linux) — [#56](https://github.com/egkristi/ravenrustrag/issues/56)
+- [ ] Zypper / `.rpm` (openSUSE) — shared with DNF rpm
+- [ ] APK (Alpine Linux) — via `nfpm`
+- [ ] Flatpak
+- [ ] Snap (`snap install raven`)
+
+### Cross-platform
+- [ ] `cargo install raven-cli` (crates.io) — [#84](https://github.com/egkristi/ravenrustrag/issues/84)
+- [ ] Pre-built static binaries (GitHub Releases) — already in release workflow
+- [ ] Docker (`ghcr.io/egkristi/ravenrustrag`) — multi-arch [#90](https://github.com/egkristi/ravenrustrag/issues/90)
 
 ---
 
-**Last updated:** 2026-05-06
-**Next milestone:** Post-1.0 packaging — crates.io publish, Homebrew tap, AUR package
+## Known Limitations
+
+1. **Actual crates.io publish** — Metadata ready but not yet published. [#84](https://github.com/egkristi/ravenrustrag/issues/84)
+2. **Homebrew/AUR packages** — Not yet published. [#55](https://github.com/egkristi/ravenrustrag/issues/55), [#56](https://github.com/egkristi/ravenrustrag/issues/56)
+3. **ONNX requires ONNX Runtime** — The `onnx` feature requires the ONNX Runtime shared library at runtime.
+4. **winget requires WINGET_TOKEN secret** — PAT with `public_repo` scope must be configured.
+
+---
+
+**Last updated:** 2026-05-05
+**Next milestone:** Phase 6 — Native package manager support across all platforms
