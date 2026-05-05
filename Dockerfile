@@ -48,6 +48,8 @@ RUN cargo build --release
 # --- Runtime stage (scratch — no OS, just the binary) ---
 FROM scratch
 
+LABEL io.modelcontextprotocol.server.name="io.github.egkristi/ravenrustrag"
+
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /app/target/release/raven /raven
 
