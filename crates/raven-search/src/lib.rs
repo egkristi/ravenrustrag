@@ -261,8 +261,7 @@ impl DocumentIndex {
             }
         }
 
-        // For each parent, fetch all its chunks from the store
-        let all_chunks = self.store.all().await?;
+        // For each parent, fetch only its chunks from the store
         let mut parent_results = Vec::new();
 
         for parent_id in &parent_ids {
@@ -272,14 +271,9 @@ impl DocumentIndex {
                 pid == parent_id
             });
 
-            // Collect all chunks from this parent, sorted by chunk_index
-            let mut sibling_chunks: Vec<_> = all_chunks
-                .iter()
-                .filter(|c| {
-                    let cid = c.metadata.get("source_id").unwrap_or(&c.doc_id);
-                    cid == parent_id
-                })
-                .collect();
+            // Fetch only chunks belonging to this parent
+            let sibling_chunks_raw = self.store.get_by_doc_id(parent_id).await?;
+            let mut sibling_chunks: Vec<_> = sibling_chunks_raw.iter().collect();
             sibling_chunks.sort_by_key(|c| {
                 c.metadata
                     .get("chunk_index")

@@ -77,6 +77,18 @@ pub trait VectorStore: Send + Sync {
     /// Get all chunks (for export)
     async fn all(&self) -> Result<Vec<Chunk>>;
 
+    /// Get all chunks belonging to a specific document ID
+    async fn get_by_doc_id(&self, doc_id: &str) -> Result<Vec<Chunk>> {
+        // Default: filter from all() — backends should override for efficiency
+        let all = self.all().await?;
+        Ok(all
+            .into_iter()
+            .filter(|c| {
+                c.metadata.get("source_id").unwrap_or(&c.doc_id) == doc_id || c.doc_id == doc_id
+            })
+            .collect())
+    }
+
     /// Check if a fingerprint exists and matches
     async fn get_fingerprint(&self, path: &str) -> Result<Option<String>>;
 
@@ -453,6 +465,47 @@ impl VectorStore for SqliteStore {
 
         let chunks = stmt
             .query_map([], |row| {
+                let id: String = row.get(0)?;
+                let doc_id: String = row.get(1)?;
+                let text: String = row.get(2)?;
+                let metadata_str: String = row.get(3)?;
+                let embedding_bytes: Vec<u8> = row.get(4)?;
+
+                let metadata = serde_json::from_str(&metadata_str).unwrap_or_default();
+                let embedding = embedding_bytes
+                    .chunks_exact(4)
+                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+                    .collect::<Vec<f32>>();
+
+                Ok(Chunk {
+                    id,
+                    doc_id,
+                    text,
+                    metadata,
+                    embedding: Some(embedding),
+                })
+            })
+            .map_err(|e| RavenError::Store(format!("Query failed: {e}")))?;
+
+        let mut result = Vec::new();
+        for chunk in chunks {
+            result.push(chunk.map_err(|e| RavenError::Store(format!("Row error: {e}")))?);
+        }
+        Ok(result)
+    }
+
+    async fn get_by_doc_id(&self, doc_id: &str) -> Result<Vec<Chunk>> {
+        let conn = self.conn.lock().await;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, doc_id, text, metadata, embedding FROM chunks
+                 WHERE doc_id = ?1
+                 OR json_extract(metadata, '$.source_id') = ?1",
+            )
+            .map_err(|e| RavenError::Store(format!("Query prepare failed: {e}")))?;
+
+        let chunks = stmt
+            .query_map([doc_id], |row| {
                 let id: String = row.get(0)?;
                 let doc_id: String = row.get(1)?;
                 let text: String = row.get(2)?;
