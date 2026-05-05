@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778013997416,
+  "lastUpdate": 1778014381373,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -2591,6 +2591,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 112770,
             "range": "± 379",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "68d7e184dbc1a69ba689bba6c2193ca2170701f6",
+          "message": "fix: add tag resolution to cargo-deb job in packages workflow",
+          "timestamp": "2026-05-05T22:48:17+02:00",
+          "tree_id": "4442ed055fdac5086debc92fc74b32c93c3e6809",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/68d7e184dbc1a69ba689bba6c2193ca2170701f6"
+        },
+        "date": 1778014380323,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 100,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 557,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1105,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 54890,
+            "range": "± 380",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 582977,
+            "range": "± 10502",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 96185,
+            "range": "± 940",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39871,
+            "range": "± 259",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 117469,
+            "range": "± 946",
             "unit": "ns/iter"
           }
         ]
