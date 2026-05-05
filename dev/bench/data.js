@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777968869375,
+  "lastUpdate": 1777969579181,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -1367,6 +1367,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 114282,
             "range": "± 1968",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "39c9638aff23c01bd7622ac2aba774890b8580c1",
+          "message": "docs: document ONNX MSRV split (1.88+) and add CI gate for onnx feature closes #80",
+          "timestamp": "2026-05-05T10:21:30+02:00",
+          "tree_id": "4ac619de0f8a3a63d50ed4c7eacc0eb97da07b66",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/39c9638aff23c01bd7622ac2aba774890b8580c1"
+        },
+        "date": 1777969578144,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 84,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 470,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 929,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 43805,
+            "range": "± 176",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 457930,
+            "range": "± 1597",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 75239,
+            "range": "± 3057",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 33484,
+            "range": "± 141",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 77071,
+            "range": "± 216",
             "unit": "ns/iter"
           }
         ]
