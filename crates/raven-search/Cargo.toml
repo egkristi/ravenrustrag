@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 authors.workspace = true
 description = "Search pipeline for RavenRustRAG: vector, BM25 hybrid, knowledge graph, reranking"
 keywords = ["search", "bm25", "hybrid-search", "rag", "knowledge-graph"]

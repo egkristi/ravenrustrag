@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 authors.workspace = true
 description = "Text splitting strategies for RavenRustRAG: character, token, sentence"
 keywords = ["text-splitting", "chunking", "tokenizer", "rag", "nlp"]

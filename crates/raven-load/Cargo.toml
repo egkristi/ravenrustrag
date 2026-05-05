@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 authors.workspace = true
 description = "Document loaders for RavenRustRAG: txt, md, csv, json, html, pdf, docx"
 keywords = ["document-loader", "parser", "markdown", "pdf", "rag"]

@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 authors.workspace = true
 description = "HTTP API server for RavenRustRAG: Axum, auth, CORS, OpenAPI"
 keywords = ["http-server", "api", "axum", "rag", "openapi"]

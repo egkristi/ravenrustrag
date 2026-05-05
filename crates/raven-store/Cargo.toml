@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 authors.workspace = true
 description = "Vector storage backends for RavenRustRAG: SQLite, memory, HNSW"
 keywords = ["vector-store", "sqlite", "hnsw", "rag", "similarity"]

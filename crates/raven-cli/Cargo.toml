@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 authors.workspace = true
 description = "CLI for RavenRustRAG: index, query, ask, serve, watch, export/import"
 keywords = ["cli", "rag", "search", "embedding", "ollama"]

@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 authors.workspace = true
 description = "MCP (Model Context Protocol) server for RavenRustRAG: stdio JSON-RPC"
 keywords = ["mcp", "json-rpc", "ai-assistant", "rag", "llm"]
