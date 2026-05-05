@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777993611648,
+  "lastUpdate": 1777995061553,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -1871,6 +1871,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 100952,
             "range": "± 2770",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "e56430adbe97268586663a333bafbea8ac559000",
+          "message": "feat: implement Phase 5 remaining features\n\n- Incremental BM25: add remove_by_doc_id() for efficient document deletion\n- Async SQLite: wrap heavy operations (add, search, all) in spawn_blocking\n- Binary embedding storage: F32/F16/Uint8 quantized storage (75% size reduction)\n- Config hot-reload: watch raven.toml and update rate limiter at runtime\n- Quantized ONNX: support int8/fp16 models in OnnxEmbedder/OnnxReranker\n- Update PLAN.md status to v1.0.0 released, mark all features done\n- Update README roadmap to reflect v1.0.0 release\n- Create GitHub issues #84-#87 for remaining packaging tasks",
+          "timestamp": "2026-05-05T17:25:09+02:00",
+          "tree_id": "2cca360854b5785a568d25956984dff2edb43ae7",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/e56430adbe97268586663a333bafbea8ac559000"
+        },
+        "date": 1777995060900,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 100,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 557,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1107,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 54582,
+            "range": "± 255",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 589048,
+            "range": "± 5072",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 99168,
+            "range": "± 422",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39548,
+            "range": "± 444",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 117043,
+            "range": "± 733",
             "unit": "ns/iter"
           }
         ]
