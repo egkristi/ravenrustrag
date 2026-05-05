@@ -75,7 +75,13 @@ chmod +x raven-linux-amd64
 sudo mv raven-linux-amd64 /usr/local/bin/raven
 ```
 
-**Windows (PowerShell):**
+**Windows (winget):**
+
+```powershell
+winget install egkristi.raven
+```
+
+**Windows (manual download):**
 
 ```powershell
 # Download the latest release
