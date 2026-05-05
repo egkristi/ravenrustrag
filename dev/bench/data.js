@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777937590058,
+  "lastUpdate": 1777939551567,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -791,6 +791,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 116774,
             "range": "± 552",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "cd0f8402a739dc790e06deabeab8c618d362b7a1",
+          "message": "fix: upgrade reqwest 0.11→0.12, pdf-extract 0.7→0.10 (resolve all security advisories)",
+          "timestamp": "2026-05-05T02:00:23+02:00",
+          "tree_id": "bfbf7c90f8d5dd5f2fb6dcd48c57398f299aa44b",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/cd0f8402a739dc790e06deabeab8c618d362b7a1"
+        },
+        "date": 1777939550302,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 91,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 508,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1010,
+            "range": "± 22",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 58704,
+            "range": "± 860",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 647029,
+            "range": "± 3387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 98638,
+            "range": "± 884",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 38484,
+            "range": "± 224",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 81678,
+            "range": "± 1218",
             "unit": "ns/iter"
           }
         ]
