@@ -102,6 +102,20 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --all-targets
 
+  onnx-check:
+    name: ONNX Feature (stable)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: onnx
+      - run: cargo check -p raven-embed --features onnx
+      - run: cargo check -p raven-search --features onnx
+
   security-audit:
     name: Security Audit
     runs-on: ubuntu-latest

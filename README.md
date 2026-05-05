@@ -328,9 +328,17 @@ url = "https://api.openai.com/v1"
 api_key = "sk-..."
 ```
 
-### ONNX Runtime (planned)
+### ONNX Runtime
 
-Native ONNX embedding support is planned for a future release — no Python runtime needed.
+Local embedding and cross-encoder reranking without Ollama, using ONNX Runtime:
+
+```bash
+# Build with ONNX support (requires Rust 1.88+)
+cargo build --release --features onnx
+```
+
+> **Note:** The `onnx` feature requires Rust 1.88+, while the base project MSRV is 1.86.
+> Default builds (without `--features onnx`) work on Rust 1.86+.
 
 ## MCP Server
 
