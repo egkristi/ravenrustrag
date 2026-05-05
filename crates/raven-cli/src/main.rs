@@ -112,6 +112,10 @@ enum Commands {
         /// Alpha blend for hybrid search (1.0 = pure vector, 0.0 = pure BM25)
         #[arg(long, default_value_t = 0.5)]
         alpha: f32,
+
+        /// Show detailed scoring explanation
+        #[arg(long)]
+        explain: bool,
     },
 
     /// Get a formatted LLM prompt with citations
@@ -656,6 +660,7 @@ async fn main() -> Result<()> {
             top_k,
             hybrid,
             alpha,
+            explain,
         } => {
             let (eff_backend, eff_url, eff_model, eff_db) =
                 resolve_params(&backend, &url, &model, &db, &cfg);
@@ -725,7 +730,28 @@ async fn main() -> Result<()> {
                         println!("{} (score: {})", format!("[{}]", i + 1).bold(), score_color);
                         println!("    {}: {}", "Source".dimmed(), source);
                         let preview: String = result.chunk.text.chars().take(200).collect();
-                        println!("    {preview}\n");
+                        println!("    {preview}");
+
+                        if explain {
+                            println!(
+                                "    {} distance={:.6} score={:.6} doc_id={} chunk_len={}",
+                                "Explain:".dimmed(),
+                                result.distance,
+                                result.score,
+                                result.chunk.doc_id,
+                                result.chunk.text.len()
+                            );
+                            if !result.chunk.metadata.is_empty() {
+                                let meta: Vec<String> = result
+                                    .chunk
+                                    .metadata
+                                    .iter()
+                                    .map(|(k, v)| format!("{k}={v}"))
+                                    .collect();
+                                println!("    {} {}", "Metadata:".dimmed(), meta.join(", "));
+                            }
+                        }
+                        println!();
                     }
                 }
             }
