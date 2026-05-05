@@ -18,7 +18,7 @@ Sub-millisecond vector search. Single static binary. No Python. No virtual envir
 |---------|-------------|
 | **Blazing fast** | Compiled native code, zero-copy where possible. Sub-50ms startup, 35 µs queries |
 | **Local-first** | No cloud APIs required. Works fully offline with Ollama, vLLM, or any OpenAI-compatible backend |
-| **Single binary** | `cargo install ravenrustrag` or download a static musl binary (~9MB) |
+| **Single binary** | Download a pre-built static binary (~9MB) or build from source |
 | **True async** | Built on Tokio. Thousands of concurrent queries with lock-free reads |
 | **Pluggable storage** | SQLite with WAL + mmap (default), in-memory, or custom backend |
 | **Hybrid search** | Dense vectors + BM25 keyword matching with Reciprocal Rank Fusion |
