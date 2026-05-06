@@ -6,13 +6,13 @@ Point RavenRustRAG at a directory or file to index:
 
 ```bash
 # Index a directory of documents
-raven index ./docs/
+ravenrag index ./docs/
 
 # Index a single file
-raven index README.md
+ravenrag index README.md
 
 # Index with verbose output
-raven index ./notes/ -v
+ravenrag index ./notes/ -v
 ```
 
 Supported formats: `.txt`, `.md`, `.csv`, `.json`, `.jsonl`, `.html`
@@ -21,13 +21,13 @@ Supported formats: `.txt`, `.md`, `.csv`, `.json`, `.jsonl`, `.html`
 
 ```bash
 # Simple semantic search
-raven query "how does authentication work"
+ravenrag query "how does authentication work"
 
 # Get more results
-raven query "error handling patterns" --top-k 10
+ravenrag query "error handling patterns" --top-k 10
 
 # Hybrid search (BM25 + vector)
-raven query "configuration file" --hybrid
+ravenrag query "configuration file" --hybrid
 ```
 
 ## Generate LLM Prompts
@@ -35,7 +35,7 @@ raven query "configuration file" --hybrid
 The `prompt` command wraps search results in an LLM-ready format:
 
 ```bash
-raven prompt "explain the build process"
+ravenrag prompt "explain the build process"
 ```
 
 Output:
@@ -53,33 +53,33 @@ Question: explain the build process
 ## Check Index Status
 
 ```bash
-raven info
+ravenrag info
 ```
 
 ## Export and Import
 
 ```bash
 # Backup your index to JSONL
-raven export > backup.jsonl
+ravenrag export > backup.jsonl
 
 # Restore from backup
-raven import backup.jsonl
+ravenrag import backup.jsonl
 ```
 
 ## Start the HTTP Server
 
 ```bash
 # Start on default port 8484
-raven serve
+ravenrag serve
 
 # With API key authentication
-RAVEN_API_KEY=my-secret-key raven serve --port 8484
+RAVEN_API_KEY=my-secret-key ravenrag serve --port 8484
 ```
 
 ## Run Diagnostics
 
 ```bash
-raven doctor
+ravenrag doctor
 ```
 
 This checks Ollama connectivity, embedding model availability, and database health.

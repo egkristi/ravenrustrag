@@ -6,7 +6,7 @@ set -e
 APPDIR="Raven.AppDir"
 VERSION="${VERSION:-1.0.0}"
 
-echo "Building raven for musl (static)..."
+echo "Building ravenrag for musl (static)..."
 cargo build --release --target x86_64-unknown-linux-musl -p raven-cli
 
 echo "Creating AppDir..."
@@ -15,8 +15,8 @@ mkdir -p "$APPDIR/usr/bin"
 mkdir -p "$APPDIR/usr/share/applications"
 mkdir -p "$APPDIR/usr/share/icons/hicolor/256x256/apps"
 
-cp target/x86_64-unknown-linux-musl/release/raven "$APPDIR/usr/bin/raven"
-chmod +x "$APPDIR/usr/bin/raven"
+cp target/x86_64-unknown-linux-musl/release/ravenrag "$APPDIR/usr/bin/ravenrag"
+chmod +x "$APPDIR/usr/bin/ravenrag"
 
 cp packaging/appimage/raven.desktop "$APPDIR/raven.desktop"
 cp packaging/appimage/raven.desktop "$APPDIR/usr/share/applications/raven.desktop"
@@ -39,7 +39,7 @@ cat > "$APPDIR/AppRun" <<'APPRUN'
 #!/bin/sh
 SELF="$(readlink -f "$0")"
 HERE="${SELF%/*}"
-exec "${HERE}/usr/bin/raven" "$@"
+exec "${HERE}/usr/bin/ravenrag" "$@"
 APPRUN
 chmod +x "$APPDIR/AppRun"
 

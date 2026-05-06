@@ -13,7 +13,7 @@ RavenRustRAG combines vector similarity search with BM25 keyword matching using 
 ### CLI
 
 ```bash
-raven query "rust error handling" --hybrid --alpha 0.7
+ravenrag query "rust error handling" --hybrid --alpha 0.7
 ```
 
 - `--hybrid` enables BM25+vector fusion

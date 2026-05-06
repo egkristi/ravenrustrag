@@ -51,7 +51,7 @@ FROM scratch
 LABEL io.modelcontextprotocol.server.name="io.github.egkristi/ravenrustrag"
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /app/target/release/raven /raven
+COPY --from=builder /app/target/release/ravenrag /ravenrag
 
 VOLUME /data
 
@@ -63,5 +63,5 @@ EXPOSE 8484
 
 USER 65534:65534
 
-ENTRYPOINT ["/raven"]
+ENTRYPOINT ["/ravenrag"]
 CMD ["serve"]

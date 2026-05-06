@@ -159,26 +159,26 @@ Supports `--filter` to restrict exposed tools.
 ## CLI Commands
 
 ```
-raven index <path>       # Index documents
-raven query <text>       # Search (--hybrid, --explain)
-raven ask <text>         # RAG Q&A with local LLM
-raven prompt <text>      # LLM-formatted prompt
-raven serve              # Start HTTP server (--read-only)
-raven info               # Show stats
-raven status             # Health dashboard
-raven clear              # Clear index
-raven export             # JSONL backup
-raven import <file>      # JSONL restore
-raven backup <file>      # SQLite backup API
-raven mcp                # Start MCP server (--filter)
-raven doctor             # Diagnostics
-raven watch <path>       # Auto-reindex on changes
-raven benchmark          # Performance benchmarks
-raven graph build        # Build knowledge graph
-raven graph query <text> # Query knowledge graph
-raven init               # Generate raven.toml
-raven diff <path>        # Show changed files
-raven completions <sh>   # Shell completions
+ravenrag index <path>       # Index documents
+ravenrag query <text>       # Search (--hybrid, --explain)
+ravenrag ask <text>         # RAG Q&A with local LLM
+ravenrag prompt <text>      # LLM-formatted prompt
+ravenrag serve              # Start HTTP server (--read-only)
+ravenrag info               # Show stats
+ravenrag status             # Health dashboard
+ravenrag clear              # Clear index
+ravenrag export             # JSONL backup
+ravenrag import <file>      # JSONL restore
+ravenrag backup <file>      # SQLite backup API
+ravenrag mcp                # Start MCP server (--filter)
+ravenrag doctor             # Diagnostics
+ravenrag watch <path>       # Auto-reindex on changes
+ravenrag benchmark          # Performance benchmarks
+ravenrag graph build        # Build knowledge graph
+ravenrag graph query <text> # Query knowledge graph
+ravenrag init               # Generate raven.toml
+ravenrag diff <path>        # Show changed files
+ravenrag completions <sh>   # Shell completions
 ```
 
 ## Environment Variables

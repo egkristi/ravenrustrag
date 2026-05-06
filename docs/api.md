@@ -5,13 +5,13 @@ RavenRustRAG includes an HTTP API server built with Axum.
 ## Starting the Server
 
 ```bash
-raven serve --port 8484
+ravenrag serve --port 8484
 ```
 
 With authentication:
 
 ```bash
-RAVEN_API_KEY=my-secret-key raven serve
+RAVEN_API_KEY=my-secret-key ravenrag serve
 ```
 
 ## Authentication
@@ -223,7 +223,7 @@ The server applies token-bucket rate limiting to prevent abuse. Default: 100 req
 Start the server in read-only mode to disable write endpoints (`/index`, `/documents`):
 
 ```bash
-raven serve --read-only
+ravenrag serve --read-only
 ```
 
 In this mode, `POST /index` and `DELETE /documents/:doc_id` return `403 Forbidden`.

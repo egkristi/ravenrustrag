@@ -22,12 +22,12 @@ Common issues and solutions when using RavenRustRAG.
 
 3. If using a non-default URL, pass `--url`:
    ```bash
-   raven query "test" --url http://my-host:11434
+   ravenrag query "test" --url http://my-host:11434
    ```
 
 4. Run diagnostics:
    ```bash
-   raven doctor
+   ravenrag doctor
    ```
 
 ### "Model not found"
@@ -48,7 +48,7 @@ Common issues and solutions when using RavenRustRAG.
 
 3. If using a different model, specify it:
    ```bash
-   raven index ./docs --model mxbai-embed-large
+   ravenrag index ./docs --model mxbai-embed-large
    ```
 
 ## Database Errors
@@ -79,22 +79,22 @@ Common issues and solutions when using RavenRustRAG.
 **Solution**: Use the same model for indexing and querying, or clear and re-index:
 
 ```bash
-raven clear
-raven index ./docs --model nomic-embed-text
-raven query "test" --model nomic-embed-text
+ravenrag clear
+ravenrag index ./docs --model nomic-embed-text
+ravenrag query "test" --model nomic-embed-text
 ```
 
 ## Indexing Issues
 
 ### "No documents found"
 
-**Symptoms**: `raven index` reports 0 documents.
+**Symptoms**: `ravenrag index` reports 0 documents.
 
 **Solutions**:
 
 1. Check file extensions match. Default is `txt,md`:
    ```bash
-   raven index ./docs --extensions md,txt,html,json
+   ravenrag index ./docs --extensions md,txt,html,json
    ```
 
 2. Verify the path contains files:
@@ -111,20 +111,20 @@ raven query "test" --model nomic-embed-text
 1. Check if file modification times are changing (backups, syncing tools)
 2. Clear and re-index from scratch:
    ```bash
-   raven clear && raven index ./docs
+   ravenrag clear && ravenrag index ./docs
    ```
 
 ## Server Issues
 
 ### "Address already in use"
 
-**Symptoms**: `raven serve` fails to bind.
+**Symptoms**: `ravenrag serve` fails to bind.
 
 **Solutions**:
 
 1. Use a different port:
    ```bash
-   raven serve --port 8485
+   ravenrag serve --port 8485
    ```
 
 2. Find and kill the existing process:
@@ -158,7 +158,7 @@ curl -H "Authorization: Bearer $RAVEN_API_KEY" http://localhost:8484/query \
 1. Check database size — very large indexes benefit from mmap (enabled by default)
 2. Reduce `top_k` if you don't need many results
 3. Avoid hybrid search if BM25 isn't needed for your use case
-4. Run `raven benchmark` to baseline your system
+4. Run `ravenrag benchmark` to baseline your system
 
 ## Docker Issues
 
@@ -189,7 +189,7 @@ docker run ghcr.io/egkristi/ravenrustrag:latest \
 
 ## Getting Help
 
-1. Run `raven doctor` for automated diagnostics
+1. Run `ravenrag doctor` for automated diagnostics
 2. Use `--verbose` flag for detailed logging
 3. Use `--json` for machine-parseable output
 4. Check [GitHub Issues](https://github.com/egkristi/ravenrustrag/issues)

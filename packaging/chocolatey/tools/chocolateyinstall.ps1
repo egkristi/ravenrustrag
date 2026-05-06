@@ -6,7 +6,7 @@ $checksum64 = '${SHA256_WINDOWS_AMD64}'
 $checksumType64 = 'sha256'
 
 $toolsDir = "$(Split-Path -Parent $MyInvocation.MyCommand.Definition)"
-$exePath = Join-Path $toolsDir 'raven.exe'
+$exePath = Join-Path $toolsDir 'ravenrag.exe'
 
 Get-ChocolateyWebFile -PackageName $packageName `
   -FileFullPath $exePath `
@@ -14,4 +14,4 @@ Get-ChocolateyWebFile -PackageName $packageName `
   -Checksum64 $checksum64 `
   -ChecksumType64 $checksumType64
 
-Install-BinFile -Name 'raven' -Path $exePath
+Install-BinFile -Name 'ravenrag' -Path $exePath

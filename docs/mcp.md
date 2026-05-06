@@ -5,7 +5,7 @@ RavenRustRAG includes an MCP (Model Context Protocol) server for integration wit
 ## Starting
 
 ```bash
-raven mcp --db ./raven.db
+ravenrag mcp --db ./raven.db
 ```
 
 The MCP server communicates over stdio using JSON-RPC 2.0.
@@ -16,7 +16,7 @@ Restrict which tools are exposed using `--filter`:
 
 ```bash
 # Only expose search and prompt tools (read-only access)
-raven mcp --filter search,get_prompt
+ravenrag mcp --filter search,get_prompt
 ```
 
 ## Configuration for Claude Desktop

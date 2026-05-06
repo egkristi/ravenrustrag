@@ -23,7 +23,7 @@ check() {
 
 package() {
     cd "ravenrustrag-${pkgver}"
-    install -Dm755 "target/release/raven" "${pkgdir}/usr/bin/raven"
+    install -Dm755 "target/release/ravenrag" "${pkgdir}/usr/bin/ravenrag"
     install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
     install -Dm644 "README.md" "${pkgdir}/usr/share/doc/${pkgname}/README.md"
 }

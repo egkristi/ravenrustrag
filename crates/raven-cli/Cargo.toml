@@ -12,7 +12,7 @@ keywords = ["cli", "rag", "search", "embedding", "ollama"]
 categories = ["command-line-utilities"]
 
 [[bin]]
-name = "raven"
+name = "ravenrag"
 path = "src/main.rs"
 
 [dependencies]
@@ -51,7 +51,7 @@ maintainer = "Erling Kristiansen <https://github.com/egkristi>"
 section = "utils"
 priority = "optional"
 assets = [
-    ["target/release/raven", "usr/bin/", "755"],
+    ["target/release/ravenrag", "usr/bin/ravenrag", "755"],
     ["../../README.md", "usr/share/doc/raven-rag/README.md", "644"],
 ]
 extended-description = "Local-first RAG engine — fast, safe, embeddable retrieval-augmented generation in Rust. Sub-millisecond vector search. Single static binary. No Python. No virtual environments."

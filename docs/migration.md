@@ -54,15 +54,15 @@ chunk_overlap = 50
 
 | Python | Rust | Notes |
 |--------|------|-------|
-| `ravenrag index <path>` | `raven index <path>` | Same |
-| `ravenrag query <text>` | `raven query <text>` | Same |
-| `ravenrag serve` | `raven serve` | Different default port (8484 vs 8000) |
-| `ravenrag collections list` | `raven info` | Simplified |
-| — | `raven watch <path>` | New: file watching |
-| — | `raven graph build` | New: knowledge graph |
-| — | `raven mcp` | New: MCP server |
-| — | `raven doctor` | New: diagnostics |
-| — | `raven benchmark` | New: benchmarking |
+| `ravenrag index <path>` | `ravenrag index <path>` | Same |
+| `ravenrag query <text>` | `ravenrag query <text>` | Same |
+| `ravenrag serve` | `ravenrag serve` | Different default port (8484 vs 8000) |
+| `ravenrag collections list` | `ravenrag info` | Simplified |
+| — | `ravenrag watch <path>` | New: file watching |
+| — | `ravenrag graph build` | New: knowledge graph |
+| — | `ravenrag mcp` | New: MCP server |
+| — | `ravenrag doctor` | New: diagnostics |
+| — | `ravenrag benchmark` | New: benchmarking |
 
 ### API Changes
 
@@ -120,15 +120,15 @@ chmod +x raven-linux-amd64 && mv raven-linux-amd64 /usr/local/bin/raven
 Since the storage backends are incompatible (ChromaDB vs SQLite), re-index from source:
 
 ```bash
-raven index ./your-documents/ --extensions md,txt,html
+ravenrag index ./your-documents/ --extensions md,txt,html
 ```
 
 ### 4. Verify
 
 ```bash
-raven info
-raven query "test query from your domain"
-raven doctor
+ravenrag info
+ravenrag query "test query from your domain"
+ravenrag doctor
 ```
 
 ### 5. Update Integrations
@@ -142,7 +142,7 @@ raven doctor
 After migration, run benchmarks to verify improvements:
 
 ```bash
-raven benchmark --num-docs 500 --iterations 100
+ravenrag benchmark --num-docs 500 --iterations 100
 ```
 
 Typical improvements observed:

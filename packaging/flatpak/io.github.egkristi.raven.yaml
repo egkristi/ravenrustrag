@@ -4,7 +4,7 @@ runtime-version: '23.08'
 sdk: org.freedesktop.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
-command: raven
+command: ravenrag
 
 finish-args:
   - --share=network
@@ -18,7 +18,7 @@ modules:
     buildsystem: simple
     build-commands:
       - cargo build --release --locked
-      - install -Dm755 target/release/raven /app/bin/raven
+      - install -Dm755 target/release/ravenrag /app/bin/ravenrag
     sources:
       - type: archive
         url: https://github.com/egkristi/ravenrustrag/archive/v${VERSION}.tar.gz

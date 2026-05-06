@@ -72,7 +72,7 @@ Recommended models:
 Uses the OpenAI embeddings API. Requires `OPENAI_API_KEY` environment variable.
 
 ```bash
-raven index ./docs --backend openai --model text-embedding-3-small
+ravenrag index ./docs --backend openai --model text-embedding-3-small
 ```
 
 ## Database

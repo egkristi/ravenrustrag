@@ -149,47 +149,47 @@ cargo build --release
 
 ```bash
 # Index your documents
-raven index ./docs --db ./raven.db
+ravenrag index ./docs --db ./raven.db
 
 # Query
-raven query "What is retrieval-augmented generation?"
+ravenrag query "What is retrieval-augmented generation?"
 
 # Hybrid search
-raven query "auth flow" --hybrid -k 10
+ravenrag query "auth flow" --hybrid -k 10
 
 # Get LLM-ready prompt
-raven prompt "Explain RAG" -k 3
+ravenrag prompt "Explain RAG" -k 3
 
 # Start API server
-raven serve --port 8484
+ravenrag serve --port 8484
 
 # Watch and auto-reindex
-raven watch ./docs --extensions md,txt
+ravenrag watch ./docs --extensions md,txt
 
 # Export/import
-raven export -o backup.jsonl
-raven import backup.jsonl
+ravenrag export -o backup.jsonl
+ravenrag import backup.jsonl
 
 # Diagnostics
-raven doctor
+ravenrag doctor
 
 # MCP server (for Claude, Copilot, Cursor)
-raven mcp
+ravenrag mcp
 
 # MCP with restricted tools
-raven mcp --filter search,get_prompt
+ravenrag mcp --filter search,get_prompt
 
 # Ask a question (RAG + LLM)
-raven ask "What is RAG?"
+ravenrag ask "What is RAG?"
 
 # Create a database backup
-raven backup ./raven-backup.db
+ravenrag backup ./raven-backup.db
 
 # Query with detailed scoring
-raven query "auth" --explain
+ravenrag query "auth" --explain
 
 # Show index stats
-raven info
+ravenrag info
 ```
 
 ## Architecture
@@ -420,7 +420,7 @@ cargo build --release --features onnx
 Expose RavenRustRAG as a Model Context Protocol server for AI assistants:
 
 ```bash
-raven mcp
+ravenrag mcp
 ```
 
 **Capabilities:**
@@ -433,7 +433,7 @@ raven mcp
 
 Use `--filter` to expose only specific tools:
 ```bash
-raven mcp --filter search,get_prompt
+ravenrag mcp --filter search,get_prompt
 ```
 
 Works with Claude Desktop, GitHub Copilot, Cursor, and any MCP-compatible client.

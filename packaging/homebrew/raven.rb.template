@@ -1,4 +1,4 @@
-class Raven < Formula
+class Ravenrag < Formula
   desc "Local-first RAG engine — fast, safe, embeddable retrieval-augmented generation in Rust"
   homepage "https://github.com/egkristi/ravenrustrag"
   license "AGPL-3.0-or-later"
@@ -25,11 +25,11 @@ class Raven < Formula
   end
 
   def install
-    binary = Dir["raven-*"].first || "raven"
-    bin.install binary => "raven"
+    binary = Dir["raven-*"].first || "ravenrag"
+    bin.install binary => "ravenrag"
   end
 
   test do
-    assert_match "raven", shell_output("#{bin}/raven --version")
+    assert_match "ravenrag", shell_output("#{bin}/ravenrag --version")
   end
 end

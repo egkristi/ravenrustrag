@@ -19,7 +19,7 @@
       in
       {
         packages.default = pkgs.rustPlatform.buildRustPackage {
-          pname = "raven";
+          pname = "ravenrag";
           version = "1.0.0";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
@@ -37,7 +37,7 @@
             description = "Local-first RAG engine — fast, safe, embeddable retrieval-augmented generation in Rust";
             homepage = "https://github.com/egkristi/ravenrustrag";
             license = licenses.agpl3Plus;
-            mainProgram = "raven";
+            mainProgram = "ravenrag";
           };
         };
 

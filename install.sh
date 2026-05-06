@@ -4,7 +4,7 @@
 set -e
 
 REPO="egkristi/ravenrustrag"
-BINARY="raven"
+BINARY="ravenrag"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
 # Detect OS and architecture

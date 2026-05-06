@@ -16,7 +16,7 @@ use std::sync::Arc;
 use tracing::{info, warn};
 
 #[derive(Parser)]
-#[command(name = "raven")]
+#[command(name = "ravenrag")]
 #[command(about = "RavenRustRAG — Fearlessly fast retrieval.")]
 #[command(version = env!("CARGO_PKG_VERSION"))]
 struct Cli {
@@ -1392,7 +1392,7 @@ async fn main() -> Result<()> {
 
         Commands::Completions { shell } => {
             let mut cmd = Cli::command();
-            clap_complete::generate(shell, &mut cmd, "raven", &mut std::io::stdout());
+            clap_complete::generate(shell, &mut cmd, "ravenrag", &mut std::io::stdout());
         }
 
         Commands::Init { output, force } => {

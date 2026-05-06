@@ -53,10 +53,10 @@ When indexing a directory, use `--extensions` to limit which files are processed
 
 ```bash
 # Only index markdown and text files
-raven index ./docs --extensions md,txt
+ravenrag index ./docs --extensions md,txt
 
 # Include HTML files
-raven index ./web --extensions html,md,txt
+ravenrag index ./web --extensions html,md,txt
 ```
 
 The default extensions are `txt,md`.

@@ -11,23 +11,23 @@ This project follows [Semantic Versioning](https://semver.org/).
 All development phases are complete. RavenRustRAG is functionally superior to the Python RavenRAG v0.7.0.
 
 **Phase 4 — Polish & Release:**
-Publishing (crates.io metadata, publish workflow, Homebrew formula, AUR PKGBUILD, MCP marketplace listing), Quality (80%+ test coverage, Codecov badge, CLI integration tests, HTTP server integration tests, verified benchmarks), Architecture (top-level library crate with builder API), CLI (`raven init`, `raven diff`), Robustness (embeddings versioning, `--read-only` mode, MCP JSON Schema validation), Performance (HNSW index replacing O(n) scan), API Stability (stable public API surface, ONNX MSRV split, v1.0 release).
+Publishing (crates.io metadata, publish workflow, Homebrew formula, AUR PKGBUILD, MCP marketplace listing), Quality (80%+ test coverage, Codecov badge, CLI integration tests, HTTP server integration tests, verified benchmarks), Architecture (top-level library crate with builder API), CLI (`ravenrag init`, `ravenrag diff`), Robustness (embeddings versioning, `--read-only` mode, MCP JSON Schema validation), Performance (HNSW index replacing O(n) scan), API Stability (stable public API surface, ONNX MSRV split, v1.0 release).
 
 **Phase 5 — Advanced Features:**
-LLM Generation (`POST /ask` with SSE streaming citations), ONNX Runtime (local embedding, cross-encoder reranking, quantized model support), MCP (resources capability, prompts capability, `--filter` scoping), CLI (`--explain` scoring, `raven backup`), Advanced (incremental BM25, async SQLite, binary/quantized embedding storage, WebSocket streaming, config hot-reload, plugin system).
+LLM Generation (`POST /ask` with SSE streaming citations), ONNX Runtime (local embedding, cross-encoder reranking, quantized model support), MCP (resources capability, prompts capability, `--filter` scoping), CLI (`--explain` scoring, `ravenrag backup`), Advanced (incremental BM25, async SQLite, binary/quantized embedding storage, WebSocket streaming, config hot-reload, plugin system).
 
 **Phase 6 — Distribution & Packaging:**
 Windows (winget, Chocolatey, Scoop, portable ZIP), macOS (Homebrew), Linux (APT/deb, RPM, AUR, Zypper, APK, Snap, Flatpak, Nix, AppImage, static musl binary), Cross-platform (crates.io, GitHub Releases, Docker multi-arch, OCI, Helm chart, curl install script).
 
 ### Added
 - `POST /ask` SSE streaming citations with typed events: source, token, error, done
-- `raven serve --read-only` mode for production deployments
+- `ravenrag serve --read-only` mode for production deployments
 - MCP resources/list + resources/read capabilities (raven://index/stats)
 - MCP prompts/list + prompts/get capabilities (rag_answer, summarize_index)
-- `raven mcp --filter <expr>` to restrict exposed tools
+- `ravenrag mcp --filter <expr>` to restrict exposed tools
 - MCP JSON Schema constraints on tools/list (additionalProperties, min/max bounds)
-- `raven query --explain` for detailed scoring breakdown
-- `raven backup <file>` via SQLite backup API
+- `ravenrag query --explain` for detailed scoring breakdown
+- `ravenrag backup <file>` via SQLite backup API
 - Embeddings versioning — model + dimensions stored, dimension mismatch rejected
 - HNSW index auto-rebuilds at store open, eliminates O(n) flat scan (#79)
 - Stable public API surface via ravenrustrag crate re-exports (#83)
@@ -37,12 +37,12 @@ Windows (winget, Chocolatey, Scoop, portable ZIP), macOS (Homebrew), Linux (APT/
 - HttpEmbedder for custom embedding backends via generic HTTP API (plugin system) (#77)
 - WebSocket endpoint `/ws` for real-time streaming search and prompt (#76)
 - 37 new tests across all crates, including Unicode edge cases (#53)
-- `raven diff` command to show changes since last index (#78)
-- `raven ask` command for local LLM question-answering via Ollama (#63)
+- `ravenrag diff` command to show changes since last index (#78)
+- `ravenrag ask` command for local LLM question-answering via Ollama (#63)
 - Generator trait and OllamaGenerator for LLM text generation with streaming
-- `raven completions` command for shell completion generation (bash, zsh, fish, elvish, PowerShell) (#62)
-- `raven status` command for rich index health dashboard (#74)
-- `--dry-run` mode for `raven index` (#71)
+- `ravenrag completions` command for shell completion generation (bash, zsh, fish, elvish, PowerShell) (#62)
+- `ravenrag status` command for rich index health dashboard (#74)
+- `--dry-run` mode for `ravenrag index` (#71)
 - Colored CLI output with term highlighting (#73)
 - Schema migration system with versioned upgrades for SqliteStore (#60)
 - Property-based tests with proptest for core, split, and search crates (#58)
@@ -55,7 +55,7 @@ Windows (winget, Chocolatey, Scoop, portable ZIP), macOS (Homebrew), Linux (APT/
 
 ### Fixed
 - Unicode text splitter bug where multi-byte chars at chunk boundaries produced empty chunks (#53)
-- `raven diff` macOS path canonicalization issue with `/var/folders` vs `/private/var/folders` (#78)
+- `ravenrag diff` macOS path canonicalization issue with `/var/folders` vs `/private/var/folders` (#78)
 - mdBook + MkDocs documentation site
 - HNSW integration in SqliteStore for O(log n) vector search (#64)
 - `VectorStore::get_by_doc_id()` for efficient parent-child retrieval (#65)
@@ -66,7 +66,7 @@ Windows (winget, Chocolatey, Scoop, portable ZIP), macOS (Homebrew), Linux (APT/
 - DashMap lock-free embedding cache (#47)
 - Memory-mapped I/O for SQLite (256 MB mmap) (#48)
 - CI concurrency groups to prevent queue flooding (#46)
-- Knowledge graph CLI commands (`raven graph build`, `raven graph query`) (#45)
+- Knowledge graph CLI commands (`ravenrag graph build`, `ravenrag graph query`) (#45)
 - Multi-target release binaries (linux-amd64, linux-musl, linux-arm64, darwin-amd64, darwin-arm64) (#54)
 - GitHub Actions CI with fmt, clippy, test, MSRV, bench stages
 - Docker workflow with GHCR publishing

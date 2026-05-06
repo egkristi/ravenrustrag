@@ -19,8 +19,8 @@ architectures:
   - build-on: [arm64]
 
 apps:
-  raven:
-    command: bin/raven
+  ravenrag:
+    command: bin/ravenrag
     plugs:
       - home
       - network

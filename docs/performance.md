@@ -13,7 +13,7 @@ RavenRustRAG uses a lock-free in-memory embedding cache (DashMap) that avoids re
 Cache stats are available via:
 
 ```bash
-raven info --verbose
+ravenrag info --verbose
 ```
 
 ## SQLite Optimizations
@@ -72,7 +72,7 @@ BM25 search adds minimal overhead since terms are pre-computed during indexing. 
 Use the built-in benchmark command to measure your system's performance:
 
 ```bash
-raven benchmark --num-docs 1000 --iterations 100
+ravenrag benchmark --num-docs 1000 --iterations 100
 ```
 
 This generates synthetic documents, indexes them, and measures query latency percentiles.

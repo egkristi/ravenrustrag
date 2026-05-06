@@ -3,7 +3,7 @@ use predicates::prelude::*;
 use std::io::Write;
 
 fn raven() -> Command {
-    Command::cargo_bin("raven").expect("binary exists")
+    Command::cargo_bin("ravenrag").expect("binary exists")
 }
 
 // ---------------------------------------------------------------------------

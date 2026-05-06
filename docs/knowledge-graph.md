@@ -14,7 +14,7 @@ The knowledge graph extracts entities (proper nouns, technical terms) from chunk
 
 ```bash
 # Build from indexed documents
-raven graph build --db ./raven.db --output ./raven-graph.json
+ravenrag graph build --db ./raven.db --output ./raven-graph.json
 ```
 
 The graph is serialized as JSON and can be rebuilt at any time from the indexed chunks.
@@ -22,7 +22,7 @@ The graph is serialized as JSON and can be rebuilt at any time from the indexed 
 ## Querying the Graph
 
 ```bash
-raven graph query "Rust async runtime" --max-hops 2 --top-k 5
+ravenrag graph query "Rust async runtime" --max-hops 2 --top-k 5
 ```
 
 This:
