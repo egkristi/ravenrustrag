@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778049322804,
+  "lastUpdate": 1778099299885,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -3167,6 +3167,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 116178,
             "range": "± 797",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "875f0335a04c5105c3a5fb33b3a8a222284c6e14",
+          "message": "feat: rename binary from raven to ravenrag\n\nAvoids naming conflicts with other tools. The installed command\nis now 'ravenrag' across all platforms (brew, scoop, chocolatey,\nsnap, flatpak, AUR, nix, AppImage, Docker).\n\nRelease asset filenames remain unchanged (raven-darwin-arm64 etc.)\nbut all installers map to the 'ravenrag' command name.",
+          "timestamp": "2026-05-06T22:22:15+02:00",
+          "tree_id": "723ca51140ce2b2368961c0a0c32cbb6afeba081",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/875f0335a04c5105c3a5fb33b3a8a222284c6e14"
+        },
+        "date": 1778099299165,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 92,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 517,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1028,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 59058,
+            "range": "± 584",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 654579,
+            "range": "± 2378",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 97435,
+            "range": "± 2827",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 38623,
+            "range": "± 290",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 83676,
+            "range": "± 256",
             "unit": "ns/iter"
           }
         ]
