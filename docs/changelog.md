@@ -4,7 +4,20 @@ All notable changes to RavenRustRAG are documented here.
 
 This project follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.0] — 2026-05-05
+
+### Completed Phases
+
+All development phases are complete. RavenRustRAG is functionally superior to the Python RavenRAG v0.7.0.
+
+**Phase 4 — Polish & Release:**
+Publishing (crates.io metadata, publish workflow, Homebrew formula, AUR PKGBUILD, MCP marketplace listing), Quality (80%+ test coverage, Codecov badge, CLI integration tests, HTTP server integration tests, verified benchmarks), Architecture (top-level library crate with builder API), CLI (`raven init`, `raven diff`), Robustness (embeddings versioning, `--read-only` mode, MCP JSON Schema validation), Performance (HNSW index replacing O(n) scan), API Stability (stable public API surface, ONNX MSRV split, v1.0 release).
+
+**Phase 5 — Advanced Features:**
+LLM Generation (`POST /ask` with SSE streaming citations), ONNX Runtime (local embedding, cross-encoder reranking, quantized model support), MCP (resources capability, prompts capability, `--filter` scoping), CLI (`--explain` scoring, `raven backup`), Advanced (incremental BM25, async SQLite, binary/quantized embedding storage, WebSocket streaming, config hot-reload, plugin system).
+
+**Phase 6 — Distribution & Packaging:**
+Windows (winget, Chocolatey, Scoop, portable ZIP), macOS (Homebrew), Linux (APT/deb, RPM, AUR, Zypper, APK, Snap, Flatpak, Nix, AppImage, static musl binary), Cross-platform (crates.io, GitHub Releases, Docker multi-arch, OCI, Helm chart, curl install script).
 
 ### Added
 - `POST /ask` SSE streaming citations with typed events: source, token, error, done
@@ -104,5 +117,5 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Pre-commit hooks (fmt, clippy, test)
 - Docker multi-stage build (Alpine builder, scratch runtime)
 
-[Unreleased]: https://github.com/egkristi/ravenrustrag/compare/v0.1.0-alpha.1...HEAD
+[1.0.0]: https://github.com/egkristi/ravenrustrag/compare/v0.1.0-alpha.1...v1.0.0
 [0.1.0-alpha.1]: https://github.com/egkristi/ravenrustrag/releases/tag/v0.1.0-alpha.1
