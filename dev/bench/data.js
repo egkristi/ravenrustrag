@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778044953175,
+  "lastUpdate": 1778045991963,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -2951,6 +2951,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 115551,
             "range": "± 403",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "f8b17e21e3e9eb4077442500e0867853fd18dce8",
+          "message": "docs: move completed items from PLAN.md to changelog, simplify roadmap",
+          "timestamp": "2026-05-06T07:35:24+02:00",
+          "tree_id": "6c78baa38bc88879e860e9944f69a397aeee7911",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/f8b17e21e3e9eb4077442500e0867853fd18dce8"
+        },
+        "date": 1778045991586,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 100,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 557,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1107,
+            "range": "± 15",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 54418,
+            "range": "± 379",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 580811,
+            "range": "± 2376",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 97388,
+            "range": "± 364",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39288,
+            "range": "± 116",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 113756,
+            "range": "± 531",
             "unit": "ns/iter"
           }
         ]
