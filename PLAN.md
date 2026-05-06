@@ -12,8 +12,13 @@ For completed work history, see [docs/changelog.md](docs/changelog.md).
 | Issue | Title | Priority | Status |
 |---|---|---|---|
 | [#92](https://github.com/egkristi/ravenrustrag/issues/92) | Configure repository secrets for automated publishing | Medium | Open |
-| [#94](https://github.com/egkristi/ravenrustrag/issues/94) | Initial winget-pkgs submission | Medium | Done (merged [#95](https://github.com/egkristi/ravenrustrag/pull/95)) |
-| [#87](https://github.com/egkristi/ravenrustrag/issues/87) | MCP marketplace listing | Low | Done (merged [#93](https://github.com/egkristi/ravenrustrag/pull/93)) |
+
+### Recently Closed
+
+| Issue | Title | Resolution |
+|---|---|---|
+| [#94](https://github.com/egkristi/ravenrustrag/issues/94) | Initial winget-pkgs submission | Merged [#95](https://github.com/egkristi/ravenrustrag/pull/95) |
+| [#87](https://github.com/egkristi/ravenrustrag/issues/87) | MCP marketplace listing | Merged [#93](https://github.com/egkristi/ravenrustrag/pull/93) |
 
 ---
 
@@ -149,5 +154,5 @@ All platforms should have native package manager support for frictionless instal
 
 ---
 
-**Last updated:** 2026-05-05
-**Next milestone:** Phase 6 secrets configuration — add API tokens to enable automated publishing
+**Last updated:** 2026-05-06
+**Next milestone:** Configure repository secrets (#92) to enable automated publishing to crates.io, winget, Homebrew, AUR, Chocolatey, and Snap
