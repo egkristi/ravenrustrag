@@ -280,15 +280,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## Docker
 
 ```bash
-# Static binary — tiny image (~20MB vs Python's ~1.5GB)
+# Available tags:
+#   latest           — most recent release
+#   1.0.2            — specific version
+#   1.0              — latest patch in 1.0.x
+#   sha-aa5b66d      — specific commit
 docker pull ghcr.io/egkristi/ravenrustrag:latest
+docker pull ghcr.io/egkristi/ravenrustrag:1.0.2
+docker pull ghcr.io/egkristi/ravenrustrag:sha-aa5b66d
 
 # Run with persistent data
 docker run -d \
   --name ravenrag \
   -p 8484:8484 \
   -v raven-data:/data \
-  ghcr.io/egkristi/ravenrustrag:latest
+  ghcr.io/egkristi/ravenrustrag:1.0.2
 
 # With API key
 docker run -d \
