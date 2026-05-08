@@ -2670,7 +2670,7 @@ checksum = "973443cf09a9c8656b574a866ab68dfa19f0867d0340648c7d2f6a71b8a8ea68"
 
 [[package]]
 name = "raven-cli"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -2700,7 +2700,7 @@ dependencies = [
 
 [[package]]
 name = "raven-core"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "chrono",
  "criterion",
@@ -2716,7 +2716,7 @@ dependencies = [
 
 [[package]]
 name = "raven-embed"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "async-trait",
  "moka",
@@ -2734,7 +2734,7 @@ dependencies = [
 
 [[package]]
 name = "raven-load"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "pdf-extract",
  "raven-core",
@@ -2749,7 +2749,7 @@ dependencies = [
 
 [[package]]
 name = "raven-mcp"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "raven-core",
  "raven-embed",
@@ -2764,7 +2764,7 @@ dependencies = [
 
 [[package]]
 name = "raven-search"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "async-trait",
  "criterion",
@@ -2787,7 +2787,7 @@ dependencies = [
 
 [[package]]
 name = "raven-server"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "axum 0.7.9",
  "futures-util",
@@ -2815,7 +2815,7 @@ dependencies = [
 
 [[package]]
 name = "raven-split"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "proptest",
  "raven-core",
@@ -2823,7 +2823,7 @@ dependencies = [
 
 [[package]]
 name = "raven-store"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2841,7 +2841,7 @@ dependencies = [
 
 [[package]]
 name = "ravenrustrag"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "raven-core",
  "raven-embed",
