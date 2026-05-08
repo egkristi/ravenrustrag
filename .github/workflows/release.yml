@@ -170,7 +170,7 @@ jobs:
               packaging/homebrew/raven.rb.template > ravenrag.rb
       - name: Push to homebrew-tap
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           git clone https://x-access-token:${GH_TOKEN}@github.com/egkristi/homebrew-tap.git tap
           cp ravenrag.rb tap/Formula/ravenrag.rb
