@@ -38,7 +38,8 @@ Sub-millisecond vector search. 10 crates, 266 tests, ~14k lines. No Python. No v
 | **CLI** | 20 commands: index, query, ask, prompt, serve, watch, backup, mcp, doctor, benchmark, graph, etc. |
 | **HTTP API** | Axum server with auth, CORS, rate limit, timeout, body limit, OpenAPI |
 | **MCP server** | Model Context Protocol for Claude, Copilot, Cursor (tools + resources + prompts) |
-| **Embedding backends** | Ollama, OpenAI-compatible, ONNX Runtime (local, behind `onnx` feature) |
+| **Embedding backends** | Ollama, vLLM, LiteLLM, OpenAI-compatible, ONNX Runtime (local, behind `onnx` feature) |
+| **LLM generation** | Ollama, vLLM, LiteLLM, OpenAI Chat Completions — streaming supported |
 | **Watch mode** | Auto-reindex on file changes with debounce and delete tracking |
 | **Streaming** | `query_stream()` yields results via async channel |
 | **Incremental indexing** | SHA-256 fingerprinting, skip unchanged files |
@@ -317,7 +318,7 @@ Create `raven.toml` in your project root:
 
 ```toml
 [embedder]
-backend = "ollama"           # "ollama" or "openai"
+backend = "ollama"           # "ollama", "openai", "vllm", "litellm", "http"
 model = "nomic-embed-text"
 url = "http://localhost:11434"
 
@@ -405,7 +406,25 @@ model = "nomic-embed-text"
 url = "http://localhost:11434"
 ```
 
-### OpenAI-compatible (OpenAI, LM Studio, LocalAI, vLLM)
+### vLLM
+
+```toml
+[embedder]
+backend = "vllm"
+model = "nomic-embed-text"
+url = "http://localhost:8000/v1"
+```
+
+### LiteLLM
+
+```toml
+[embedder]
+backend = "litellm"
+model = "nomic-embed-text"
+url = "http://localhost:4000/v1"
+```
+
+### OpenAI-compatible (OpenAI, LM Studio, LocalAI)
 
 ```toml
 [embedder]
@@ -426,6 +445,27 @@ cargo build --release --features onnx
 
 > **Note:** The `onnx` feature requires the ONNX Runtime and is optional.
 > All features (including `onnx`) work on Rust 1.88+.
+
+## LLM Generation Backends
+
+The `ravenrag ask` command and `/ask` API endpoint use a text generation backend for RAG Q&A. Supported backends:
+
+| Backend | Default URL | Use case |
+|---------|------------|----------|
+| `ollama` | `http://localhost:11434` | Ollama (default) |
+| `vllm` | `http://localhost:8000/v1` | vLLM server |
+| `litellm` | `http://localhost:4000/v1` | LiteLLM proxy (100+ models) |
+| `openai` | `https://api.openai.com/v1` | OpenAI API / any OpenAI-compatible server |
+
+All non-Ollama backends use the OpenAI Chat Completions API (`/v1/chat/completions`) with streaming support.
+
+```bash
+# Use vLLM for generation
+RAVEN_EMBED_BACKEND=vllm RAVEN_EMBED_URL=http://localhost:8000/v1 ravenrag ask "What is RAG?"
+
+# Use LiteLLM proxy
+RAVEN_EMBED_BACKEND=litellm RAVEN_EMBED_URL=http://localhost:4000/v1 ravenrag ask "Explain embeddings"
+```
 
 ## MCP Server
 
@@ -546,5 +586,4 @@ Dual licensed: [AGPLv3](LICENSES/AGPLv3.txt) + [Commercial](LICENSES/COMMERCIAL.
 
 ---
 
-Built with 🦀 by [Erling Kristiansen](https://github.com/egkristi).  
-Successor to [RavenRAG](https://github.com/egkristi/ravenrag) (Python) — same vision, 100x the speed.
+Built with 🦀 by [Erling Kristiansen](https://github.com/egkristi).
