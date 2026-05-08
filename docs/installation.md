@@ -1,21 +1,31 @@
 # Installation
 
-## From GitHub Releases (recommended)
+## Homebrew (macOS — recommended)
+
+```bash
+brew tap egkristi/tap
+brew install ravenrag
+
+# Or install directly without tapping:
+brew install egkristi/tap/ravenrag
+```
+
+## From GitHub Releases
 
 Download the latest pre-built binary from [GitHub Releases](https://github.com/egkristi/ravenrustrag/releases):
 
 ```bash
 # Linux (glibc)
 curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/raven-linux-amd64
-chmod +x raven-linux-amd64 && mv raven-linux-amd64 /usr/local/bin/raven
+chmod +x raven-linux-amd64 && mv raven-linux-amd64 /usr/local/bin/ravenrag
 
 # Linux (musl, fully static)
 curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/raven-linux-amd64-musl
-chmod +x raven-linux-amd64-musl && mv raven-linux-amd64-musl /usr/local/bin/raven
+chmod +x raven-linux-amd64-musl && mv raven-linux-amd64-musl /usr/local/bin/ravenrag
 
 # macOS (Apple Silicon)
 curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/raven-darwin-arm64
-chmod +x raven-darwin-arm64 && mv raven-darwin-arm64 /usr/local/bin/raven
+chmod +x raven-darwin-arm64 && mv raven-darwin-arm64 /usr/local/bin/ravenrag
 ```
 
 ## From Source
@@ -26,14 +36,21 @@ Requires Rust 1.88+ (MSRV):
 git clone https://github.com/egkristi/ravenrustrag.git
 cd ravenrustrag
 cargo build --release
-# Binary at target/release/raven
+# Binary at target/release/ravenrag
 ```
 
 ## Docker
 
 ```bash
+# Available tags:
+#   latest           — most recent release
+#   1.0.2            — specific version
+#   1.0              — latest patch in 1.0.x
+#   sha-aa5b66d      — specific commit
 docker pull ghcr.io/egkristi/ravenrustrag:latest
-docker run --rm -v ./data:/data ghcr.io/egkristi/ravenrustrag:latest --help
+docker pull ghcr.io/egkristi/ravenrustrag:1.0.2
+
+docker run --rm -v ./data:/data ghcr.io/egkristi/ravenrustrag:1.0.2 --help
 ```
 
 ## Prerequisites
