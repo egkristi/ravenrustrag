@@ -13,7 +13,7 @@ This directory contains the configuration for listing RavenRustRAG in the [MCP R
 - **Server name:** `io.github.egkristi/ravenrustrag`
 - **Package type:** Docker/OCI image
 - **Registry:** GitHub Container Registry (`ghcr.io`)
-- **Image:** `ghcr.io/egkristi/ravenrustrag:1.0.0`
+- **Image:** `ghcr.io/egkristi/ravenrustrag:latest`
 
 ## Tools Exposed
 
@@ -35,7 +35,7 @@ RavenRustRAG exposes the following MCP tools:
 
 ## Publishing Checklist
 
-1. ✅ Ensure Docker image is built and pushed to `ghcr.io/egkristi/ravenrustrag:1.0.0`
+1. Ensure Docker image is built and pushed to `ghcr.io/egkristi/ravenrustrag:latest`
 2. ✅ Verify `server.json` has correct `$schema` and `name`
 3. ✅ Verify Dockerfile has `LABEL io.modelcontextprotocol.server.name="io.github.egkristi/ravenrustrag"`
 4. ✅ Submit PR to [modelcontextprotocol/registry](https://github.com/modelcontextprotocol/registry) adding `server.json` to the registry

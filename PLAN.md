@@ -1,6 +1,6 @@
 # RavenRustRAG — Roadmap
 
-> **Status:** v1.0.0 released — All phases complete
+> **Status:** v1.0.2 released — All phases complete
 > **Goal:** Functionally superior to the Python version (RavenRAG v0.7.0) with orders-of-magnitude better performance.
 
 For completed work history, see [docs/changelog.md](docs/changelog.md).

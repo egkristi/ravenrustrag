@@ -3,7 +3,7 @@ name: ravenrustrag
 description: Local-first RAG engine — fast, safe, embeddable retrieval-augmented generation
 type: application
 version: 0.1.0
-appVersion: "1.0.0"
+appVersion: "1.0.2"
 home: https://github.com/egkristi/ravenrustrag
 sources:
   - https://github.com/egkristi/ravenrustrag

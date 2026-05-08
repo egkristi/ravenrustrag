@@ -2,12 +2,12 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.egkristi/ravenrustrag",
   "title": "RavenRustRAG",
-  "description": "High-performance Retrieval-Augmented Generation (RAG) server with vector search, document indexing, and LLM-ready prompts. Supports document splitting, multiple embedding backends (Ollama/OpenAI), and SQLite/ChromaDB storage.",
-  "version": "1.0.0",
+  "description": "High-performance Retrieval-Augmented Generation (RAG) server with vector search, document indexing, and LLM-ready prompts. Supports document splitting, multiple embedding backends (Ollama/OpenAI/ONNX), and SQLite storage.",
+  "version": "1.0.2",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/egkristi/ravenrustrag:1.0.0",
+      "identifier": "ghcr.io/egkristi/ravenrustrag:latest",
       "transport": {
         "type": "stdio"
       }
