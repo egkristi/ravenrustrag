@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778234365055,
+  "lastUpdate": 1778236785350,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -4031,6 +4031,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 113373,
             "range": "± 709",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "b0651ecb30b6fc8ef974f5a698ff9a1211506dd9",
+          "message": "docs: document vLLM, LiteLLM, OpenAI generation backends in README",
+          "timestamp": "2026-05-08T12:33:34+02:00",
+          "tree_id": "642a2dfd29a9e800acfedf7f530c1088f72d6516",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/b0651ecb30b6fc8ef974f5a698ff9a1211506dd9"
+        },
+        "date": 1778236784751,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 100,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 558,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1107,
+            "range": "± 18",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 54025,
+            "range": "± 738",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 578950,
+            "range": "± 38480",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 94956,
+            "range": "± 426",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 39772,
+            "range": "± 114",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 113319,
+            "range": "± 700",
             "unit": "ns/iter"
           }
         ]
