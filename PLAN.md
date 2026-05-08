@@ -47,7 +47,7 @@ These packaging formats are ready but require secrets or account setup ([#92](ht
 |---|---|---|
 | crates.io | Workflow ready | `CARGO_REGISTRY_TOKEN` secret |
 | winget | Manifest + workflow ready | `WINGET_TOKEN` secret + initial winget-pkgs PR |
-| Homebrew | **Live** (`brew install egkristi/tap/raven`) | — |
+| Homebrew | **Live** (`brew install egkristi/tap/ravenrag`) | — |
 | AUR | PKGBUILD ready | AUR account + initial submission |
 | Chocolatey | Package ready | Chocolatey API key |
 | Snap Store | snapcraft.yaml ready | Snapcraft account |
@@ -64,5 +64,5 @@ These packaging formats are ready but require secrets or account setup ([#92](ht
 
 ---
 
-**Last updated:** 2026-05-06
+**Last updated:** 2026-05-08
 **Next milestone:** Configure repository secrets (#92) to enable automated publishing

@@ -58,43 +58,43 @@ Sub-millisecond vector search. Single static binary. No Python. No virtual envir
 
 ```powershell
 # winget (recommended)
-winget install egkristi.raven
+winget install egkristi.ravenrag
 
 # Scoop
-scoop bucket add raven https://github.com/egkristi/scoop-raven
-scoop install raven
+scoop bucket add ravenrag https://github.com/egkristi/scoop-ravenrag
+scoop install ravenrag
 
 # Chocolatey
-choco install raven-rag
+choco install ravenrag
 ```
 
 **macOS:**
 
 ```bash
 # Homebrew (recommended)
-brew install egkristi/tap/raven
+brew install egkristi/tap/ravenrag
 ```
 
 **Linux:**
 
 ```bash
 # Debian / Ubuntu (.deb)
-curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/raven-rag_1.0.0_amd64.deb
-sudo dpkg -i raven-rag_1.0.0_amd64.deb
+curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/ravenrag_amd64.deb
+sudo dpkg -i ravenrag_amd64.deb
 
 # Fedora / RHEL (.rpm)
-curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/raven-rag-1.0.0.amd64.rpm
-sudo rpm -i raven-rag-1.0.0.amd64.rpm
+curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/ravenrag.amd64.rpm
+sudo rpm -i ravenrag.amd64.rpm
 
 # Arch Linux (AUR)
-yay -S raven-rag
+yay -S ravenrag
 
 # Alpine Linux (.apk)
-curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/raven-rag_1.0.0_amd64.apk
-sudo apk add --allow-untrusted raven-rag_1.0.0_amd64.apk
+curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/ravenrag_amd64.apk
+sudo apk add --allow-untrusted ravenrag_amd64.apk
 
 # Snap
-sudo snap install raven-rag
+sudo snap install ravenrag
 ```
 
 **Cross-platform:**
@@ -110,10 +110,10 @@ curl -sSf https://raw.githubusercontent.com/egkristi/ravenrustrag/main/install.s
 nix run github:egkristi/ravenrustrag
 
 # Docker
-docker run --rm -v "$PWD:/data" ghcr.io/egkristi/ravenrustrag:main query "search term"
+docker run --rm -v "$PWD:/data" ghcr.io/egkristi/ravenrustrag:latest query "search term"
 
 # Helm (Kubernetes)
-helm install raven ./charts/ravenrustrag
+helm install ravenrag ./charts/ravenrustrag
 ```
 
 ### Download pre-built binary
@@ -134,7 +134,7 @@ Pre-built binaries are available for every release on the [GitHub Releases](http
 # Linux / macOS (replace URL with latest release)
 curl -LO https://github.com/egkristi/ravenrustrag/releases/latest/download/raven-linux-amd64
 chmod +x raven-linux-amd64
-sudo mv raven-linux-amd64 /usr/local/bin/raven
+sudo mv raven-linux-amd64 /usr/local/bin/ravenrag
 ```
 
 ### Install from source
@@ -275,27 +275,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```bash
 # Static binary — tiny image (~20MB vs Python's ~1.5GB)
-docker pull ghcr.io/egkristi/ravenrustrag:main
+docker pull ghcr.io/egkristi/ravenrustrag:latest
 
 # Run with persistent data
 docker run -d \
-  --name raven \
+  --name ravenrag \
   -p 8484:8484 \
   -v raven-data:/data \
-  ghcr.io/egkristi/ravenrustrag:main
+  ghcr.io/egkristi/ravenrustrag:latest
 
 # With API key
 docker run -d \
   -p 8484:8484 \
   -v raven-data:/data \
   -e RAVEN_API_KEY=my-secret \
-  ghcr.io/egkristi/ravenrustrag:main
+  ghcr.io/egkristi/ravenrustrag:latest
 
 # Index local documents
 docker run --rm \
   -v raven-data:/data \
   -v ./my-docs:/docs:ro \
-  ghcr.io/egkristi/ravenrustrag:main \
+  ghcr.io/egkristi/ravenrustrag:latest \
   index /docs --extensions md,txt
 ```
 
