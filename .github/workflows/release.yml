@@ -137,7 +137,7 @@ jobs:
     steps:
       - uses: vedantmgoyal9/winget-releaser@v2
         with:
-          identifier: egkristi.raven
+          identifier: egkristi.ravenrag
           installers-regex: raven-windows-amd64\.exe$
           token: ${{ secrets.WINGET_TOKEN }}
 
