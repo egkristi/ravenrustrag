@@ -72,6 +72,10 @@ choco install ravenrag
 
 ```bash
 # Homebrew (recommended)
+brew tap egkristi/tap
+brew install ravenrag
+
+# Or install directly without tapping:
 brew install egkristi/tap/ravenrag
 ```
 
