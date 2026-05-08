@@ -4,6 +4,17 @@ All notable changes to RavenRustRAG are documented here.
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] — 2026-05-08
+
+### Added
+- `OpenAIGenerator` — OpenAI Chat Completions backend for LLM generation (supports vLLM, LiteLLM, TGI, LocalAI, llama.cpp)
+- `vllm` and `litellm` as first-class backend names in `create_embedder` and `create_generator`
+- Homebrew tap (`brew install egkristi/tap/ravenrag`) with auto-update on release
+
+### Changed
+- Binary renamed from `raven` to `ravenrag` across all platforms
+- `create_generator` now supports `"openai"`, `"vllm"`, `"litellm"` in addition to `"ollama"`
+
 ## [1.0.0] — 2026-05-05
 
 ### Completed Phases

@@ -38,11 +38,16 @@ Foundation types shared by all crates:
 
 ### raven-embed
 
-Embedding abstraction layer:
+Embedding and generation abstraction layer:
 
 - `Embedder` trait — async interface for text-to-vector conversion
-- `OllamaEmbedder` — local inference via Ollama HTTP API
-- `OpenAIEmbedder` — cloud inference via OpenAI API
+- `Generator` trait — async interface for LLM text generation (with streaming)
+- `OllamaBackend` — local embedding via Ollama HTTP API
+- `OpenAIBackend` — OpenAI-compatible embedding API (also used by vLLM, LiteLLM)
+- `OllamaGenerator` — text generation via Ollama `/api/generate`
+- `OpenAIGenerator` — text generation via OpenAI Chat Completions (vLLM, LiteLLM, OpenAI, TGI, LocalAI)
+- `HttpEmbedder` — generic HTTP endpoint for custom backends
+- `OnnxEmbedder` — local ONNX Runtime inference (behind `onnx` feature)
 - `DummyEmbedder` — deterministic fake embeddings for testing
 - `EmbeddingCache` — lock-free DashMap cache with LRU-style eviction
 - `CachedEmbedder` — transparent caching wrapper for any Embedder

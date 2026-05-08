@@ -41,7 +41,7 @@ public_stats = false
 | `RAVEN_MODEL` | Default embedding model | `nomic-embed-text` |
 | `RAVEN_HOST` | Server bind address | `127.0.0.1` |
 | `RAVEN_PORT` | Server port | `8484` |
-| `RAVEN_EMBED_BACKEND` | Embedding backend (`ollama`, `openai`, `http`, `onnx`) | `ollama` |
+| `RAVEN_EMBED_BACKEND` | Embedding backend (`ollama`, `openai`, `vllm`, `litellm`, `http`, `onnx`) | `ollama` |
 | `RAVEN_EMBED_URL` | Custom embedding service URL | — |
 | `RAVEN_CORS_ORIGINS` | Allowed CORS origins (comma-separated) | `*` |
 | `RAVEN_RATE_LIMIT` | Rate limit per second | `100` |
@@ -73,6 +73,22 @@ Uses the OpenAI embeddings API. Requires `OPENAI_API_KEY` environment variable.
 
 ```bash
 ravenrag index ./docs --backend openai --model text-embedding-3-small
+```
+
+### vLLM
+
+Uses a vLLM server with OpenAI-compatible API (default: `http://localhost:8000/v1`).
+
+```bash
+ravenrag index ./docs --backend vllm --model nomic-embed-text --url http://localhost:8000/v1
+```
+
+### LiteLLM
+
+Uses LiteLLM proxy (default: `http://localhost:4000/v1`). Supports 100+ model providers through a single interface.
+
+```bash
+ravenrag index ./docs --backend litellm --model nomic-embed-text --url http://localhost:4000/v1
 ```
 
 ## Database

@@ -23,12 +23,12 @@ and must be **strictly superior** in every dimension: faster, safer, smaller, an
 
 ## Architecture
 
-Cargo workspace with 10 crates (~14,270 lines of Rust, 266 tests):
+Cargo workspace with 10 crates (~14,600 lines of Rust, 273 tests):
 
 | Crate | Purpose |
 |---|---|
 | `raven-core` | Document, Chunk, SearchResult, Config, RavenError, fingerprint, cosine_similarity |
-| `raven-embed` | Embedder + Generator traits, Ollama, OpenAI, Http, ONNX, DummyEmbedder backends + DashMap cache |
+| `raven-embed` | Embedder + Generator traits, Ollama, OpenAI, vLLM, LiteLLM, Http, ONNX, DummyEmbedder backends + DashMap cache |
 | `raven-store` | VectorStore trait + SqliteStore (WAL, HNSW, backup), MemoryStore, MetadataFilter |
 | `raven-split` | Splitter trait + Text, Token, Sentence, Semantic splitters |
 | `raven-load` | Loader + file format support (txt, md, csv, json, jsonl, html, pdf, docx) + plugin registry |
@@ -209,6 +209,6 @@ The Python version has ~4,200 lines across 24 modules. All key features have bee
 - Parent-child retrieval — Done (Phase 3)
 - Eval metrics: MRR, NDCG, Recall@k — Done (Phase 3)
 
-RavenRustRAG is now ~14,270 lines across 10 crates with 266 tests.
+RavenRustRAG is now ~14,600 lines across 10 crates with 273 tests.
 
 See PLAN.md for the full roadmap.

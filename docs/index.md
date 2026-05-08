@@ -29,7 +29,7 @@ RavenRustRAG is a Cargo workspace with 10 crates:
 | Crate | Purpose |
 |-------|---------|
 | `raven-core` | Document, Chunk, SearchResult, Config, RavenError, cosine similarity |
-| `raven-embed` | Embedder trait + Ollama/OpenAI/Dummy backends + DashMap cache |
+| `raven-embed` | Embedder trait + Ollama/OpenAI/vLLM/LiteLLM/ONNX/Dummy backends + DashMap cache |
 | `raven-store` | VectorStore trait + SQLite (WAL, mmap) / Memory / HNSW stores |
 | `raven-split` | Splitter trait + Text/Sentence/Token/Semantic splitters |
 | `raven-load` | File loaders (txt, md, csv, json, html, pdf, docx) + JSONL export |
