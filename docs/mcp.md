@@ -1,6 +1,6 @@
 # MCP Server
 
-RavenRustRAG includes an MCP (Model Context Protocol) server for integration with AI assistants like Claude Desktop.
+RavenRustRAG includes an MCP (Model Context Protocol) server for integration with AI assistants like Claude, Copilot, Cursor, and Aider.
 
 ## Starting
 
@@ -19,35 +19,155 @@ Restrict which tools are exposed using `--filter`:
 ravenrag mcp --filter search,get_prompt
 ```
 
-## Configuration for Claude Desktop
+---
 
-Add to your `claude_desktop_config.json`:
+## Integrations
+
+### 1. Claude Desktop
+
+Add to your Claude Desktop config file:
+
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux:** `~/.config/Claude/claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "ravenrag": {
-      "command": "/path/to/raven",
+      "command": "ravenrag",
       "args": ["mcp", "--db", "/path/to/raven.db"]
     }
   }
 }
 ```
 
-## Configuration for VS Code (Copilot)
-
-Add to `.vscode/mcp.json`:
+To restrict tools (read-only):
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "ravenrag": {
-      "command": "raven",
+      "command": "ravenrag",
+      "args": ["mcp", "--db", "/path/to/raven.db", "--filter", "search,get_prompt"]
+    }
+  }
+}
+```
+
+### 2. Claude Code
+
+Claude Code discovers MCP servers from the same config as Claude Desktop, or you can add one directly via CLI:
+
+```bash
+claude mcp add ravenrag -- ravenrag mcp --db /path/to/raven.db
+```
+
+To verify it's registered:
+
+```bash
+claude mcp list
+```
+
+### 3. Cursor
+
+Add to your Cursor MCP settings:
+
+- **macOS:** `~/.cursor/mcp.json`
+- **Windows:** `%USERPROFILE%\.cursor\mcp.json`
+- **Linux:** `~/.cursor/mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "ravenrag": {
+      "command": "ravenrag",
+      "args": ["mcp", "--db", "/path/to/raven.db"]
+    }
+  }
+}
+```
+
+Or per-project in `.cursor/mcp.json` at the workspace root:
+
+```json
+{
+  "mcpServers": {
+    "ravenrag": {
+      "command": "ravenrag",
       "args": ["mcp", "--db", "./raven.db"]
     }
   }
 }
 ```
+
+### 4. Aider
+
+Aider supports MCP servers via its `--mcp` flag:
+
+```bash
+aider --mcp "ravenrag mcp --db ./raven.db"
+```
+
+Or add to your `.aider.conf.yml`:
+
+```yaml
+mcp-servers:
+  - command: ravenrag
+    args: ["mcp", "--db", "./raven.db"]
+```
+
+### 5. VS Code (GitHub Copilot)
+
+Add to `.vscode/mcp.json` in your workspace root:
+
+```json
+{
+  "servers": {
+    "ravenrag": {
+      "command": "ravenrag",
+      "args": ["mcp", "--db", "./raven.db"]
+    }
+  }
+}
+```
+
+Or configure globally in VS Code settings (`settings.json`):
+
+```json
+{
+  "github.copilot.chat.mcp.servers": {
+    "ravenrag": {
+      "command": "ravenrag",
+      "args": ["mcp", "--db", "/path/to/raven.db"]
+    }
+  }
+}
+```
+
+After adding, Copilot Chat will automatically discover the tools. You can invoke them with `@ravenrag` or the agent will use them when relevant.
+
+### Docker (any client)
+
+If you installed via Docker, use this command format:
+
+```json
+{
+  "mcpServers": {
+    "ravenrag": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-v", "raven-data:/data",
+        "ghcr.io/egkristi/ravenrustrag:latest",
+        "mcp", "--db", "/data/raven.db"
+      ]
+    }
+  }
+}
+```
+
+---
 
 ## Available Tools
 

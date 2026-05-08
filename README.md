@@ -488,7 +488,20 @@ Use `--filter` to expose only specific tools:
 ravenrag mcp --filter search,get_prompt
 ```
 
-Works with Claude Desktop, GitHub Copilot, Cursor, and any MCP-compatible client.
+**Quick setup for AI agents:**
+
+```json
+{
+  "mcpServers": {
+    "ravenrag": {
+      "command": "ravenrag",
+      "args": ["mcp", "--db", "./raven.db"]
+    }
+  }
+}
+```
+
+Works with Claude Desktop, Claude Code, Cursor, Aider, VS Code (Copilot), and any MCP-compatible client. See the [MCP integration guide](https://egkristi.github.io/ravenrustrag/mcp/) for detailed setup instructions per client.
 
 ## Benchmarks
 
