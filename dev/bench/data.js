@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778229695515,
+  "lastUpdate": 1778231083528,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -3527,6 +3527,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 117275,
             "range": "± 421",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "cd88c759e4091253628f2949e81ae5faa78e29f3",
+          "message": "docs: update README.md and PLAN.md for ravenrag rename and current state",
+          "timestamp": "2026-05-08T11:00:03+02:00",
+          "tree_id": "9626d3f0f3e3e386ec2939513faf929e7bb388cb",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/cd88c759e4091253628f2949e81ae5faa78e29f3"
+        },
+        "date": 1778231082838,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 100,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 557,
+            "range": "± 6",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1106,
+            "range": "± 5",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 53922,
+            "range": "± 1056",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 572403,
+            "range": "± 2566",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 95077,
+            "range": "± 443",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 40152,
+            "range": "± 315",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 113095,
+            "range": "± 1111",
             "unit": "ns/iter"
           }
         ]
