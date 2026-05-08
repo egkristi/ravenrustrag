@@ -13,7 +13,6 @@ For the full feature set, see [README.md](README.md).
 | Issue | Title | Priority |
 |---|---|---|
 | [#92](https://github.com/egkristi/ravenrustrag/issues/92) | Configure repository secrets for automated publishing | Medium |
-| [#97](https://github.com/egkristi/ravenrustrag/issues/97) | Migrate GitHub Actions from Node.js 20 to Node.js 24 | Low (deadline: June 2, 2026) |
 
 ---
 
