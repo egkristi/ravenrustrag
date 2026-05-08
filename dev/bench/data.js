@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778236785350,
+  "lastUpdate": 1778237500482,
   "repoUrl": "https://github.com/egkristi/ravenrustrag",
   "entries": {
     "Benchmark": [
@@ -4103,6 +4103,78 @@ window.BENCHMARK_DATA = {
             "name": "bm25_search_1000",
             "value": 113319,
             "range": "± 700",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "committer": {
+            "email": "Erling.Kristiansen@skatteetaten.no",
+            "name": "Kristiansen, Erling Gustav Moland",
+            "username": "egkristi"
+          },
+          "distinct": true,
+          "id": "511335eae940b25784f2fed41ae7c28fa548f61f",
+          "message": "docs: add MCP integration guide for Claude, Cursor, Aider, VS Code",
+          "timestamp": "2026-05-08T12:46:50+02:00",
+          "tree_id": "cb58da4237f883a4f55e6cb6294b66d6c1795341",
+          "url": "https://github.com/egkristi/ravenrustrag/commit/511335eae940b25784f2fed41ae7c28fa548f61f"
+        },
+        "date": 1778237499920,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "cosine_128d",
+            "value": 92,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_768d",
+            "value": 517,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "cosine_1536d",
+            "value": 1028,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_100docs",
+            "value": 58776,
+            "range": "± 1139",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "query_1000docs",
+            "value": 649212,
+            "range": "± 4359",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "hybrid_query_100docs",
+            "value": 98528,
+            "range": "± 1366",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "index_10docs",
+            "value": 38380,
+            "range": "± 284",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "bm25_search_1000",
+            "value": 85292,
+            "range": "± 1387",
             "unit": "ns/iter"
           }
         ]
