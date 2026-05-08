@@ -2,9 +2,9 @@
 
 > Fearlessly fast retrieval. Zero-cost intelligence.
 
-**A local-first, embeddable RAG engine in Rust** — the successor to [RavenRAG](https://github.com/egkristi/ravenrag), reimagined for speed, safety, and deployability.
+**A local-first, embeddable RAG engine in Rust** — hybrid search, knowledge graphs, semantic chunking, and MCP integration in a single static binary.
 
-Sub-millisecond vector search. Single static binary. No Python. No virtual environments. No GIL.
+Sub-millisecond vector search. 10 crates, 266 tests, ~14k lines. No Python. No virtual environments. No GIL.
 
 **[Documentation](https://egkristi.github.io/ravenrustrag/)**
 

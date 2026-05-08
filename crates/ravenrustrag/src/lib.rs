@@ -51,8 +51,9 @@ pub use raven_core::{
 #[cfg(feature = "onnx")]
 pub use raven_embed::OnnxEmbedder;
 pub use raven_embed::{
-    create_cached_embedder, create_embedder, CachedEmbedder, DummyEmbedder, Embedder,
-    EmbeddingCache, HttpEmbedder, OllamaBackend, OpenAIBackend,
+    create_cached_embedder, create_embedder, create_generator, CachedEmbedder, DummyEmbedder,
+    Embedder, EmbeddingCache, Generator, GeneratorConfig, HttpEmbedder, OllamaBackend,
+    OllamaGenerator, OpenAIBackend, OpenAIGenerator,
 };
 
 // Re-export storage

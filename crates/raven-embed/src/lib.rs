@@ -699,6 +699,8 @@ pub use onnx_embedder::OnnxEmbedder;
 /// Supported backends:
 /// - `"ollama"` — Ollama API (default)
 /// - `"openai"` — OpenAI-compatible API
+/// - `"vllm"` — vLLM server (OpenAI-compatible, default `http://localhost:8000/v1`)
+/// - `"litellm"` — LiteLLM proxy (OpenAI-compatible, default `http://localhost:4000/v1`)
 /// - `"http"` — Generic HTTP endpoint (plugin system)
 pub fn create_embedder(
     backend: &str,
@@ -710,6 +712,22 @@ pub fn create_embedder(
         "dummy" => Arc::new(DummyEmbedder::default()),
         "openai" => {
             let base_url = url.unwrap_or("https://api.openai.com/v1");
+            let mut embedder = OpenAIBackend::new(base_url, model);
+            if let Some(key) = api_key {
+                embedder = embedder.with_api_key(key);
+            }
+            Arc::new(embedder)
+        }
+        "vllm" => {
+            let base_url = url.unwrap_or("http://localhost:8000/v1");
+            let mut embedder = OpenAIBackend::new(base_url, model);
+            if let Some(key) = api_key {
+                embedder = embedder.with_api_key(key);
+            }
+            Arc::new(embedder)
+        }
+        "litellm" => {
+            let base_url = url.unwrap_or("http://localhost:4000/v1");
             let mut embedder = OpenAIBackend::new(base_url, model);
             if let Some(key) = api_key {
                 embedder = embedder.with_api_key(key);
@@ -744,6 +762,22 @@ pub fn create_cached_embedder(
         "dummy" => Arc::new(DummyEmbedder::default()),
         "openai" => {
             let base_url = url.unwrap_or("https://api.openai.com/v1");
+            let mut embedder = OpenAIBackend::new(base_url, model);
+            if let Some(key) = api_key {
+                embedder = embedder.with_api_key(key);
+            }
+            Arc::new(CachedEmbedder::new(embedder, cache_size))
+        }
+        "vllm" => {
+            let base_url = url.unwrap_or("http://localhost:8000/v1");
+            let mut embedder = OpenAIBackend::new(base_url, model);
+            if let Some(key) = api_key {
+                embedder = embedder.with_api_key(key);
+            }
+            Arc::new(CachedEmbedder::new(embedder, cache_size))
+        }
+        "litellm" => {
+            let base_url = url.unwrap_or("http://localhost:4000/v1");
             let mut embedder = OpenAIBackend::new(base_url, model);
             if let Some(key) = api_key {
                 embedder = embedder.with_api_key(key);
@@ -959,15 +993,265 @@ impl Generator for OllamaGenerator {
     }
 }
 
+// =============================================================================
+// OpenAI-compatible generation backend (vLLM, LiteLLM, OpenAI, etc.)
+// =============================================================================
+
+/// OpenAI-compatible chat completions generator.
+///
+/// Works with any server exposing the `/chat/completions` endpoint:
+/// - OpenAI API
+/// - vLLM (`--served-model-name`)
+/// - LiteLLM proxy
+/// - llama.cpp server (`--api-like-OAI`)
+/// - LocalAI
+/// - text-generation-inference (TGI)
+/// - Anything compatible with the OpenAI chat completions format
+pub struct OpenAIGenerator {
+    client: reqwest::Client,
+    base_url: String,
+    config: GeneratorConfig,
+    api_key: Option<String>,
+}
+
+impl OpenAIGenerator {
+    pub fn new(base_url: impl Into<String>, config: GeneratorConfig) -> Self {
+        Self {
+            client: reqwest::Client::new(),
+            base_url: base_url.into(),
+            config,
+            api_key: None,
+        }
+    }
+
+    pub fn with_api_key(mut self, key: impl Into<String>) -> Self {
+        self.api_key = Some(key.into());
+        self
+    }
+}
+
+#[derive(Serialize)]
+struct OpenAIChatRequest {
+    model: String,
+    messages: Vec<OpenAIChatMessage>,
+    temperature: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_tokens: Option<u32>,
+    stream: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct OpenAIChatMessage {
+    role: String,
+    content: String,
+}
+
+#[derive(Deserialize)]
+struct OpenAIChatResponse {
+    choices: Vec<OpenAIChatChoice>,
+}
+
+#[derive(Deserialize)]
+struct OpenAIChatChoice {
+    message: OpenAIChatMessage,
+}
+
+#[derive(Deserialize)]
+struct OpenAIChatStreamChunk {
+    choices: Vec<OpenAIChatStreamChoice>,
+}
+
+#[derive(Deserialize)]
+struct OpenAIChatStreamChoice {
+    delta: OpenAIChatDelta,
+}
+
+#[derive(Deserialize)]
+struct OpenAIChatDelta {
+    #[serde(default)]
+    content: Option<String>,
+}
+
+#[async_trait]
+impl Generator for OpenAIGenerator {
+    async fn generate(&self, prompt: &str) -> Result<String> {
+        let mut messages = Vec::new();
+        if let Some(ref system) = self.config.system_prompt {
+            messages.push(OpenAIChatMessage {
+                role: "system".to_string(),
+                content: system.clone(),
+            });
+        }
+        messages.push(OpenAIChatMessage {
+            role: "user".to_string(),
+            content: prompt.to_string(),
+        });
+
+        let request = OpenAIChatRequest {
+            model: self.config.model.clone(),
+            messages,
+            temperature: self.config.temperature,
+            max_tokens: self.config.max_tokens,
+            stream: false,
+        };
+
+        let url = format!("{}/chat/completions", self.base_url);
+        let mut req_builder = self
+            .client
+            .post(&url)
+            .json(&request)
+            .timeout(std::time::Duration::from_secs(120));
+
+        if let Some(ref key) = self.api_key {
+            req_builder = req_builder.bearer_auth(key);
+        }
+
+        let response = req_builder
+            .send()
+            .await
+            .map_err(|e| RavenError::Embed(format!("OpenAI generate error: {e}")))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unknown error".to_string());
+            return Err(RavenError::Embed(format!(
+                "OpenAI generate returned {status}: {text}"
+            )));
+        }
+
+        let body: OpenAIChatResponse = response
+            .json()
+            .await
+            .map_err(|e| RavenError::Embed(format!("JSON parse error: {e}")))?;
+
+        body.choices
+            .into_iter()
+            .next()
+            .map(|c| c.message.content)
+            .ok_or_else(|| RavenError::Embed("No choices in response".to_string()))
+    }
+
+    async fn generate_stream(
+        &self,
+        prompt: &str,
+        callback: &(dyn Fn(String) + Send + Sync),
+    ) -> Result<String> {
+        let mut messages = Vec::new();
+        if let Some(ref system) = self.config.system_prompt {
+            messages.push(OpenAIChatMessage {
+                role: "system".to_string(),
+                content: system.clone(),
+            });
+        }
+        messages.push(OpenAIChatMessage {
+            role: "user".to_string(),
+            content: prompt.to_string(),
+        });
+
+        let request = OpenAIChatRequest {
+            model: self.config.model.clone(),
+            messages,
+            temperature: self.config.temperature,
+            max_tokens: self.config.max_tokens,
+            stream: true,
+        };
+
+        let url = format!("{}/chat/completions", self.base_url);
+        let mut req_builder = self
+            .client
+            .post(&url)
+            .json(&request)
+            .timeout(std::time::Duration::from_secs(300));
+
+        if let Some(ref key) = self.api_key {
+            req_builder = req_builder.bearer_auth(key);
+        }
+
+        let response = req_builder
+            .send()
+            .await
+            .map_err(|e| RavenError::Embed(format!("OpenAI stream error: {e}")))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unknown error".to_string());
+            return Err(RavenError::Embed(format!(
+                "OpenAI stream returned {status}: {text}"
+            )));
+        }
+
+        let mut full_response = String::new();
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| RavenError::Embed(format!("Failed to read stream: {e}")))?;
+
+        // SSE format: lines starting with "data: "
+        let text = String::from_utf8_lossy(&bytes).into_owned();
+        for line in text.lines() {
+            let line = line.trim();
+            if line.is_empty() || !line.starts_with("data: ") {
+                continue;
+            }
+            let data = &line[6..];
+            if data == "[DONE]" {
+                break;
+            }
+            if let Ok(chunk) = serde_json::from_str::<OpenAIChatStreamChunk>(data) {
+                for choice in chunk.choices {
+                    if let Some(content) = choice.delta.content {
+                        full_response.push_str(&content);
+                        callback(content);
+                    }
+                }
+            }
+        }
+
+        Ok(full_response)
+    }
+
+    fn model_name(&self) -> &str {
+        &self.config.model
+    }
+}
+
 /// Create a generator from configuration
+///
+/// Supported backends:
+/// - `"ollama"` — Ollama `/api/generate` endpoint (default)
+/// - `"openai"` — OpenAI Chat Completions API (`/v1/chat/completions`)
+/// - `"vllm"` — vLLM server (OpenAI-compatible, default `http://localhost:8000/v1`)
+/// - `"litellm"` — LiteLLM proxy (OpenAI-compatible, default `http://localhost:4000/v1`)
 pub fn create_generator(
-    _backend: &str,
+    backend: &str,
     url: Option<&str>,
     config: GeneratorConfig,
 ) -> Arc<dyn Generator> {
-    let base_url = url.unwrap_or("http://localhost:11434");
-    // Currently only Ollama is supported; OpenAI-compatible can be added later
-    Arc::new(OllamaGenerator::new(base_url, config))
+    match backend {
+        "openai" => {
+            let base_url = url.unwrap_or("https://api.openai.com/v1");
+            Arc::new(OpenAIGenerator::new(base_url, config))
+        }
+        "vllm" => {
+            let base_url = url.unwrap_or("http://localhost:8000/v1");
+            Arc::new(OpenAIGenerator::new(base_url, config))
+        }
+        "litellm" => {
+            let base_url = url.unwrap_or("http://localhost:4000/v1");
+            Arc::new(OpenAIGenerator::new(base_url, config))
+        }
+        _ => {
+            // Default: Ollama
+            let base_url = url.unwrap_or("http://localhost:11434");
+            Arc::new(OllamaGenerator::new(base_url, config))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1204,5 +1488,61 @@ mod tests {
             50,
         );
         assert_eq!(cached.model_name(), "my-model");
+    }
+
+    #[test]
+    fn test_create_generator_openai() {
+        let config = GeneratorConfig {
+            model: "gpt-4".to_string(),
+            ..Default::default()
+        };
+        let gen = create_generator("openai", None, config);
+        assert_eq!(gen.model_name(), "gpt-4");
+    }
+
+    #[test]
+    fn test_create_generator_vllm() {
+        let config = GeneratorConfig {
+            model: "mistral-7b".to_string(),
+            ..Default::default()
+        };
+        let gen = create_generator("vllm", None, config);
+        assert_eq!(gen.model_name(), "mistral-7b");
+    }
+
+    #[test]
+    fn test_create_generator_litellm() {
+        let config = GeneratorConfig {
+            model: "llama3".to_string(),
+            ..Default::default()
+        };
+        let gen = create_generator("litellm", Some("http://localhost:4000/v1"), config);
+        assert_eq!(gen.model_name(), "llama3");
+    }
+
+    #[test]
+    fn test_create_embedder_vllm() {
+        let embedder = create_embedder("vllm", "nomic-embed-text", None, None);
+        assert_eq!(embedder.model_name(), "nomic-embed-text");
+    }
+
+    #[test]
+    fn test_create_embedder_litellm() {
+        let embedder = create_embedder("litellm", "text-embedding-3-small", None, Some("key123"));
+        assert_eq!(embedder.model_name(), "text-embedding-3-small");
+    }
+
+    #[test]
+    fn test_create_cached_embedder_vllm() {
+        let cached = create_cached_embedder("vllm", "e5-large", None, None, 100);
+        assert_eq!(cached.model_name(), "e5-large");
+    }
+
+    #[test]
+    fn test_openai_generator_with_api_key() {
+        let config = GeneratorConfig::default();
+        let gen = OpenAIGenerator::new("https://api.openai.com/v1", config).with_api_key("sk-test");
+        assert_eq!(gen.model_name(), "llama3");
+        assert_eq!(gen.api_key, Some("sk-test".to_string()));
     }
 }
