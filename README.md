@@ -6,6 +6,8 @@
 
 Sub-millisecond vector search. Single static binary. No Python. No virtual environments. No GIL.
 
+**[Documentation](https://egkristi.github.io/ravenrustrag/)**
+
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSE)
 [![CI](https://github.com/egkristi/ravenrustrag/actions/workflows/ci.yml/badge.svg)](https://github.com/egkristi/ravenrustrag/actions/workflows/ci.yml)
