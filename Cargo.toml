@@ -54,7 +54,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 clap = { version = "4.4", features = ["derive", "env"] }
-axum = { version = "0.7", features = ["ws"] }
+axum = { version = "0.8", features = ["ws"] }
 tower = { version = "0.4", features = ["timeout", "limit"] }
 tower-http = { version = "0.5", features = ["cors"] }
 rusqlite = { version = "0.30", features = ["bundled", "backup"] }
