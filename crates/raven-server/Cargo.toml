@@ -34,7 +34,7 @@ tokio-stream = "0.1"
 futures-util = "0.3"
 
 # OpenTelemetry (optional)
-opentelemetry = { version = "0.22", optional = true }
+opentelemetry = { version = "0.32", optional = true }
 opentelemetry_sdk = { version = "0.22", optional = true, features = ["rt-tokio"] }
 opentelemetry-otlp = { version = "0.15", optional = true }
 tracing-opentelemetry = { version = "0.23", optional = true }
